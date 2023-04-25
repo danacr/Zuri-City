@@ -1,3 +1,9 @@
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+    runtime: 'nodejs18.x',
+    regions: 'fra1'
+};
+
 import type { PageServerLoad } from './$types';
 
 import Parser from 'rss-parser';

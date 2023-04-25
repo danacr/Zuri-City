@@ -1,10 +1,8 @@
-<!-- YOU CAN DELETE EVERYTHING IN THIS PAGE -->
 <script lang="ts">
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 </script>
-
 <div class="container h-full mx-auto flex justify-center items-center">
 	<div class="space-y-10 text-center">
 		<h2 class="font-bold">Welcome to Skeleton.</h2>
@@ -21,8 +19,6 @@
 				{#each Object.entries(data.props.feed.items) as [id, item]}
 					<p>{item.title}</p>
 					<p>{item.content}</p>
-					
-
 				{/each}
 				<p>Try editing the following:</p>
 				<p><code>/src/routes/+layout.svelte</code></p>
@@ -33,6 +29,15 @@
 </div>
 
 <style lang="postcss">
+	:global(body) {
+		padding: 2rem;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+	:global(body > section) {
+		min-height: 200px;
+	}
 	figure {
 		@apply flex relative flex-col;
 	}

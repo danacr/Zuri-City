@@ -8,10 +8,13 @@ based on https://dev.to/asheeshh/how-sveltekit-makes-type-safe-data-fetching-eas
 and
 https://www.npmjs.com/package/rss-parser
 
+Cloudflare does not work: https://stackoverflow.com/questions/73178856/sveltekit-packages-not-being-able-to-access-node-functions
 
 ## Developing
 
 Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+
+
 
 ```bash
 npm run dev
