@@ -37,6 +37,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@sveltejs/adapter-cloudflare": "^2.2.0",
 		"rss-parser": "^3.13.0"
 	}
 }
