@@ -30,6 +30,10 @@
 	<div class="flex justify-center space-x-2">
 		<p>Data: <a href="https://www.pls-zh.ch/">pls-zs.ch</a>, <a href="https://github.com/danacr/zuri-parking">GitHub</a> </p>
 	</div>
+
+	<div class="flex justify-center space-x-2">
+		<p>Designed for mobile</p>
+	</div>
 	<br>
 
 
