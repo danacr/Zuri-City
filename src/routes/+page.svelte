@@ -1,31 +1,30 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { Table } from '@skeletonlabs/skeleton';
+	import type { TableSource } from '@skeletonlabs/skeleton';
+	import { tableMapperValues } from '@skeletonlabs/skeleton';
 
 	export let data: PageData;
+
+	const tableSimple: TableSource = {
+	// A list of heading labels.
+	head: ['Name', 'Status'],
+	// The data visibly shown in your table body UI.
+	body: tableMapperValues(data.props.openParkings, ['title', 'content']),
+
+};
+
 </script>
-<div class="container h-full mx-auto flex justify-center items-center">
-	<div class="space-y-10 text-center">
-		<h2 class="font-bold">Welcome to Skeleton.</h2>
-		<!-- Animated Logo -->
-		<figure>
-			<section class="img-bg" />
+<div class="overflow-auto absolute inset-x-2 h-full justify-center items-center">
+
 			<div class="flex justify-center space-x-2">
-				<a class="btn btn-filled" href="https://skeleton.dev/" target="_blank" rel="noreferrer">
-					Launch Documentation
-				</a>
 			</div>
 			<div class="space-y-2">
-				<h1>{data.props.feed.title}</h1>
-				{#each Object.entries(data.props.feed.items) as [id, item]}
-					<p>{item.title}</p>
-					<p>{item.content}</p>
-				{/each}
-				<p>Try editing the following:</p>
-				<p><code>/src/routes/+layout.svelte</code></p>
-				<p><code>/src/routes/+page.svelte</code></p>
+				<!-- feed title -->
+				<!-- <p>{data.props.feed.title}</p> -->
+				<p>Zurich Parking availabilities</p>
+				<Table source={tableSimple} />
 			</div>
-		</figure>
-	</div>
 </div>
 
 <style lang="postcss">

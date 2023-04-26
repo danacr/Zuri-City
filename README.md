@@ -1,6 +1,9 @@
 # create-svelte
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+what started from a webassembly experiment ended up into just another svelte project
+the fetch request from webassembly fo the url https://www.pls-zh.ch/plsFeed/rss returns an unauthorized pages (cross origin issue and cookies)
+
+so we needed a server page load, which is not the point of wasm, and then cloudflare did not work because of:
 
 ## Creating a project
 
@@ -21,6 +24,9 @@ npm run dev
 
 # or start the server and open the app in a new browser tab
 npm run dev -- --open
+
+# or to expose on the network
+vite build --host
 ```
 
 ## Building
