@@ -7,24 +7,37 @@
 	export let data: PageData;
 
 	const tableSimple: TableSource = {
-	// A list of heading labels.
-	head: ['Name', 'Status'],
-	// The data visibly shown in your table body UI.
-	body: tableMapperValues(data.props.openParkings, ['title', 'content']),
-
-};
-
+		// A list of heading labels.
+		head: ['Parking', 'Status'],
+		// The data visibly shown in your table body UI.
+		body: tableMapperValues(data.props.openParkings, ['title', 'content'])
+	};
 </script>
-<div class="overflow-auto absolute inset-x-2 h-full justify-center items-center">
 
-			<div class="flex justify-center space-x-2">
-			</div>
-			<div class="space-y-2">
-				<!-- feed title -->
-				<!-- <p>{data.props.feed.title}</p> -->
-				<p>Zurich Parking availabilities</p>
-				<Table source={tableSimple} />
-			</div>
+<div class="overflow-auto absolute inset-x-2 h-full justify-center items-center">
+	<div class="flex justify-center space-x-2">
+		<h2 class="font-bold">Zurich Parking Spots</h2>
+	</div>
+	<br>
+
+	<div class="flex justify-center space-x-2">
+		<p>Click on the parking to start navigation</p>
+	</div>
+
+	<div class="flex justify-center space-x-2">
+		<p>and on the status for more details.</p>
+	</div>
+	<div class="flex justify-center space-x-2">
+		<p>Data: <a href="https://www.pls-zh.ch/">pls-zs.ch</a>, <a href="https://github.com/danacr/zuri-parking">GitHub</a> </p>
+	</div>
+	<br>
+
+
+	<div class="space-y-2">
+		<!-- feed title -->
+		<!-- <p>{data.props.feed.title}</p> -->
+		<Table source={tableSimple} />
+	</div>
 </div>
 
 <style lang="postcss">

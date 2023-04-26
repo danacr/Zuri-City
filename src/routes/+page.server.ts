@@ -24,18 +24,37 @@ export const load: PageServerLoad = async () => {
         return obj.content!.split("/", 2)[0] == 'open ';
     });
 
-    // only extract first part of "Parkhaus Hauptbahnhof / Sihlquai 41"
-    openParkings = openParkings.map(parking => {
-        parking.title = parking.title!.split("/", 1)[0];
-        return parking;
-    });
-
     // sort by most free spots
     openParkings.sort(
         (a, b) => b.content!.split("/", 2)[1]
             .localeCompare(
                 a.content!.split("/", 2)[1])
     );
+
+    // only extract first part of "Parkhaus Hauptbahnhof / Sihlquai 41"
+    // add hyperlinks on status to the details page
+    // add google maps driving url to the title
+    // https://developers.google.com/maps/documentation/urls/get-started#directions-action
+    let google_maps_url = "https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination="
+    openParkings = openParkings.map(parking => {
+
+        let title_split = parking.title!.split("/", 2)
+
+        parking.title = "<astyle=text-decoration:none href=" + google_maps_url +
+
+            title_split[0].substring(0,
+
+                title_split[0].length - 1)
+
+                .replace(/\s+/g, '+')
+
+            + ">" + title_split[0] + "</a>";
+
+        parking.content = "<a href=" + parking.link + ">" + parking.content + "</a>";
+
+        return parking;
+    });
+    // console.log(openParkings[1]) // check example_parking.json for an example
 
 
     return {
