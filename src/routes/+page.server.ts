@@ -40,7 +40,7 @@ export const load: PageServerLoad = async () => {
 
         let title_split = parking.title!.split("/", 2)
 
-        parking.title = "<astyle=text-decoration:none href=" + google_maps_url +
+        parking.title = "<a style=text-decoration:none href=" + google_maps_url +
 
             title_split[0].substring(0,
 
