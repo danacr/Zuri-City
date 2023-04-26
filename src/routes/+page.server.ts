@@ -50,7 +50,7 @@ export const load: PageServerLoad = async () => {
 
             + ">" + title_split[0] + "</a>";
 
-        parking.content = "<a href=" + parking.link + ">" + parking.content + "</a>";
+        parking.content = "<a style=text-decoration:none href=" + parking.link + ">" + parking.content + "</a>";
 
         return parking;
     });
