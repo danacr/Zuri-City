@@ -1,29 +1,23 @@
-# create-svelte
+# Zuri Parking
 
-what started from a webassembly experiment ended up into just another svelte project
-the fetch request from webassembly fo the url https://www.pls-zh.ch/plsFeed/rss returns an unauthorized pages (cross origin issue and cookies)
+[pls-zh.ch](https://www.pls-zh.ch/) is a great website, but it is not mobile optimized. This project uses its rss feed to feed a mobile version of it.
 
-so we needed a server page load, which is not the point of wasm, and then cloudflare did not work because of:
+What started from a WebAssembly experiment ended up into just another svelte project.
 
-## Creating a project
+The fetch request from WebAssembly fo the url [pls-zh.ch/plsFeed/rss](pls-zh.ch/plsFeed/rss) returns an unauthorized pages (Cookies and cross origin issue).
 
-based on https://dev.to/asheeshh/how-sveltekit-makes-type-safe-data-fetching-easier-and-better-1g7k
-and
-https://www.npmjs.com/package/rss-parser
+This is why I needed a server page load, which is not the point of wasm.
 
-Cloudflare does not work: https://stackoverflow.com/questions/73178856/sveltekit-packages-not-being-able-to-access-node-functions
+Also, cloudflare did not work because of [stackoverflow.com/a/73222998](stackoverflow.com/a/73222998)
+
+
+Based on [How SvelteKit makes type-safe data fetching easier and better!](https://dev.to/asheeshh/how-sveltekit-makes-type-safe-data-fetching-easier-and-better-1g7k)
+and [rss-parser](https://www.npmjs.com/package/rss-parser)
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-
-
 ```bash
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 
 # or to expose on the network
 vite build --host
@@ -38,5 +32,3 @@ npm run build
 ```
 
 You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
