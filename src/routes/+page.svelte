@@ -27,8 +27,8 @@
 	<div class="flex justify-center space-x-2">
 		<p>and on the status for more details.</p>
 	</div>
-	<div style="text-decoration:none" class="flex justify-center space-x-2">
-		<p>Data: <a href="https://www.pls-zh.ch/">pls-zh.ch</a>, <a href="https://github.com/danacr/zuri-parking">GitHub</a> </p>
+	<div class="flex justify-center space-x-2">
+		<p>Data: <a style=text-decoration:none href="https://www.pls-zh.ch/">pls-zh.ch</a>, <a style=text-decoration:none href="https://github.com/danacr/zuri-parking">GitHub</a> </p>
 	</div>
 
 	<div class="flex justify-center space-x-2">
