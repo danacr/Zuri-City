@@ -1,6 +1,6 @@
 # Zuri Parking
 
-[pls-zh.ch](https://www.pls-zh.ch/) is a great website, but it is not mobile optimized. This project uses its rss feed to feed a mobile version of it.
+[pls-zh.ch](https://www.pls-zh.ch/) is a great website, but it is not mobile optimized. This project uses its rss feed for a mobile version of it.
 
 What started from a WebAssembly experiment ended up into just another svelte project.
 
