@@ -1,4 +1,4 @@
-# Zuri Parking
+# Züri City Parking
 
 [pls-zh.ch](https://www.pls-zh.ch/) is a great website, but it is not mobile optimized. This project uses its rss feed for a mobile version of it.
 
