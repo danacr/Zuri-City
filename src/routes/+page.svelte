@@ -16,7 +16,7 @@
 
 <div class="overflow-auto absolute inset-x-2 h-full justify-center items-center">
 	<div class="flex justify-center space-x-2">
-		<h2 class="font-bold">Zurich Parking Spots</h2>
+		<h2 class="font-bold">Züri City Parking Spots</h2>
 	</div>
 	<br>
 
