@@ -1,7 +1,7 @@
 # Züri City Parking
 
 A mobile-friendly view of Zürich parking availability, built with SvelteKit,
-TypeScript, Skeleton, and Leaflet. Parking data comes from the
+TypeScript and Leaflet. Parking data comes from the
 [Parkleitsystem Zürich RSS feed](https://www.pls-zh.ch/plsFeed/rss) and is fetched
 on the server whenever the page loads.
 
@@ -52,18 +52,45 @@ restart with `npm run dev`. If OpenSSL is missing on macOS, install it with
 
 ## Using the app
 
-- **List view** shows open garages, ordered by the number of free spaces. Select
-  a garage to start Google Maps navigation or its status to open provider details.
-- **Near me · Location mode** requests browser location permission and displays
-  up to ten nearest garages on a map, ordered by straight-line distance.
-- Map markers show free-space counts in green, **Full** in red, and closed or
-  unknown availability in grey. Select a marker for details and navigation.
+- **List view** contains every garage returned by the provider, with available garages in the main list, ordered by free spaces. Full, closed
+  and unknown garages appear in a separate section below it.
+- The map icon in the header requests browser location permission and switches
+  to the map. It includes every garage with known coordinates and initially
+  frames the closest garages; pan to explore the others. Tap the list icon to
+  return to the complete list.
+- Cards and map markers show **free / total** spaces. Open garages are green,
+  full and closed garages are red, and unknown availability is grey.
+- Tap the search icon in the header to search by garage or street. Tap it again
+  (or press Escape) to collapse search and clear its filter. A notice below the
+  results counts hidden matches and offers **Show all** to clear the search.
+- Missing provider data is explicitly listed. Garages without coordinates stay
+  in the list; a dash means an unavailable count, never zero.
+- The list or map starts directly below the header. Garage counts, missing-data
+  warnings, **Refresh**, installation and credits are below the results.
+- Use **Refresh** to fetch the full list, capacity and coordinates again.
 
 Location access requires a trusted secure connection and browser permission.
 For local mobile testing, follow the certificate trust steps above.
 
 Your location is used in the browser. Map tiles are loaded from OpenStreetMap.
 Reload the page to refresh parking availability.
+
+## Appearance and web app
+
+The interface follows your device's light or dark appearance automatically,
+including changes while the app is open.
+
+Tap **Install web app** below the results to add Züri Parking as a web app. Browsers that
+provide a native installation prompt open it directly. On iPhone and iPad, the
+button explains how to use Safari's **Share → Add to Home Screen** action.
+The button is hidden when the app is running in standalone mode.
+
+The web app requires an internet connection; parking data is always fetched fresh.
+Local installation and location access require trusting the development HTTPS
+certificate as described above.
+
+Credits in the app link to Parkleitsystem Zürich, OpenStreetMap contributors,
+Leaflet, and the [project source and contributors](https://github.com/danacr/Zuri-City).
 
 ## Production build
 
@@ -100,14 +127,40 @@ npm test
 
 Run `npm run format` to format the project.
 
-## Parking coordinates
+## Dynamic parking data
 
-`src/lib/parking-coordinates.json` contains coordinates for 36 garages, retrieved
-on 2026-09-11 from the provider's
-`https://www.pls-zh.ch/parkhaus/parkhausmap.jsp?pid=…` pages. Entries are keyed by
-the parking ID in the RSS feed.
+On every page load and refresh, the server retrieves the complete RSS feed without
+filtering by status, then fetches each garage's details and map page from the
+provider for total capacity and coordinates. There is no fixed garage count or ID list: newly added RSS entries appear on the
+next page load or Refresh, including their dynamically fetched details. There are
+no fixed capacity or coordinate files and no application data cache.
 
-Add coordinates when the provider adds a garage. Garages without coordinates
-remain eligible for the open-parking list but are omitted from the map.
+Metadata requests use bounded concurrency and a shared 12-second timeout. A failed
+metadata request leaves the garage in the list with the missing fields marked as
+unknown. If the RSS request fails, the app reports that the full list could not be
+loaded; it does not silently substitute an incomplete or old list.
 
 The browser favicon is `static/favicon.svg`, referenced in `src/app.html`.
+
+The Zürich-inspired blue-and-white parking icon uses `static/favicon.svg` as its
+source. Regenerate its ICO and PNG variants with `node scripts/generate-icons.mjs`
+after installing Playwright Chromium, or use
+`PLAYWRIGHT_CHANNEL=chrome node scripts/generate-icons.mjs` with installed Chrome.
+
+## Search engines and sharing
+
+The canonical production address is **https://zuri.city/**. `PUBLIC_SITE_URL`
+can override it if the site moves. The app includes a descriptive page title,
+meta description, canonical link, social-preview metadata, and WebSite / WebApplication
+structured data. Garage data and explanatory content render on the server.
+
+`/robots.txt` and `/sitemap.xml` advertise the production homepage. Local development
+and hosts other than the canonical domain use `noindex` and disallow crawling.
+After deploying to zuri.city, verify ownership in Google Search Console and Bing
+Webmaster Tools and submit `https://zuri.city/sitemap.xml`. Indexing and ranking
+are controlled by the search engines; this setup does not guarantee a position.
+
+Unavailable garages are grouped at the bottom. Each garage card explains its own missing availability, counts, addresses or
+coordinates, without a duplicate issues panel.
+The title resets to the full available-garage list. Tap the footer greeting for a
+little Zürich moment. Built by [dan.cv](https://dan.cv).

@@ -1,4 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2563eb" />
-  <path fill="#fff" fill-rule="evenodd" d="M19 13h16c10 0 16 6 16 15s-6 15-16 15h-6v10H19V13zm10 9v12h6c4 0 6-2 6-6s-2-6-6-6h-6z" />
+  <defs>
+    <clipPath id="badge"><rect width="64" height="64" rx="12" /></clipPath>
+  </defs>
+  <g clip-path="url(#badge)">
+    <path fill="#fff" d="M0 0h64v64H0z" />
+    <path fill="#0072ce" d="M64 0v64H0z" />
+    <path fill="#092c54" stroke="#fff" stroke-width="2" stroke-linejoin="round" fill-rule="evenodd" d="M19 12h16c11 0 17 6 17 16s-6 16-17 16h-5v10H19V12zm11 10v12h5c4 0 6-2 6-6s-2-6-6-6h-5z" />
+  </g>
 </svg>
