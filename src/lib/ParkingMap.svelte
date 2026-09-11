@@ -5,6 +5,8 @@
 	import { availability, parkingTone, spotCount, parkingIssues, type Parking } from './parking';
 	export let position: [number, number];
 	export let parkings: (Parking & { distance: number })[];
+	const zurichCenter: [number, number] = [47.3769, 8.5417];
+	const nearbyRadiusKm = 20;
 	let container: HTMLDivElement;
 	let error = '';
 	onMount(() => {
@@ -14,7 +16,10 @@
 			try {
 				const L = await import('leaflet');
 				if (disposed) return;
-				map = L.map(container).setView(position, 14);
+				const nearby = parkings.some(
+					(parking) => parking.coordinates && parking.distance <= nearbyRadiusKm
+				);
+				map = L.map(container).setView(nearby ? position : zurichCenter, 14);
 				L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 					maxZoom: 19,
 					attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -26,6 +31,7 @@
 					.addTo(map);
 				L.circleMarker(position, {
 					radius: 9,
+					className: 'user-location',
 					color: '#fff',
 					weight: 3,
 					fillColor: '#2563eb',
@@ -71,7 +77,7 @@
 						.bindPopup(popup);
 					if (parkings.indexOf(parking) < 5) bounds.extend(parking.coordinates);
 				}
-				map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+				if (nearby) map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
 			} catch {
 				error = 'The map could not load. Switch to List view for parking details.';
 			}
@@ -95,14 +101,14 @@
 		max-height: 900px;
 		border-radius: 20px;
 		z-index: 0;
-		border: 1px solid #d6e0eb;
+		border: 1px solid var(--border);
 	}
 	:global(.parking-marker) {
-		border: 2px solid white;
+		border: 2px solid var(--tone);
 		border-radius: 10px;
 		text-align: center;
 		box-shadow: 0 3px 12px #18345340;
-		color: white;
+		color: var(--tone);
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		padding: 2px 4px;
 	}
@@ -123,13 +129,16 @@
 		letter-spacing: 0.6px;
 	}
 	:global(.parking-marker.red) {
-		background: #b42332;
+		--tone: var(--red);
+		background: var(--red-soft);
 	}
 	:global(.parking-marker.green) {
-		background: #14775b;
+		--tone: var(--green);
+		background: var(--green-soft);
 	}
 	:global(.parking-marker.grey) {
-		background: #5b6678;
+		--tone: var(--muted);
+		background: var(--surface-muted);
 	}
 	:global(.leaflet-popup-content a) {
 		display: inline-flex;

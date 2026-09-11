@@ -31,6 +31,8 @@ button:disabled {
 }
 
 :root {
+	--map-filter: none;
+	--thumbnail-filter: none;
 	--page: #f6f8fc;
 	--surface: #fff;
 	--surface-muted: #edf0f4;
@@ -50,6 +52,8 @@ button:disabled {
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme='light']) {
+		--map-filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.6);
+		--thumbnail-filter: brightness(0.85);
 		--page: #0c1522;
 		--surface: #152235;
 		--surface-muted: #223147;
@@ -70,6 +74,8 @@ button:disabled {
 }
 
 :root[data-theme='dark'] {
+	--map-filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.6);
+	--thumbnail-filter: brightness(0.85);
 	--page: #0c1522;
 	--surface: #152235;
 	--surface-muted: #223147;
@@ -95,18 +101,64 @@ button:disabled {
 }
 
 .leaflet-container {
+	color: var(--text);
 	background: var(--surface-muted);
 }
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip,
-.leaflet-bar a,
-.leaflet-control-attribution {
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip,
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-control-attribution {
 	background: var(--surface);
 	color: var(--text);
 }
 .leaflet-container a {
 	color: var(--accent);
 }
-.leaflet-bar a:hover {
+.leaflet-container .leaflet-bar a:hover {
 	background: var(--surface-muted);
+}
+
+/* Filter only base tiles, leaving markers and text overlays in their theme colors. */
+.leaflet-tile-pane {
+	filter: var(--map-filter);
+}
+img[src='/favicon.svg'] {
+	filter: var(--thumbnail-filter);
+}
+.leaflet-container .leaflet-tooltip {
+	background: var(--surface);
+	color: var(--text);
+	border-color: var(--border);
+}
+.leaflet-tooltip-top::before {
+	border-top-color: var(--border);
+}
+.leaflet-tooltip-bottom::before {
+	border-bottom-color: var(--border);
+}
+.leaflet-tooltip-left::before {
+	border-left-color: var(--border);
+}
+.leaflet-tooltip-right::before {
+	border-right-color: var(--border);
+}
+.leaflet-container .leaflet-bar {
+	border-color: var(--border);
+}
+.leaflet-container .leaflet-bar a {
+	border-bottom-color: var(--border);
+}
+.leaflet-container .leaflet-bar a.leaflet-disabled {
+	background: var(--surface-muted);
+	color: var(--muted);
+}
+.leaflet-container a.leaflet-popup-close-button {
+	color: var(--muted);
+}
+.leaflet-container a.leaflet-popup-close-button:hover {
+	color: var(--text);
+}
+.leaflet-container .user-location {
+	stroke: var(--surface);
+	fill: var(--accent);
 }

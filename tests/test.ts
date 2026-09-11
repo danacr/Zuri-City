@@ -39,6 +39,26 @@ test('location mode requests permission and can return to the list', async ({
 	await expect(page.locator('.leaflet-container')).toBeVisible();
 	await expect(page.locator('.parking-marker strong').first()).toHaveText(/(\d+|—) \/ (\d+|—)/);
 	await page.locator('.map-section').screenshot({ path: testInfo.outputPath('mobile-map.png') });
+	await page.emulateMedia({ colorScheme: 'light' });
+	await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+	await expect(page.locator('.leaflet-tile-pane')).not.toHaveCSS('filter', 'none');
+	await expect(page.locator('.parking-marker').first()).toHaveCSS('color', /rgb/);
+	await page.locator('.parking-marker').first().click();
+	await expect(page.locator('.leaflet-popup-content-wrapper')).toHaveCSS(
+		'background-color',
+		'rgb(21, 34, 53)'
+	);
+	await expect(page.locator('.leaflet-popup-content-wrapper')).toHaveCSS(
+		'color',
+		'rgb(236, 242, 250)'
+	);
+	await page.getByRole('button', { name: 'Switch to light mode' }).click();
+	await expect(page.locator('.leaflet-tile-pane')).toHaveCSS('filter', 'none');
+	await expect(page.locator('.leaflet-popup-content-wrapper')).toHaveCSS(
+		'background-color',
+		'rgb(255, 255, 255)'
+	);
+
 	await page.getByRole('button', { name: 'List view' }).click();
 	await expect(page.getByRole('region', { name: 'Parking garages', exact: true })).toBeVisible();
 });

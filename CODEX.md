@@ -181,3 +181,12 @@ Unavailable garages are grouped at the bottom. Each garage card explains its own
 coordinates, without a duplicate issues panel.
 The title resets to the full available-garage list. Tap the footer greeting for a
 little Zürich moment. Built by [dan.cv](https://dan.cv).
+
+Map base tiles use a CSS dark treatment of the existing OpenStreetMap tiles.
+Only the tile pane is filtered; markers, popups, tooltips, and controls use the
+app theme colors and update immediately with the appearance toggle. Header and
+installation icon thumbnails are slightly dimmed in dark mode.
+
+If the nearest mapped garage is more than 20 km from the user (or no garages
+are mapped), the map opens at central Zürich (47.3769, 8.5417), zoom 14.
+Nearby users still get a view framing their location and the closest garages.

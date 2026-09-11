@@ -529,7 +529,7 @@
 		color: var(--muted);
 	}
 	.search:focus-within {
-		border-color: #0072ce;
+		border-color: var(--accent);
 		box-shadow: 0 0 0 3px #0072ce14;
 	}
 	.clear {
@@ -610,10 +610,10 @@
 		border-radius: 50%;
 	}
 	.green {
-		background: #14775b;
+		background: var(--green);
 	}
 	.red {
-		background: #b42332;
+		background: var(--red);
 	}
 	.grey {
 		background: var(--muted);
@@ -626,7 +626,7 @@
 		border-radius: 20px;
 	}
 	.empty > span {
-		color: #0072ce;
+		color: var(--accent);
 		font-size: 36px;
 		font-weight: 800;
 	}
