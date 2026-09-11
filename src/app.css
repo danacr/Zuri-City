@@ -49,7 +49,7 @@ button:disabled {
 	--red-border: #f4ced3;
 }
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme='light']) {
 		--page: #0c1522;
 		--surface: #152235;
 		--surface-muted: #223147;
@@ -67,20 +67,46 @@ button:disabled {
 		--red-soft: #452831;
 		--red-border: #67404b;
 	}
-	.leaflet-container {
-		background: #223147;
-	}
-	.leaflet-popup-content-wrapper,
-	.leaflet-popup-tip,
-	.leaflet-bar a,
-	.leaflet-control-attribution {
-		background: var(--surface);
-		color: var(--text);
-	}
-	.leaflet-container a {
-		color: var(--accent);
-	}
-	.leaflet-bar a:hover {
-		background: var(--surface-muted);
-	}
+}
+
+:root[data-theme='dark'] {
+	--page: #0c1522;
+	--surface: #152235;
+	--surface-muted: #223147;
+	--text: #ecf2fa;
+	--muted: #a5b5ca;
+	--border: #304056;
+	--accent: #87baff;
+	--accent-button: #1465c8;
+	--accent-soft: #1d3553;
+	--accent-hover: #27486b;
+	--nav-surface: #111e30f2;
+	--green: #76d9b4;
+	--green-soft: #143e35;
+	--red: #ff929d;
+	--red-soft: #452831;
+	--red-border: #67404b;
+}
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}
+
+.leaflet-container {
+	background: var(--surface-muted);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+.leaflet-bar a,
+.leaflet-control-attribution {
+	background: var(--surface);
+	color: var(--text);
+}
+.leaflet-container a {
+	color: var(--accent);
+}
+.leaflet-bar a:hover {
+	background: var(--surface-muted);
 }

@@ -4,6 +4,7 @@
 	import { title, description, structuredData } from '$lib/seo';
 	$: jsonLd = `<script type="application/ld+json">${structuredData(data.siteUrl)}<${'/'}script>`;
 	import InstallApp from '$lib/InstallApp.svelte';
+	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import ParkingMap from '$lib/ParkingMap.svelte';
@@ -155,10 +156,10 @@
 			<h1>Züri Parking</h1></a
 		>
 		<div class="header-actions">
+			<ThemeToggle />
 			<button
 				class="mode-toggle"
 				aria-label={locationMode ? 'List view' : 'Near me · Map mode'}
-				aria-pressed={locationMode}
 				title={locationMode ? 'Switch to list' : 'Show nearby parking on map'}
 				on:click={() => {
 					if (locationMode) showList();
@@ -381,13 +382,8 @@
 		width: auto !important;
 		gap: 5px;
 		padding: 0 10px;
-		background: var(--accent-soft);
 		font-size: 12px;
 		font-weight: 750;
-		box-shadow: inset 0 0 0 1px var(--border);
-	}
-	.mode-toggle:hover {
-		background: var(--accent-hover);
 	}
 	.unavailable {
 		margin-top: 28px;
@@ -436,6 +432,10 @@
 	.page-details {
 		margin-top: 24px;
 	}
+	.search-toggle[aria-expanded='true'] {
+		background: var(--accent-soft);
+	}
+
 	.feed-status {
 		margin-bottom: 16px;
 	}
@@ -481,10 +481,6 @@
 		height: 44px;
 		color: var(--accent);
 		border-radius: 12px;
-	}
-	.search-toggle[aria-expanded='true'],
-	.mode-toggle[aria-pressed='true'] {
-		background: var(--accent-soft);
 	}
 
 	.feed-status {
