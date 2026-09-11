@@ -8,7 +8,11 @@ const config: PlaywrightTestConfig = {
 	},
 	testDir: 'tests',
 	testMatch: '**/*.ts',
-	use: { baseURL: 'https://localhost:4173', ignoreHTTPSErrors: true }
+	use: {
+		baseURL: 'https://localhost:4173',
+		ignoreHTTPSErrors: true,
+		channel: process.env.PLAYWRIGHT_CHANNEL || undefined
+	}
 };
 
 export default config;

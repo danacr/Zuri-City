@@ -5,11 +5,27 @@ TypeScript and Leaflet. Parking data comes from the
 [Parkleitsystem Zürich RSS feed](https://www.pls-zh.ch/plsFeed/rss) and is fetched
 on the server whenever the page loads.
 
+## Runtime and toolchain
+
+Use Node.js **24.x** locally and on Vercel. `.nvmrc`, `.node-version`, and
+`package.json` declare this version; the Vercel adapter generates Node 24 functions.
+If your Vercel project still selects Node 18, set **Settings → Build and Deployment
+→ Node.js Version → 24.x**, then redeploy the upgraded commit.
+
+The app uses Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, Vitest 5, ESLint 10,
+and Prettier 3. TypeScript remains on the latest compatible 6.0 release because
+SvelteKit and typescript-eslint do not yet support TypeScript 7. Leaflet and
+rss-parser remain on their current stable releases. The unused Skeleton UI,
+Cloudflare/auto adapters, and old PostCSS/ESLint integrations have been removed.
+A scoped `cookie` override applies the compatible security fix required by
+SvelteKit's transitive dependency; remove it when upstream adopts a fixed version.
+
 ## Getting started
 
-Install Node.js, npm, and OpenSSL (with support for `req -addext`), then install the project dependencies:
+Install **Node.js 24**, npm, and OpenSSL (with support for `req -addext`), then install the project dependencies:
 
 ```bash
+nvm use # if you use nvm
 npm ci
 npm run dev
 ```

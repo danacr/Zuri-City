@@ -85,7 +85,7 @@
 </script>
 
 {#if error}<p role="alert">{error}</p>{/if}
-<div class="map" bind:this={container} aria-label="Map of nearby parking garages" />
+<div class="map" bind:this={container} aria-label="Map of nearby parking garages"></div>
 
 <style>
 	.map {

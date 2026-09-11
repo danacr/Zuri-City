@@ -3,7 +3,6 @@ import Parser from 'rss-parser';
 import { parseParking } from '$lib/parking';
 import { enrichParkings } from '$lib/server/parking-details';
 
-export const config = { runtime: 'nodejs18.x', regions: ['fra1'] };
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
 	const controller = new AbortController();

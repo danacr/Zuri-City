@@ -22,16 +22,19 @@
 					>{/if}
 			</p>
 		</div>
-		<span class="status"><i />{state}</span>
+		<span class="status"><i></i>{state}</span>
 	</div>
 	<div class="spaces">
 		<div><strong>{parking.free ?? '—'}</strong><span> / {parking.capacity ?? '—'}</span></div>
 		<span class="space-label">{state === 'Closed' ? 'reported free · closed' : 'free spaces'}</span>
 	</div>
-	<div class="capacity-track" aria-hidden="true"><div style:width={`${percentage ?? 0}%`} /></div>
+	<div class="capacity-track" aria-hidden="true">
+		<div style:width={`${percentage ?? 0}%`}></div>
+	</div>
 	{#if issues.length}<ul class="missing" aria-label="Garage issues">
-			{#each issues as issue}<li>{issue}</li>{/each}
+			{#each issues as issue (issue)}<li>{issue}</li>{/each}
 		</ul>{/if}
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- These are external provider and Google Maps URLs. -->
 	<div class="card-actions">
 		<a class="details" href={parking.link || 'https://www.pls-zh.ch/'}
 			>Garage details <span aria-hidden="true">↗</span></a
@@ -39,6 +42,7 @@
 			>Directions <span aria-hidden="true">↗</span></a
 		>
 	</div>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 </article>
 
 <style>

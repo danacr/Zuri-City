@@ -1,14 +1,15 @@
+import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
-import { localHttps } from './config/https';
+import { localHttps } from './config/https.ts';
 
 export default defineConfig(({ command, mode }) => {
 	const https = command === 'serve' && mode !== 'test' ? localHttps() : undefined;
 	return {
-		plugins: [sveltekit()],
+		plugins: [tailwindcss(), sveltekit()],
 		server: {
 			https,
-			// Use HTTPS over HTTP/1.1: this SvelteKit version rejects HTTP/2 request bodies.
+			// Keep local HTTPS on HTTP/1.1 for consistent browser and test behavior.
 			proxy: {},
 			fs: { deny: ['.env', '.env.*', '*.{crt,pem,key}', '**/.git/**', '**/.certs/**'] }
 		},

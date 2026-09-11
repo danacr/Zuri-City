@@ -1,6 +1,5 @@
 import type { RequestHandler } from './$types';
 import { siteMetadata } from '$lib/server/site';
-export const config = { runtime: 'nodejs18.x', regions: ['fra1'] };
 export const GET: RequestHandler = ({ url }) => {
 	const { siteUrl, indexable } = siteMetadata(url);
 	return new Response(

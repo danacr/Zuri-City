@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { title, description, structuredData } from '$lib/seo';
 	$: jsonLd = `<script type="application/ld+json">${structuredData(data.siteUrl)}<${'/'}script>`;
 	import InstallApp from '$lib/InstallApp.svelte';
@@ -38,7 +39,7 @@
 			locationMode && position
 				? (a.distance ?? Infinity) - (b.distance ?? Infinity)
 				: Number(availability(b) === 'Open') - Number(availability(a) === 'Open') ||
-				  (b.free ?? -1) - (a.free ?? -1)
+					(b.free ?? -1) - (a.free ?? -1)
 		);
 	$: visible = ranked.filter((p) =>
 		`${p.name} ${p.address}`.toLowerCase().includes(query.trim().toLowerCase())
@@ -68,7 +69,7 @@
 				timeZone: 'Europe/Zurich',
 				hour: '2-digit',
 				minute: '2-digit'
-		  })
+			})
 		: '';
 	async function refresh() {
 		refreshing = true;
@@ -108,8 +109,8 @@
 					error.code === 1
 						? 'Location access was denied. Allow location for this website in your browser settings and try again. On iPhone, also check that Location Services are enabled for Safari Websites.'
 						: error.code === 3
-						? 'Finding your location timed out. Please try again.'
-						: 'Your location is unavailable. Please try again.';
+							? 'Finding your location timed out. Please try again.'
+							: 'Your location is unavailable. Please try again.';
 			},
 			{ enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
 		);
@@ -149,7 +150,7 @@
 </svelte:head>
 <div class="app">
 	<header class="topbar">
-		<a class="brand" href="/" aria-label="Züri City Parking home" on:click={home}
+		<a class="brand" href={resolve('/')} aria-label="Züri City Parking home" on:click={home}
 			><img src="/favicon.svg" alt="" width="32" height="32" />
 			<h1>Züri Parking</h1></a
 		>
@@ -239,7 +240,9 @@
 		{:else}
 			<section aria-label="Parking garages" class="results">
 				<div class="cards">
-					{#each available as parking}<ParkingCard {parking} />{:else}<div class="empty">
+					{#each available as parking (parking.id || parking.link || parking.name)}<ParkingCard
+							{parking}
+						/>{:else}<div class="empty">
 							<span aria-hidden="true">P</span>
 							<h3>{data.error ? 'Parking data unavailable' : 'No available garages'}</h3>
 							<p>
@@ -255,7 +258,9 @@
 				<h2>{unavailable.length} unavailable {unavailable.length === 1 ? 'garage' : 'garages'}</h2>
 				<p>Full, closed or availability unknown.</p>
 				<div class="cards">
-					{#each unavailable as parking}<ParkingCard {parking} />{/each}
+					{#each unavailable as parking (parking.id || parking.link || parking.name)}<ParkingCard
+							{parking}
+						/>{/each}
 				</div>
 			</section>{/if}
 
@@ -268,14 +273,17 @@
 					{unmapped.length === 1 ? 'garage' : 'garages'} without a map location
 				</h2>
 				<div class="cards">
-					{#each unmapped as parking}<ParkingCard {parking} />{/each}
+					{#each unmapped as parking (parking.id || parking.link || parking.name)}<ParkingCard
+							{parking}
+						/>{/each}
 				</div>
 			</section>{/if}
 
 		<section class="page-details" aria-label="Parking information">
 			<div class="feed-status">
 				<span
-					>{data.parkings.length} garages{#if refreshed} · Checked {refreshed}{/if}</span
+					>{data.parkings.length} garages{#if refreshed}
+						· Checked {refreshed}{/if}</span
 				><button on:click={refresh} disabled={refreshing} aria-label="Refresh parking data"
 					><span aria-hidden="true" class:spinning={refreshing}>↻</span>{refreshing
 						? 'Refreshing…'
@@ -300,8 +308,8 @@
 				{#if locationError}<p class="notice error" role="alert">{locationError}</p>{/if}
 				{#if locating}<p role="status">Updating your location…</p>{/if}
 				<div class="legend">
-					<span><i class="green" />Open</span><span><i class="red" />Full / closed</span><span
-						><i class="grey" />Unknown</span
+					<span><i class="green"></i>Open</span><span><i class="red"></i>Full / closed</span><span
+						><i class="grey"></i>Unknown</span
 					>
 				</div>
 				<p class="privacy">
