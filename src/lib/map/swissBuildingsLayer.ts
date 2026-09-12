@@ -48,6 +48,35 @@ function ecefToLngLatAlt(x: number, y: number, z: number) {
  * MapLibre custom layer streaming swisstopo swissBUILDINGS3D.
  * Tile LOD is internal — zoom never swaps building systems.
  */
+
+const FALLBACK_GL_ATTRIBUTES: WebGLContextAttributes = {
+	alpha: true,
+	depth: true,
+	stencil: true,
+	antialias: true,
+	premultipliedAlpha: true,
+	preserveDrawingBuffer: false,
+	powerPreference: 'high-performance',
+	failIfMajorPerformanceCaveat: false
+};
+
+/** Three r186 crashes if the shared MapLibre context reports null attributes. */
+function ensureContextAttributes(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+	try {
+		if (gl.getContextAttributes()) return;
+	} catch {
+		/* fall through */
+	}
+	const original = gl.getContextAttributes.bind(gl);
+	gl.getContextAttributes = () => {
+		try {
+			return original() ?? { ...FALLBACK_GL_ATTRIBUTES };
+		} catch {
+			return { ...FALLBACK_GL_ATTRIBUTES };
+		}
+	};
+}
+
 export function createSwissBuildingsLayer(
 	maplibregl: MapLibreModule,
 	tilesetUrl: string = SWISS_BUILDINGS_TILESET
@@ -170,6 +199,7 @@ export function createSwissBuildingsLayer(
 
 		onAdd(mapInstance, gl) {
 			map = mapInstance;
+			disposed = false;
 			camera = new THREE.Camera();
 			tilesCamera = new THREE.PerspectiveCamera();
 			scene = new THREE.Scene();
@@ -178,19 +208,50 @@ export function createSwissBuildingsLayer(
 			sun.position.set(40, 60, 20);
 			scene.add(sun);
 
-			renderer = new THREE.WebGLRenderer({
-				canvas: mapInstance.getCanvas(),
-				context: gl,
-				antialias: true
-			});
-			renderer.autoClear = false;
-			initTiles();
+			// Defer Three setup until the shared GL context reports attributes —
+			// MapLibre can call onAdd before getContextAttributes() is ready.
+			ensureContextAttributes(gl);
+			try {
+				if (!gl.isContextLost?.() && gl.getContextAttributes()) {
+					renderer = new THREE.WebGLRenderer({
+						canvas: mapInstance.getCanvas(),
+						context: gl,
+						antialias: true
+					});
+					renderer.autoClear = false;
+					initTiles();
+				}
+			} catch (error) {
+				console.warn('swiss buildings renderer deferred', error);
+				renderer = undefined;
+			}
 		},
 
-		render(_gl, args) {
-			if (disposed || !camera || !renderer || !scene || !localTransform || !tilesCamera) {
-				return;
+		render(gl, args) {
+			if (disposed || !camera || !scene || !tilesCamera || !map) return;
+
+			if (!renderer) {
+				ensureContextAttributes(gl);
+				if (gl.isContextLost?.() || !gl.getContextAttributes()) {
+					map.triggerRepaint();
+					return;
+				}
+				try {
+					renderer = new THREE.WebGLRenderer({
+						canvas: map.getCanvas(),
+						context: gl,
+						antialias: true
+					});
+					renderer.autoClear = false;
+					initTiles();
+				} catch (error) {
+					console.warn('swiss buildings renderer still unavailable', error);
+					map.triggerRepaint();
+					return;
+				}
 			}
+
+			if (!renderer || !localTransform) return;
 
 			const mainMatrix =
 				args.defaultProjectionData?.mainMatrix ?? args.modelViewProjectionMatrix;
@@ -207,13 +268,13 @@ export function createSwissBuildingsLayer(
 			tilesCamera.matrixWorld.copy(V).invert();
 			tilesCamera.matrixAutoUpdate = false;
 
+			tiles?.update();
 			renderer.resetState();
 			renderer.render(scene, camera);
-			tiles?.update();
 			// Drop the depth buffer so later MapLibre symbols (traffic streaks, POIs)
 			// are not occluded by building meshes at street level.
-			_gl.clear(_gl.DEPTH_BUFFER_BIT);
-			map?.triggerRepaint();
+			gl.clear(gl.DEPTH_BUFFER_BIT);
+			map.triggerRepaint();
 		},
 
 		onRemove() {

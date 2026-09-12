@@ -156,16 +156,36 @@
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
 
+	let swissOverlayMounting = false;
+
 	function mountSwissOverlay(mapInstance: MapLibreMap, maplibregl: typeof import('maplibre-gl')) {
-		const beforeId = ['traffic-case', 'traffic-flow', 'place-label', 'road-label'].find((id) =>
-			mapInstance.getLayer(id)
-		);
-		if (!mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
+		if (swissOverlayMounting) return;
+		if (mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) return;
+		swissOverlayMounting = true;
+		try {
+			const beforeId = [
+				'traffic-case',
+				'traffic-flow',
+				'traffic-pulse',
+				'place-label',
+				'road-label'
+			].find((id) => mapInstance.getLayer(id));
+
 			try {
 				mapInstance.addLayer(createSwissBuildingsLayer(maplibregl), beforeId);
 			} catch (error) {
 				console.warn('swiss buildings layer failed to mount', error);
+				// Failed onAdd can leave a zombie layer that blocks retries.
+				if (mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
+					try {
+						mapInstance.removeLayer(SWISS_BUILDINGS_LAYER_ID);
+					} catch {
+						/* ignore */
+					}
+				}
 			}
+		} finally {
+			swissOverlayMounting = false;
 		}
 	}
 
@@ -806,7 +826,9 @@
 				);
 				instance.on('load', () => {
 					void (async () => {
-						terrainHandle = await attachSwissTerrain(instance, maplibregl);
+						if (!terrainHandle) {
+							terrainHandle = await attachSwissTerrain(instance, maplibregl);
+						}
 						mountSwissOverlay(instance, maplibregl);
 					})();
 					styleReady = true;
