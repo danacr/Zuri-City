@@ -6,8 +6,8 @@ legacy Codex-specific notes.
 ## Product
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
-a god’s-eye / walkable **3D map of Zürich**. The foundation of the experience is
-the **living city** — SWISSIMAGE aerial basemap, **swisstopo swissBUILDINGS3D**
+**the interactive city**, a walkable **3D map of Zürich**. The foundation of the experience is
+the living map — SWISSIMAGE aerial basemap, **swisstopo swissBUILDINGS3D**
 meshes (continuous LOD), **swisstopo terrain**, and **congestion-colored streets**
 on OpenMapTiles centerlines (**green** / **amber** / **red**), with cars present
 across the city zoom range. Parking from the

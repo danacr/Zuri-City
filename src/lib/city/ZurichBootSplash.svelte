@@ -99,7 +99,7 @@
 		</svg>
 
 		<div class="boot-brand">
-			<p class="kicker">God’s-eye Zürich</p>
+			<p class="kicker">The interactive city</p>
 			<h1>Züri City</h1>
 			<p class="tag">Opening the living city</p>
 			<div class="progress" aria-hidden="true">

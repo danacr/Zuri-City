@@ -1,6 +1,6 @@
-export const title = 'Züri City – Living 3D Zürich Map';
+export const title = 'Züri City – The Interactive City';
 export const description =
-	'Explore a living Zürich from above: fake cars on real roads, 3D buildings, open places, aircraft and CCTV — with live parking one tap away.';
+	'Explore Zürich as the interactive city: traffic on real roads, 3D buildings, open places, aircraft and CCTV — with live parking one tap away.';
 
 export function structuredData(siteUrl: string) {
 	return JSON.stringify({

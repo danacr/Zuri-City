@@ -62,7 +62,7 @@ export async function loadFlights(fetchFn: typeof fetch): Promise<{
 				signal: controller.signal,
 				headers: {
 					accept: 'application/json',
-					'user-agent': 'ZuriCity/1.0 (god-eye Zürich map)'
+					'user-agent': 'ZuriCity/1.0 (interactive Zürich city)'
 				}
 			}
 		);

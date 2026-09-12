@@ -327,7 +327,7 @@
 		<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
 			<img src="/favicon.svg" alt="" width="32" height="32" />
 			<div>
-				<p class="brand-kicker">Live Zürich</p>
+				<p class="brand-kicker">Interactive city</p>
 				<h1>Züri City</h1>
 			</div>
 		</a>
@@ -336,7 +336,7 @@
 	<!-- Desktop left briefing -->
 	<aside class="desk-hud" aria-label="City briefing">
 		<p class="eyebrow">Map</p>
-		<h2>Zürich live</h2>
+		<h2>Interactive city</h2>
 		<p>
 			Green / amber / red streets show traffic. Toggle places and live feeds below. Parking stays on the map in blue.
 		</p>

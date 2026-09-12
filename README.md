@@ -1,15 +1,15 @@
 # Züri City
 
-Explore a living Zürich in 3D. [Züri City](https://zuri.city/) is a mobile-friendly
+Explore Zürich as **the interactive city**. [Züri City](https://zuri.city/) is a mobile-friendly
 SvelteKit app: a walkable MapLibre city map with SWISSIMAGE aerials, 3D buildings,
-with **traffic-colored streets** and optional zoom-in cars. Open stores, restaurants and attractions
+with **traffic-colored streets** and moving cars. Open stores, restaurants and attractions
 are pinned on the map. Live parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) is a one-tap overlay — not the main
 product.
 
 ## What it does
 
-- Puts you above Zürich in an orbital “god’s-eye” view, then lets you walk street-level with WASD / arrow keys.
+- Opens Zürich as **the interactive city** from orbit, then lets you walk street-level with WASD / arrow keys.
 - Colors major streets green / amber / red by modeled congestion; tiny cars appear when you zoom in.
 - Pins open attractions, restaurants and shops on a 3D building map (SWISSIMAGE + OpenFreeMap).
 - Shows live PLS parking pins on the map in blue, with a garage list from Layers.
