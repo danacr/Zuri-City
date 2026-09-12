@@ -801,9 +801,6 @@
 					hash: false
 				});
 				map = instance;
-				if (typeof window !== 'undefined') {
-					(window as unknown as { __zurichMap?: MapLibreMap }).__zurichMap = instance;
-				}
 				instance.addControl(
 					new maplibregl.AttributionControl({ compact: true }),
 					'bottom-right'
