@@ -17,6 +17,7 @@
 		trafficToGeoJSON
 	} from '$lib/intel/geo';
 	import type { Camera, Flight, IntelLayer, Quake, TrafficSegment } from '$lib/intel/types';
+	import { zurichAerialStyle } from '$lib/map/aerialStyle';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
@@ -276,23 +277,7 @@
 			});
 		}
 
-		if (!mapInstance.getSource('traffic')) {
-			mapInstance.addSource('traffic', {
-				type: 'geojson',
-				data: trafficToGeoJSON(visibleTraffic)
-			});
-			mapInstance.addLayer({
-				id: 'traffic-line',
-				type: 'line',
-				source: 'traffic',
-				paint: {
-					'line-color': ['get', 'color'],
-					'line-width': 5,
-					'line-opacity': 0.85
-				},
-				layout: { 'line-cap': 'round', 'line-join': 'round' }
-			});
-		}
+		// Traffic is added last (below) so it paints above 3D buildings.
 
 		if (!mapInstance.getSource('viewsheds')) {
 			mapInstance.addSource('viewsheds', {
@@ -349,45 +334,66 @@
 				type: 'geojson',
 				data: flightsToGeoJSON(visibleFlights)
 			});
-			mapInstance.addLayer({
-				id: 'flights-core',
-				type: 'circle',
-				source: 'flights',
-				paint: {
-					'circle-radius': 6,
-					'circle-color': '#f0b429',
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#1a1303'
+			if (!mapInstance.hasImage('aircraft-icon')) {
+				const size = 64;
+				const canvas = document.createElement('canvas');
+				canvas.width = size;
+				canvas.height = size;
+				const ctx = canvas.getContext('2d');
+				if (ctx) {
+					ctx.clearRect(0, 0, size, size);
+					ctx.translate(size / 2, size / 2);
+					ctx.fillStyle = '#f0b429';
+					ctx.strokeStyle = '#1a1303';
+					ctx.lineWidth = 3;
+					ctx.beginPath();
+					ctx.moveTo(0, -22);
+					ctx.lineTo(14, 18);
+					ctx.lineTo(0, 10);
+					ctx.lineTo(-14, 18);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();
+					mapInstance.addImage('aircraft-icon', ctx.getImageData(0, 0, size, size), {
+						pixelRatio: 2
+					});
 				}
-			});
-			mapInstance.addLayer({
-				id: 'flights-label',
-				type: 'symbol',
-				source: 'flights',
-				layout: {
-					'text-field': ['get', 'callsign'],
-					'text-size': 10,
-					'text-offset': [0, 1.25],
-					'text-font': ['Noto Sans Bold'],
-					'text-allow-overlap': false
-				},
-				paint: {
-					'text-color': '#7a5a00',
-					'text-halo-color': '#fff8e1',
-					'text-halo-width': 1.2
-				}
-			});
+			}
 			mapInstance.addLayer({
 				id: 'detection-flights',
 				type: 'circle',
 				source: 'flights',
 				paint: {
-					'circle-radius': 14,
+					'circle-radius': 18,
 					'circle-color': '#3dd68c',
 					'circle-opacity': 0,
-					'circle-stroke-width': 1.5,
+					'circle-stroke-width': 2,
 					'circle-stroke-color': '#3dd68c',
 					'circle-stroke-opacity': intelLayers.detection ? 0.95 : 0
+				}
+			});
+			mapInstance.addLayer({
+				id: 'flights-core',
+				type: 'symbol',
+				source: 'flights',
+				layout: {
+					'icon-image': 'aircraft-icon',
+					'icon-size': 0.85,
+					'icon-rotate': ['coalesce', ['get', 'heading'], 0],
+					'icon-rotation-alignment': 'map',
+					'icon-allow-overlap': true,
+					'icon-ignore-placement': true,
+					'text-field': ['get', 'callsign'],
+					'text-size': 11,
+					'text-offset': [0, 1.55],
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': true,
+					'text-ignore-placement': true
+				},
+				paint: {
+					'text-color': '#ffe8a3',
+					'text-halo-color': '#1a1303',
+					'text-halo-width': 1.6
 				}
 			});
 		}
@@ -411,42 +417,51 @@
 			});
 		}
 
-		if (!mapInstance.getLayer('zurich-3d-buildings') && mapInstance.getSource('openmaptiles')) {
+		// Traffic above 3D building extrusions (aerial style already includes buildings).
+		if (!mapInstance.getSource('traffic')) {
+			mapInstance.addSource('traffic', {
+				type: 'geojson',
+				data: trafficToGeoJSON(visibleTraffic)
+			});
 			mapInstance.addLayer({
-				id: 'zurich-3d-buildings',
-				source: 'openmaptiles',
-				'source-layer': 'building',
-				type: 'fill-extrusion',
-				minzoom: 14,
-				filter: ['!=', ['get', 'hide_3d'], true],
+				id: 'traffic-case',
+				type: 'line',
+				source: 'traffic',
 				paint: {
-					'fill-extrusion-color': [
-						'interpolate',
-						['linear'],
-						['get', 'render_height'],
-						0,
-						'#d9e2ec',
-						80,
-						'#8fa3b8',
-						140,
-						'#6d8299'
-					],
-					'fill-extrusion-height': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						14,
-						0,
-						14.5,
-						['coalesce', ['get', 'render_height'], 12]
-					],
-					'fill-extrusion-base': [
-						'case',
-						['has', 'render_min_height'],
-						['get', 'render_min_height'],
-						0
-					],
-					'fill-extrusion-opacity': 0.88
+					'line-color': '#0b1724',
+					'line-width': 10,
+					'line-opacity': 0.45,
+					'line-blur': 0.2
+				},
+				layout: { 'line-cap': 'round', 'line-join': 'round' }
+			});
+			mapInstance.addLayer({
+				id: 'traffic-line',
+				type: 'line',
+				source: 'traffic',
+				paint: {
+					'line-color': ['get', 'color'],
+					'line-width': 6,
+					'line-opacity': 0.95
+				},
+				layout: { 'line-cap': 'round', 'line-join': 'round' }
+			});
+			mapInstance.addLayer({
+				id: 'traffic-label',
+				type: 'symbol',
+				source: 'traffic',
+				minzoom: 13,
+				layout: {
+					'symbol-placement': 'line-center',
+					'text-field': ['get', 'name'],
+					'text-size': 11,
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': false
+				},
+				paint: {
+					'text-color': '#fff4e5',
+					'text-halo-color': '#1a0f08',
+					'text-halo-width': 1.4
 				}
 			});
 		}
@@ -523,7 +538,7 @@
 				if (disposed) return;
 				const instance = new maplibregl.Map({
 					container,
-					style: 'https://tiles.openfreemap.org/styles/liberty',
+					style: zurichAerialStyle(),
 					center: ZURICH_CENTER,
 					zoom: 14.8,
 					pitch: 58,
@@ -542,11 +557,19 @@
 					'bottom-right'
 				);
 				instance.on('load', () => {
+					if (instance.getSource('terrain')) {
+						instance.setTerrain({ source: 'terrain', exaggeration: 1.15 });
+					}
 					ensureLayers(instance);
 					applyMode(mode, false);
 					dispatch('ready');
 				});
-				instance.on('style.load', () => ensureLayers(instance));
+				instance.on('style.load', () => {
+					if (instance.getSource('terrain')) {
+						instance.setTerrain({ source: 'terrain', exaggeration: 1.15 });
+					}
+					ensureLayers(instance);
+				});
 				for (const layer of [
 					'places-core',
 					'places-glow',
@@ -631,6 +654,20 @@
 			bearing: flight.heading ?? -20,
 			duration: 1400
 		});
+	}
+
+	/** Zoom out to show live ADS-B contacts — most sit outside the city bowl. */
+	export function fitFlights(list: Flight[] = flights) {
+		if (!map || list.length === 0) return;
+		const lons = list.map((f) => f.lon);
+		const lats = list.map((f) => f.lat);
+		map.fitBounds(
+			[
+				[Math.min(...lons), Math.min(...lats)],
+				[Math.max(...lons), Math.max(...lats)]
+			],
+			{ padding: 72, maxZoom: 11.8, duration: 1400, pitch: 50 }
+		);
 	}
 </script>
 

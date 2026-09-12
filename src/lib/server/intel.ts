@@ -39,7 +39,13 @@ export async function loadFlights(fetchFn: typeof fetch): Promise<{
 	try {
 		const response = await fetchFn(
 			`https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${radiusNm}`,
-			{ signal: controller.signal, headers: { accept: 'application/json' } }
+			{
+				signal: controller.signal,
+				headers: {
+					accept: 'application/json',
+					'user-agent': 'ZuriCity/1.0 (god-eye Zürich map)'
+				}
+			}
 		);
 		if (!response.ok) throw new Error(`adsb ${response.status}`);
 		const payload = (await response.json()) as { ac?: AdsbAircraft[] };
@@ -103,7 +109,9 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 		flightsResult.error,
 		quakesResult.error,
 		'Traffic flow is a labeled simulation along published Zürich corridors until a TomTom key is configured.',
-		'CCTV poses are estimated priors; stills are modeled public viewpoints where a live city feed is unavailable.'
+		'CCTV stills are live ASTRA Mobcam JPEGs (proxied + validated). Map pins are approximate corridor placements.',
+		'Aircraft are live ADS-B (adsb.lol). Tap “Find aircraft” or enable Aircraft — most contacts are outside the city bowl.',
+		'Basemap is swisstopo Swissimage aerial with solid 3D building masses (keyless). Photoreal street façades need a 3D-tiles key.'
 	].filter(Boolean);
 
 	return {

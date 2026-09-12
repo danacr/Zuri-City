@@ -1,158 +1,141 @@
 import type { Camera, TrafficSegment } from './types';
 
-/** Public / documented Zürich-area cameras. Live where a public still exists; otherwise modeled. */
+/**
+ * Validated live ASTRA Mobcam stills (JPEG updates every few seconds).
+ * Pins are approximate corridor placements from published Zürich-area motorway context
+ * (e.g. MVK172 shows Zürich-Nord / Y63 signage). Feeds are proxied via /api/cctv/[id].
+ */
 export const ZURICH_CAMERAS: Camera[] = [
 	{
-		id: 'cam-quaibruecke',
-		name: 'Quaibrücke · Lake view',
-		lat: 47.3665,
-		lon: 8.5432,
-		bearing: 160,
-		kind: 'lake',
-		streamUrl: null,
-		imageUrl:
-			'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Zuerich_Buerkliplatz.jpg/640px-Zuerich_Buerkliplatz.jpg',
-		modeled: true,
-		note: 'Modeled public viewpoint toward Bürkliplatz / lake'
-	},
-	{
-		id: 'cam-hb-bahnhofplatz',
-		name: 'Zürich HB · Bahnhofplatz',
-		lat: 47.3772,
-		lon: 8.5395,
-		bearing: 200,
-		kind: 'transit',
-		streamUrl: null,
-		imageUrl:
-			'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Zuerich_HB_Bahnhofplatz.jpg/640px-Zuerich_HB_Bahnhofplatz.jpg',
-		modeled: true,
-		note: 'Modeled station plaza camera pose'
-	},
-	{
-		id: 'cam-hardbruecke',
-		name: 'Hardbrücke corridor',
-		lat: 47.3854,
-		lon: 8.5178,
-		bearing: 90,
+		id: 'mvk172',
+		name: 'A1 · Zürich-Nord (MVK172)',
+		lat: 47.4148,
+		lon: 8.5082,
+		bearing: 35,
 		kind: 'traffic',
 		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'Traffic corridor recon — feed modeled from published camera location'
+		imageUrl: '/api/cctv/mvk172',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · Zürich-Nord / Y63 corridor (validated JPEG feed)'
 	},
 	{
-		id: 'cam-schwamendingen',
-		name: 'A1 Nordring · Schwamendingen',
-		lat: 47.4065,
-		lon: 8.5752,
+		id: 'mvk111',
+		name: 'A1 Glatttal corridor (MVK111)',
+		lat: 47.4326,
+		lon: 8.5618,
+		bearing: 200,
+		kind: 'traffic',
+		streamUrl: null,
+		imageUrl: '/api/cctv/mvk111',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · multi-lane urban motorway (validated)'
+	},
+	{
+		id: 'mvk109',
+		name: 'Nordring wooded cut (MVK109)',
+		lat: 47.4215,
+		lon: 8.5455,
 		bearing: 250,
 		kind: 'traffic',
 		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'Motorway mesh camera (modeled pose)'
+		imageUrl: '/api/cctv/mvk109',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · Nordring approach (validated)'
 	},
 	{
-		id: 'cam-wallisellen',
-		name: 'A1 · Wallisellen exit',
-		lat: 47.4148,
-		lon: 8.5925,
-		bearing: 200,
+		id: 'mvk105',
+		name: 'A1 east approach (MVK105)',
+		lat: 47.4112,
+		lon: 8.5924,
+		bearing: 270,
 		kind: 'traffic',
 		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'A1 exit recon camera (modeled)'
+		imageUrl: '/api/cctv/mvk105',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · eastern A1 approach (validated)'
 	},
 	{
-		id: 'cam-prime-tower',
-		name: 'Prime Tower overlook',
-		lat: 47.3861,
-		lon: 8.5172,
-		bearing: 120,
-		kind: 'city',
+		id: 'mvk103',
+		name: 'Wallisellen sector (MVK103)',
+		lat: 47.4168,
+		lon: 8.591,
+		bearing: 210,
+		kind: 'traffic',
 		streamUrl: null,
-		imageUrl:
-			'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Prime_Tower_Zurich.jpg/640px-Prime_Tower_Zurich.jpg',
-		modeled: true,
-		note: 'High overlook toward Hardbrücke / city'
+		imageUrl: '/api/cctv/mvk103',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · Wallisellen sector (validated)'
 	},
 	{
-		id: 'cam-lindenhof',
-		name: 'Lindenhof overlook',
-		lat: 47.373,
-		lon: 8.5408,
-		bearing: 100,
-		kind: 'city',
+		id: 'mvk102',
+		name: 'Opfikon sector (MVK102)',
+		lat: 47.4245,
+		lon: 8.5712,
+		bearing: 180,
+		kind: 'traffic',
 		streamUrl: null,
-		imageUrl:
-			'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Lindenhof_Zuerich.jpg/640px-Lindenhof_Zuerich.jpg',
-		modeled: true,
-		note: 'Old-town overlook toward Limmat'
+		imageUrl: '/api/cctv/mvk102',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · Opfikon sector (validated)'
 	},
 	{
-		id: 'cam-oper',
-		name: 'Sechseläutenplatz · Opera',
-		lat: 47.3651,
-		lon: 8.5471,
-		bearing: 280,
-		kind: 'city',
-		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'Plaza coverage volume (modeled)'
-	},
-	{
-		id: 'cam-airport-approach',
-		name: 'ZRH approach corridor',
-		lat: 47.4585,
-		lon: 8.548,
+		id: 'mvk101',
+		name: 'Glattbrugg sector (MVK101)',
+		lat: 47.4288,
+		lon: 8.5585,
 		bearing: 160,
 		kind: 'traffic',
 		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'Airport-area traffic / approach recon'
+		imageUrl: '/api/cctv/mvk101',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · Glattbrugg sector (validated)'
 	},
 	{
-		id: 'cam-oerlikon',
-		name: 'Oerlikon center',
-		lat: 47.4115,
-		lon: 8.5445,
-		bearing: 180,
-		kind: 'city',
-		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'District center mesh camera'
-	},
-	{
-		id: 'cam-engebucht',
-		name: 'Lake quay · Enge',
-		lat: 47.3635,
-		lon: 8.5345,
+		id: 'mvk121',
+		name: 'West approach corridor (MVK121)',
+		lat: 47.3895,
+		lon: 8.4915,
 		bearing: 90,
-		kind: 'lake',
+		kind: 'traffic',
 		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'Promenade camera pose'
+		imageUrl: '/api/cctv/mvk121',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · western approach (validated)'
 	},
 	{
-		id: 'cam-polyterrasse',
-		name: 'ETH Polyterrasse',
-		lat: 47.3764,
-		lon: 8.5476,
-		bearing: 220,
-		kind: 'city',
+		id: 'mvk173',
+		name: 'A1 companion cam (MVK173)',
+		lat: 47.4182,
+		lon: 8.5145,
+		bearing: 40,
+		kind: 'traffic',
 		streamUrl: null,
-		imageUrl: null,
-		modeled: true,
-		note: 'Campus overlook of the city bowl'
+		imageUrl: '/api/cctv/mvk173',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · paired with Zürich-Nord corridor (validated)'
+	},
+	{
+		id: 'mvk107',
+		name: 'City-ring cam (MVK107)',
+		lat: 47.4042,
+		lon: 8.5688,
+		bearing: 300,
+		kind: 'traffic',
+		streamUrl: null,
+		imageUrl: '/api/cctv/mvk107',
+		modeled: false,
+		note: 'Live ASTRA Mobcam still · city-ring sector (validated)'
 	}
 ];
 
-/** Major Zürich corridors used for keyless simulated traffic flow. */
+/** Upstream ASTRA still URLs keyed by camera id (mvk###). */
+export const CCTV_UPSTREAM: Record<string, string> = Object.fromEntries(
+	ZURICH_CAMERAS.map((camera) => [
+		camera.id,
+		`https://www.astramobcam.ch/kamera/${camera.id}/live.jpg`
+	])
+);
+
 export const TRAFFIC_CORRIDORS: TrafficSegment[] = [
 	{
 		id: 'tr-bahnhofstrasse',
@@ -237,11 +220,23 @@ export const TRAFFIC_CORRIDORS: TrafficSegment[] = [
 		],
 		level: 'free',
 		modeled: true
+	},
+	{
+		id: 'tr-a1-nord',
+		name: 'A1 Zürich-Nord',
+		coordinates: [
+			[8.495, 47.41],
+			[8.508, 47.414],
+			[8.52, 47.417],
+			[8.545, 47.42]
+		],
+		level: 'slow',
+		modeled: true
 	}
 ];
 
 export function trafficLevelColor(level: TrafficSegment['level']) {
-	return level === 'jam' ? '#c92a2a' : level === 'slow' ? '#f08c00' : '#2f9e44';
+	return level === 'jam' ? '#ff3b30' : level === 'slow' ? '#ff9f0a' : '#30d158';
 }
 
 export function jitterTraffic(segments: TrafficSegment[]): TrafficSegment[] {

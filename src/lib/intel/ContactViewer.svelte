@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { Camera, Flight } from './types';
 
 	export let camera: Camera | null = null;
 	export let flight: Flight | null = null;
 	export let onClose: () => void = () => {};
+
+	let bust = Date.now();
+	let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 	$: title = camera?.name || flight?.callsign || 'Contact';
 	$: stamp = new Date().toLocaleTimeString('en-GB', {
@@ -11,6 +15,25 @@
 		hour: '2-digit',
 		minute: '2-digit',
 		second: '2-digit'
+	});
+	$: liveImage =
+		camera?.imageUrl && !camera.modeled
+			? `${camera.imageUrl}${camera.imageUrl.includes('?') ? '&' : '?'}t=${bust}`
+			: camera?.imageUrl;
+
+	$: if (camera && !camera.modeled && camera.imageUrl) {
+		if (refreshTimer) clearInterval(refreshTimer);
+		bust = Date.now();
+		refreshTimer = setInterval(() => {
+			bust = Date.now();
+		}, 4000);
+	} else if (refreshTimer) {
+		clearInterval(refreshTimer);
+		refreshTimer = undefined;
+	}
+
+	onDestroy(() => {
+		if (refreshTimer) clearInterval(refreshTimer);
 	});
 </script>
 
@@ -25,9 +48,9 @@
 		</header>
 
 		{#if camera}
-			<div class="frame" class:empty={!camera.imageUrl}>
-				{#if camera.imageUrl}
-					<img src={camera.imageUrl} alt={`View from ${camera.name}`} />
+			<div class="frame" class:empty={!liveImage}>
+				{#if liveImage}
+					<img src={liveImage} alt={`View from ${camera.name}`} />
 					<span class="badge">{camera.modeled ? 'MODELED VIEW' : 'LIVE'}</span>
 				{:else}
 					<div class="placeholder">

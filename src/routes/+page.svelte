@@ -87,7 +87,8 @@
 			const response = await fetch('/api/intel');
 			if (!response.ok) return;
 			const payload = await response.json();
-			if (payload.flights) flights = payload.flights;
+			// Keep last-good aircraft if a poll returns empty (transient ADS-B blip).
+			if (Array.isArray(payload.flights) && payload.flights.length > 0) flights = payload.flights;
 			if (payload.traffic) traffic = payload.traffic;
 			if (payload.quakes) quakes = payload.quakes;
 			if (payload.cameras) cameras = payload.cameras;
@@ -95,6 +96,14 @@
 		} catch {
 			/* Keep last good snapshot. */
 		}
+	}
+
+	function findAircraft() {
+		if (!intelLayers.flights) {
+			intelLayers = { ...intelLayers, flights: true };
+		}
+		layersOpen = false;
+		city?.fitFlights?.(flights);
 	}
 
 	function home(event: MouseEvent) {
@@ -136,6 +145,9 @@
 		if (key === 'flights' && !intelLayers.flights && selectedKind === 'flight') {
 			selected = null;
 			selectedKind = null;
+		}
+		if (key === 'flights' && intelLayers.flights && flights.length) {
+			queueMicrotask(() => city?.fitFlights?.(flights));
 		}
 	}
 
@@ -346,6 +358,9 @@
 				>
 			{/each}
 		</div>
+		<button type="button" class="find-aircraft" on:click={findAircraft}>
+			Find aircraft · {counts.flights}
+		</button>
 	</aside>
 
 	<!-- Mobile-first bottom dock: map stays full-bleed; sheet stacks above controls -->
@@ -413,6 +428,9 @@
 						</button>
 					{/each}
 				</div>
+				<button type="button" class="sheet-action" on:click={findAircraft}>
+					Find aircraft on map · {counts.flights}
+				</button>
 				<p class="sheet-title">Sensors · keys 1–6</p>
 				<div class="chip-row sensors">
 					{#each SENSOR_LOOKS as look (look.id)}
@@ -771,6 +789,17 @@
 	.sheet-head .sheet-title {
 		margin: 0;
 	}
+	.sheet-action {
+		display: block;
+		width: 100%;
+		min-height: 40px;
+		margin: 8px 0 4px;
+		border-radius: 12px;
+		background: #f0b429;
+		color: #1a1303;
+		font-weight: 800;
+		font-size: 12px;
+	}
 	.sheet-close {
 		min-height: 32px;
 		padding: 0 10px;
@@ -964,7 +993,22 @@
 			overflow: auto;
 		}
 		.mode-row,
-		.sensor-row {
+		.find-aircraft,
+		.sheet-action {
+			margin-top: 10px;
+			min-height: 40px;
+			width: 100%;
+			border-radius: 12px;
+			background: #f0b429;
+			color: #1a1303;
+			font-weight: 800;
+			font-size: 12px;
+		}
+		.sheet-action {
+			margin-top: 8px;
+			margin-bottom: 4px;
+		}
+	.sensor-row {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 8px;
