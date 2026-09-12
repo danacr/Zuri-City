@@ -68,7 +68,15 @@
 		quakes: quakes.length
 	};
 
+	let didRevealFlights = false;
+
+	function tryRevealFlights() {
+		if (didRevealFlights || !flights.length || !intelLayers.flights) return;
+		didRevealFlights = Boolean(city?.revealFlightsIfNeeded?.(flights));
+	}
+
 	onMount(() => {
+		void refreshIntel().then(() => tryRevealFlights());
 		pollTimer = setInterval(() => {
 			void refreshIntel();
 		}, 20000);
@@ -87,7 +95,10 @@
 			if (!response.ok) return;
 			const payload = await response.json();
 			// Keep last-good aircraft if a poll returns empty (transient ADS-B blip).
-			if (Array.isArray(payload.flights) && payload.flights.length > 0) flights = payload.flights;
+			if (Array.isArray(payload.flights) && payload.flights.length > 0) {
+				flights = payload.flights;
+				queueMicrotask(tryRevealFlights);
+			}
 			if (payload.quakes) quakes = payload.quakes;
 			if (payload.cameras) cameras = payload.cameras;
 			if (payload.notes) intelNotes = payload.notes;
@@ -101,7 +112,12 @@
 			intelLayers = { ...intelLayers, flights: true };
 		}
 		layersOpen = false;
+		didRevealFlights = true;
 		city?.fitFlights?.(flights);
+	}
+
+	function onCityReady() {
+		tryRevealFlights();
 	}
 
 	function home(event: MouseEvent) {
@@ -284,6 +300,7 @@
 						: null}
 		userPosition={position}
 		on:select={onSelect}
+		on:ready={onCityReady}
 	/>
 
 	<header class="topbar">

@@ -100,9 +100,18 @@
 			}))
 		});
 	}
+	let didAutoRevealFlights = false;
+
 	$: if (map?.getSource('flights')) {
 		registerAircraftIcons(map, visibleFlights);
 		(map.getSource('flights') as GeoJSONSource).setData(flightsToGeoJSON(visibleFlights));
+	}
+	$: if (map && styleReady && intelLayers.flights && visibleFlights.length && !didAutoRevealFlights) {
+		// Default city zoom almost never includes airborne ADS-B contacts — frame them once.
+		queueMicrotask(() => {
+			if (didAutoRevealFlights || !map) return;
+			didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
+		});
 	}
 	$: if (map?.getSource('cameras')) {
 		(map.getSource('cameras') as GeoJSONSource).setData(camerasToGeoJSON(visibleCameras));
@@ -126,7 +135,11 @@
 			stopTrafficLoop();
 		}
 	}
-	$: if (map && mode) applyMode(mode, false);
+	let lastAppliedMode: 'orbit' | 'walk' | null = null;
+	$: if (map && mode && mode !== lastAppliedMode) {
+		lastAppliedMode = mode;
+		applyMode(mode, false);
+	}
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
 
@@ -349,6 +362,30 @@
 				data: flightsToGeoJSON(visibleFlights)
 			});
 			registerAircraftIcons(mapInstance);
+			// Always-on halo so contacts read even when sprites are tiny / off-screen zoom.
+			mapInstance.addLayer({
+				id: 'flights-halo',
+				type: 'circle',
+				source: 'flights',
+				paint: {
+					'circle-radius': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						8,
+						3,
+						11,
+						5,
+						14,
+						8
+					],
+					'circle-color': '#f0b429',
+					'circle-opacity': 0.55,
+					'circle-stroke-width': 1.5,
+					'circle-stroke-color': '#fff6d6',
+					'circle-stroke-opacity': 0.9
+				}
+			});
 			mapInstance.addLayer({
 				id: 'detection-flights',
 				type: 'circle',
@@ -381,21 +418,63 @@
 				layout: {
 					'icon-image': ['coalesce', ['get', 'icon'], 'plane-narrow-gen'],
 					'icon-size': [
-						'match',
-						['get', 'family'],
-						'ga',
-						0.62,
-						'regional',
-						0.82,
-						'narrow',
-						0.92,
-						'wide-twin',
-						1.12,
-						'wide-quad',
-						1.22,
-						'rotor',
-						0.72,
-						0.88
+						'interpolate',
+						['linear'],
+						['zoom'],
+						8,
+						[
+							'match',
+							['get', 'family'],
+							'ga',
+							0.35,
+							'regional',
+							0.42,
+							'narrow',
+							0.48,
+							'wide-twin',
+							0.58,
+							'wide-quad',
+							0.64,
+							'rotor',
+							0.38,
+							0.45
+						],
+						12,
+						[
+							'match',
+							['get', 'family'],
+							'ga',
+							0.62,
+							'regional',
+							0.82,
+							'narrow',
+							0.92,
+							'wide-twin',
+							1.12,
+							'wide-quad',
+							1.22,
+							'rotor',
+							0.72,
+							0.88
+						],
+						15,
+						[
+							'match',
+							['get', 'family'],
+							'ga',
+							0.85,
+							'regional',
+							1.05,
+							'narrow',
+							1.15,
+							'wide-twin',
+							1.35,
+							'wide-quad',
+							1.45,
+							'rotor',
+							0.95,
+							1.1
+						]
 					],
 					'icon-rotate': ['coalesce', ['get', 'heading'], 0],
 					'icon-rotation-alignment': 'map',
@@ -411,7 +490,8 @@
 				paint: {
 					'text-color': '#ffe8a3',
 					'text-halo-color': '#1a1303',
-					'text-halo-width': 1.6
+					'text-halo-width': 1.6,
+					'text-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0, 11, 0.95]
 				}
 			});
 		}
@@ -695,8 +775,15 @@
 					}
 					styleReady = true;
 					ensureLayers(instance);
+					lastAppliedMode = mode;
 					applyMode(mode, false);
 					dispatch('ready');
+					// After the city camera is set, frame airborne traffic if none are in view.
+					requestAnimationFrame(() => {
+						if (!didAutoRevealFlights && intelLayers.flights && visibleFlights.length) {
+							didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
+						}
+					});
 				});
 				instance.on('style.load', () => {
 					try {
@@ -718,6 +805,7 @@
 					'places-core',
 					'places-glow',
 					'parking-pill',
+					'flights-halo',
 					'flights-core',
 					'cameras-core',
 					'quakes-core'
@@ -801,18 +889,42 @@
 		});
 	}
 
+	/** Prefer airborne contacts — parked airport traffic is a dense yellow blob. */
+	function airborneFlights(list: Flight[]) {
+		const air = list.filter(
+			(f) => !f.onGround && (f.altitudeFt == null || f.altitudeFt > 200)
+		);
+		return air.length ? air : list;
+	}
+
 	/** Zoom out to show live ADS-B contacts — most sit outside the city bowl. */
 	export function fitFlights(list: Flight[] = flights) {
 		if (!map || list.length === 0) return;
-		const lons = list.map((f) => f.lon);
-		const lats = list.map((f) => f.lat);
+		didAutoRevealFlights = true;
+		const targets = airborneFlights(list);
+		const lons = targets.map((f) => f.lon);
+		const lats = targets.map((f) => f.lat);
 		map.fitBounds(
 			[
 				[Math.min(...lons), Math.min(...lats)],
 				[Math.max(...lons), Math.max(...lats)]
 			],
-			{ padding: 72, maxZoom: 11.8, duration: 1400, pitch: 50 }
+			{ padding: 80, maxZoom: 11.2, duration: 1400, pitch: 48, essential: true }
 		);
+	}
+
+	/** If no contacts are in the current viewport, frame airborne traffic once. */
+	export function revealFlightsIfNeeded(list: Flight[] = flights) {
+		if (!map || !styleReady || list.length === 0 || !intelLayers.flights) return false;
+		const bounds = map.getBounds();
+		const inView = list.some(
+			(f) =>
+				!f.onGround &&
+				bounds.contains([f.lon, f.lat])
+		);
+		if (inView) return false;
+		fitFlights(list);
+		return true;
 	}
 </script>
 
