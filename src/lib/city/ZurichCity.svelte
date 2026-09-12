@@ -685,11 +685,11 @@
 			}
 			const dt = Math.min(0.05, Math.max(0.008, (ts - lastTrafficTs) / 1000));
 			lastTrafficTs = ts;
-			trafficPulsePhase = (trafficPulsePhase + dt * 9) % 10;
+			trafficPulsePhase = (trafficPulsePhase + dt * 16) % 10;
 			if (map.getLayer('traffic-pulse')) {
 				const gapLead = Math.max(0.05, trafficPulsePhase);
-				const dash = 1.6;
-				const gapTrail = Math.max(0.05, 8.4 - trafficPulsePhase);
+				const dash = 2.4;
+				const gapTrail = Math.max(0.05, 7.6 - trafficPulsePhase);
 				try {
 					map.setPaintProperty('traffic-pulse', 'line-dasharray', [
 						gapLead,

@@ -193,19 +193,19 @@ export function zurichAerialStyle(): StyleSpecification {
 						'#ffe0a0',
 						'#ffb0b0'
 					],
-					'line-opacity': 0.88,
+					'line-opacity': 0.95,
 					'line-width': [
 						'interpolate',
 						['linear'],
 						['zoom'],
 						CITY_MIN_ZOOM,
-						1.1,
+						1.6,
 						15,
-						2.6,
+						3.4,
 						CITY_MAX_ZOOM,
-						4.2
+						5.5
 					],
-					'line-dasharray': [0.5, 2.5, 1.5, 5]
+					'line-dasharray': [0.4, 2.2, 2.2, 4.5]
 				}
 			},
 			{
