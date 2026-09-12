@@ -917,6 +917,56 @@ export const FALLBACK_PLACES: Place[] = [
 		subtitle: 'Perfumery under the main station',
 		openingHours: 'Mo-Su 09:00-20:00',
 		tags: ['perfumery']
+	}),
+	place({
+		id: 'douglas_bahnhof',
+		name: 'Douglas Bahnhofstrasse',
+		category: 'beauty',
+		lat: 47.3754,
+		lon: 8.5387,
+		subtitle: 'Beauty retailer on Bahnhofstrasse',
+		openingHours: 'Mo-Fr 09:00-20:00; Sa 09:00-18:00',
+		tags: ['cosmetics']
+	}),
+	place({
+		id: 'nails_bellevue',
+		name: 'Nail Bar Bellevue',
+		category: 'beauty',
+		lat: 47.3672,
+		lon: 8.5454,
+		subtitle: 'Nail salon near Bellevue',
+		openingHours: 'Mo-Sa 10:00-19:00',
+		tags: ['nails']
+	}),
+	place({
+		id: 'coiffure_niederdorf',
+		name: 'Coiffure Niederdorf',
+		category: 'beauty',
+		lat: 47.3732,
+		lon: 8.5448,
+		subtitle: 'Hair salon in the old town',
+		openingHours: 'Tu-Fr 09:00-18:30; Sa 09:00-16:00',
+		tags: ['hairdresser']
+	}),
+	place({
+		id: 'lash_studio_west',
+		name: 'Lash & Brow Studio West',
+		category: 'beauty',
+		lat: 47.3878,
+		lon: 8.5206,
+		subtitle: 'Beauty treatments in Zürich West',
+		openingHours: 'Tu-Fr 10:00-19:00; Sa 10:00-17:00',
+		tags: ['beauty', 'lashes']
+	}),
+	place({
+		id: 'barber_langstrasse',
+		name: 'Barber Langstrasse',
+		category: 'beauty',
+		lat: 47.3794,
+		lon: 8.5294,
+		subtitle: 'Barbershop on Langstrasse',
+		openingHours: 'Mo-Sa 10:00-20:00',
+		tags: ['hairdresser']
 	})
 ];
 

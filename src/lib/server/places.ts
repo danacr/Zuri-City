@@ -44,11 +44,19 @@ out body 550;
 	`
 [out:json][timeout:18];
 (
-  node["shop"](${AROUND_NEAR});
   node["shop"~"hairdresser|beauty|nails|massage|cosmetics|perfumery|tattoo|piercing"](${AROUND_NEAR});
-  node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water|beauty_salon"](${AROUND_NEAR});
+  node["craft"="hairdresser"](${AROUND_NEAR});
+  node["beauty"](${AROUND_NEAR});
+  node["amenity"="beauty_salon"](${AROUND_NEAR});
+);
+out body 400;
+`.trim(),
+	`
+[out:json][timeout:18];
+(
+  node["shop"~"clothes|shoes|books|jewelry|gift|electronics|fashion_accessories|department_store|mall|bicycle|sports|florist|furniture|optician|mobile_phone|computer|toys|music|convenience|supermarket|chemist|kiosk|greengrocer|butcher|dairy"](${AROUND_NEAR});
+  node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water"](${AROUND_NEAR});
   node["amenity"="marketplace"](${AROUND_NEAR});
-  node["shop"~"supermarket|convenience|chemist|kiosk|greengrocer|butcher|dairy"](${AROUND_NEAR});
 );
 out body 550;
 `.trim(),
@@ -84,7 +92,9 @@ function categorize(tags: Record<string, string>): PlaceCategory | null {
 		['hairdresser', 'beauty', 'nails', 'massage', 'cosmetics', 'perfumery', 'tattoo', 'piercing'].includes(
 			shop
 		) ||
-		amenity === 'beauty_salon'
+		amenity === 'beauty_salon' ||
+		tags.craft === 'hairdresser' ||
+		Boolean(tags.beauty)
 	) {
 		return 'beauty';
 	}
@@ -150,6 +160,9 @@ function subtitleFor(tags: Record<string, string>, category: PlaceCategory): str
 		return (tags.leisure || tags.amenity || 'Wellness').replaceAll('_', ' ');
 	}
 	if (category === 'beauty') {
+		if (tags.beauty) return tags.beauty.replaceAll(';', ', ').replaceAll('_', ' ');
+		if (tags.shop === 'hairdresser' || tags.craft === 'hairdresser') return 'Hair salon';
+		if (tags.shop === 'nails') return 'Nail salon';
 		return (tags.shop || tags.amenity || 'Beauty').replaceAll('_', ' ');
 	}
 	if (category === 'stay') {
