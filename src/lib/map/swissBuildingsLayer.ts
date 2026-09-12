@@ -60,21 +60,90 @@ const FALLBACK_GL_ATTRIBUTES: WebGLContextAttributes = {
 	failIfMajorPerformanceCaveat: false
 };
 
-/** Three r186 crashes if the shared MapLibre context reports null attributes. */
+/**
+ * Three r186 does `context.getContextAttributes().alpha` and crashes when MapLibre
+ * hands over a shared context that still reports null attributes.
+ */
 function ensureContextAttributes(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+	let attrs: WebGLContextAttributes | null = null;
 	try {
-		if (gl.getContextAttributes()) return;
+		attrs = gl.getContextAttributes();
 	} catch {
-		/* fall through */
+		attrs = null;
 	}
-	const original = gl.getContextAttributes.bind(gl);
-	gl.getContextAttributes = () => {
+	if (attrs) return;
+
+	const safe = () => {
 		try {
-			return original() ?? { ...FALLBACK_GL_ATTRIBUTES };
+			return gl.getContextAttributes?.() ?? { ...FALLBACK_GL_ATTRIBUTES };
 		} catch {
 			return { ...FALLBACK_GL_ATTRIBUTES };
 		}
 	};
+
+	try {
+		Object.defineProperty(gl, 'getContextAttributes', {
+			configurable: true,
+			enumerable: true,
+			writable: true,
+			value: () => {
+				try {
+					return safe() ?? { ...FALLBACK_GL_ATTRIBUTES };
+				} catch {
+					return { ...FALLBACK_GL_ATTRIBUTES };
+				}
+			}
+		});
+	} catch {
+		try {
+			(gl as WebGLRenderingContext).getContextAttributes = () => ({
+				...FALLBACK_GL_ATTRIBUTES
+			});
+		} catch {
+			/* last resort handled by createSharedRenderer */
+		}
+	}
+}
+
+function createSharedRenderer(
+	gl: WebGLRenderingContext | WebGL2RenderingContext,
+	canvas: HTMLCanvasElement
+): THREE.WebGLRenderer {
+	ensureContextAttributes(gl);
+
+	// Three r163+ rejects WebGL1. MapLibre should provide WebGL2; bail early if not.
+	if (typeof WebGL2RenderingContext !== 'undefined' && !(gl instanceof WebGL2RenderingContext)) {
+		throw new Error('swiss buildings require WebGL2');
+	}
+
+	const attributes = gl.getContextAttributes();
+	if (!attributes) {
+		// Final shield: temporarily wrap the prototype method for this construction only.
+		const proto = Object.getPrototypeOf(gl) as WebGL2RenderingContext;
+		const original = proto.getContextAttributes;
+		proto.getContextAttributes = function patched(this: WebGL2RenderingContext) {
+			try {
+				return original.call(this) ?? { ...FALLBACK_GL_ATTRIBUTES };
+			} catch {
+				return { ...FALLBACK_GL_ATTRIBUTES };
+			}
+		};
+		try {
+			return new THREE.WebGLRenderer({
+				canvas,
+				context: gl,
+				antialias: true
+			});
+		} finally {
+			proto.getContextAttributes = original;
+		}
+	}
+
+	return new THREE.WebGLRenderer({
+		canvas,
+		context: gl,
+		antialias: true
+	});
 }
 
 export function createSwissBuildingsLayer(
@@ -213,11 +282,7 @@ export function createSwissBuildingsLayer(
 			ensureContextAttributes(gl);
 			try {
 				if (!gl.isContextLost?.() && gl.getContextAttributes()) {
-					renderer = new THREE.WebGLRenderer({
-						canvas: mapInstance.getCanvas(),
-						context: gl,
-						antialias: true
-					});
+					renderer = createSharedRenderer(gl, mapInstance.getCanvas());
 					renderer.autoClear = false;
 					initTiles();
 				}
@@ -237,11 +302,7 @@ export function createSwissBuildingsLayer(
 					return;
 				}
 				try {
-					renderer = new THREE.WebGLRenderer({
-						canvas: map.getCanvas(),
-						context: gl,
-						antialias: true
-					});
+					renderer = createSharedRenderer(gl, map.getCanvas());
 					renderer.autoClear = false;
 					initTiles();
 				} catch (error) {
