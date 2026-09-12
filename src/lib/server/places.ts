@@ -45,7 +45,8 @@ out body 550;
 [out:json][timeout:18];
 (
   node["shop"](${AROUND_NEAR});
-  node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water"](${AROUND_NEAR});
+  node["shop"~"hairdresser|beauty|nails|massage|cosmetics|perfumery|tattoo|piercing"](${AROUND_NEAR});
+  node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water|beauty_salon"](${AROUND_NEAR});
   node["amenity"="marketplace"](${AROUND_NEAR});
   node["shop"~"supermarket|convenience|chemist|kiosk|greengrocer|butcher|dairy"](${AROUND_NEAR});
 );
@@ -78,6 +79,14 @@ function categorize(tags: Record<string, string>): PlaceCategory | null {
 		['fitness_centre', 'swimming_pool', 'sauna', 'sports_centre', 'beach_resort'].includes(leisure)
 	) {
 		return 'wellness';
+	}
+	if (
+		['hairdresser', 'beauty', 'nails', 'massage', 'cosmetics', 'perfumery', 'tattoo', 'piercing'].includes(
+			shop
+		) ||
+		amenity === 'beauty_salon'
+	) {
+		return 'beauty';
 	}
 	if (['hotel', 'hostel', 'apartment', 'guest_house'].includes(tourism)) return 'stay';
 	if (
@@ -139,6 +148,9 @@ function subtitleFor(tags: Record<string, string>, category: PlaceCategory): str
 	}
 	if (category === 'wellness') {
 		return (tags.leisure || tags.amenity || 'Wellness').replaceAll('_', ' ');
+	}
+	if (category === 'beauty') {
+		return (tags.shop || tags.amenity || 'Beauty').replaceAll('_', ' ');
 	}
 	if (category === 'stay') {
 		return (tags.tourism || 'Stay').replaceAll('_', ' ');

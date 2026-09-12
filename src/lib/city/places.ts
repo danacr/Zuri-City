@@ -10,6 +10,7 @@ export type PlaceCategory =
 	| 'shop'
 	| 'daily'
 	| 'wellness'
+	| 'beauty'
 	| 'stay';
 
 export type Place = {
@@ -35,6 +36,7 @@ export const PLACE_CATEGORIES: PlaceCategory[] = [
 	'shop',
 	'daily',
 	'wellness',
+	'beauty',
 	'stay'
 ];
 
@@ -48,6 +50,7 @@ export const CATEGORY_LABEL: Record<PlaceCategory, string> = {
 	shop: 'Shops',
 	daily: 'Essentials',
 	wellness: 'Wellness',
+	beauty: 'Beauty',
 	stay: 'Stay'
 };
 
@@ -61,6 +64,7 @@ export const CATEGORY_COLOR: Record<PlaceCategory, string> = {
 	shop: '#1971c2',
 	daily: '#0c8599',
 	wellness: '#0ca678',
+	beauty: '#e64980',
 	stay: '#7048e8'
 };
 
@@ -863,6 +867,56 @@ export const FALLBACK_PLACES: Place[] = [
 		subtitle: 'East-shore lake bath with lawns',
 		openingHours: 'Mo-Su 09:00-20:00',
 		tags: ['badi', 'lake']
+	}),
+	place({
+		id: 'coiffure_paradeplatz',
+		name: 'Coiffure Christa',
+		category: 'beauty',
+		lat: 47.3704,
+		lon: 8.5398,
+		subtitle: 'Hair salon near Paradeplatz',
+		openingHours: 'Tu-Fr 09:00-18:30; Sa 09:00-16:00',
+		tags: ['hairdresser']
+	}),
+	place({
+		id: 'nails_niederdorf',
+		name: 'Nails Niederdorf',
+		category: 'beauty',
+		lat: 47.3728,
+		lon: 8.5442,
+		subtitle: 'Nail studio in the old town lanes',
+		openingHours: 'Mo-Sa 10:00-19:00',
+		tags: ['nails']
+	}),
+	place({
+		id: 'beauty_bahnhofstrasse',
+		name: 'The Body Shop Bahnhofstrasse',
+		category: 'beauty',
+		lat: 47.3738,
+		lon: 8.5389,
+		subtitle: 'Beauty and bodycare on Bahnhofstrasse',
+		openingHours: 'Mo-Fr 09:00-20:00; Sa 09:00-18:00',
+		tags: ['cosmetics']
+	}),
+	place({
+		id: 'spa_beauty_west',
+		name: 'Beauty Spa Zürich West',
+		category: 'beauty',
+		lat: 47.3886,
+		lon: 8.5198,
+		subtitle: 'Treatments and salon in Zürich West',
+		openingHours: 'Tu-Fr 10:00-19:00; Sa 10:00-17:00',
+		tags: ['beauty', 'spa']
+	}),
+	place({
+		id: 'marionnaud_hb',
+		name: 'Marionnaud ShopVille',
+		category: 'beauty',
+		lat: 47.3777,
+		lon: 8.5402,
+		subtitle: 'Perfumery under the main station',
+		openingHours: 'Mo-Su 09:00-20:00',
+		tags: ['perfumery']
 	})
 ];
 
