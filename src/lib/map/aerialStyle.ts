@@ -44,42 +44,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				source: 'aerial',
 				paint: { 'raster-opacity': 1, 'raster-saturation': -0.02, 'raster-contrast': 0.06 }
 			},
-			// Major roads only — faint guides. Dense city streets come from aerial
-			// imagery so OSM vectors don't sit "out of place" on Zürich blocks.
-			{
-				id: 'road-case',
-				type: 'line',
-				source: 'openmaptiles',
-				'source-layer': 'transportation',
-				minzoom: 11,
-				filter: [
-					'all',
-					['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary']]]
-				],
-				paint: {
-					'line-color': '#0b1724',
-					'line-opacity': 0.12,
-					'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.8, 14, 2.5, 17, 5]
-				},
-				layout: { 'line-cap': 'round', 'line-join': 'round' }
-			},
-			{
-				id: 'road-fill',
-				type: 'line',
-				source: 'openmaptiles',
-				'source-layer': 'transportation',
-				minzoom: 11,
-				filter: [
-					'all',
-					['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary']]]
-				],
-				paint: {
-					'line-color': '#f4f0e6',
-					'line-opacity': 0.14,
-					'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.4, 14, 1.4, 17, 3]
-				},
-				layout: { 'line-cap': 'round', 'line-join': 'round' }
-			},
+			// No OSM road casings on the aerial — Zürich city streets read from
+			// imagery. Vector road lines were drifting off Esri tiles in-town.
 			{
 				id: 'zurich-3d-buildings',
 				type: 'fill-extrusion',
