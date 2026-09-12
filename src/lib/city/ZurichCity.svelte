@@ -34,17 +34,10 @@
 		CITY_MAX_ZOOM,
 		CITY_MIN_ZOOM,
 		ORBIT_CAMERA,
-		TRAFFIC_TRACER_COUNT,
 		WALK_CAMERA
 	} from '$lib/map/swissSources';
 	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
 	import { SWISS_BUILDINGS_LAYER_ID, createSwissBuildingsLayer } from '$lib/map/swissBuildingsLayer';
-	import {
-		advanceTracers,
-		spawnTracersFromRoadFeatures,
-		tracersToGeoJSON,
-		type TrafficTracer
-	} from '$lib/city/trafficCars';
 	import {
 		PLACE_ICON_IDS,
 		drawPlaceIcon,
@@ -82,11 +75,10 @@
 	let keys = new Set<string>();
 	let raf = 0;
 	let walkBearing = -20;
-	let trafficTracers: TrafficTracer[] = [];
 	let terrainHandle: TerrainHandle | undefined;
 	let trafficRaf = 0;
+	let trafficPulsePhase = 0;
 	let lastTrafficTs = 0;
-	let lastTrafficReseed = 0;
 	
 	let placeIconsReady = false;
 
@@ -153,12 +145,8 @@
 	}
 	$: if (map && styleReady) {
 		syncTrafficVisibility(map, intelLayers.traffic);
-		if (intelLayers.traffic) {
-			ensureTrafficTracersLayer(map);
-			startTrafficLoop();
-		} else {
-			stopTrafficLoop();
-		}
+		if (intelLayers.traffic) startTrafficPulse();
+		else stopTrafficPulse();
 	}
 	let lastAppliedMode: 'orbit' | 'walk' | null = null;
 	$: if (map && mode && mode !== lastAppliedMode) {
@@ -568,12 +556,11 @@
 			});
 		}
 
-		// Living streets: glowing streaks sliding on OSM centerlines.
-		ensureTrafficTracersLayer(mapInstance);
+		// Living streets: animated dashes on congested roads.
 		syncTrafficVisibility(mapInstance, intelLayers.traffic);
 		if (intelLayers.traffic) {
-			reseedTrafficTracers(true);
-			startTrafficLoop();
+			
+			startTrafficPulse();
 		}
 	}
 
@@ -676,93 +663,6 @@
 		);
 	}
 
-	function ensureTrafficTracersLayer(mapInstance: MapLibreMap) {
-		if (!mapInstance.getLayer('traffic-case') && !mapInstance.isStyleLoaded()) return;
-		if (!mapInstance.getSource('traffic-tracers')) {
-			mapInstance.addSource('traffic-tracers', {
-				type: 'geojson',
-				data: { type: 'FeatureCollection', features: [] }
-			});
-		}
-		const visibility = intelLayers.traffic ? 'visible' : 'none';
-		const widthCore: ExpressionSpecification = [
-			'interpolate',
-			['linear'],
-			['zoom'],
-			CITY_MIN_ZOOM,
-			1.6,
-			15,
-			2.4,
-			CITY_MAX_ZOOM,
-			3.4
-		];
-		const widthGlow: ExpressionSpecification = [
-			'interpolate',
-			['linear'],
-			['zoom'],
-			CITY_MIN_ZOOM,
-			4.5,
-			15,
-			7,
-			CITY_MAX_ZOOM,
-			10
-		];
-		if (!mapInstance.getLayer('traffic-tracers-glow')) {
-			mapInstance.addLayer({
-				id: 'traffic-tracers-glow',
-				type: 'line',
-				source: 'traffic-tracers',
-				minzoom: CITY_MIN_ZOOM,
-				maxzoom: CITY_MAX_ZOOM + 1,
-				layout: {
-					'line-cap': 'round',
-					'line-join': 'round',
-					visibility
-				},
-				paint: {
-					'line-color': ['coalesce', ['get', 'color'], '#3dd68c'],
-					'line-width': widthGlow,
-					'line-opacity': 0.28,
-					'line-blur': 1.1
-				}
-			});
-		}
-		if (!mapInstance.getLayer('traffic-tracers')) {
-			mapInstance.addLayer({
-				id: 'traffic-tracers',
-				type: 'line',
-				source: 'traffic-tracers',
-				minzoom: CITY_MIN_ZOOM,
-				maxzoom: CITY_MAX_ZOOM + 1,
-				layout: {
-					'line-cap': 'round',
-					'line-join': 'round',
-					visibility
-				},
-				paint: {
-					'line-color': ['coalesce', ['get', 'color'], '#3dd68c'],
-					'line-width': widthCore,
-					'line-opacity': 0.92
-				}
-			});
-		} else {
-			mapInstance.setPaintProperty('traffic-tracers', 'line-width', widthCore);
-			if (mapInstance.getLayer('traffic-tracers-glow')) {
-				mapInstance.setPaintProperty('traffic-tracers-glow', 'line-width', widthGlow);
-			}
-		}
-		// Keep streaks above roads / buildings when those remount.
-		for (const id of ['traffic-tracers-glow', 'traffic-tracers'] as const) {
-			if (mapInstance.getLayer(id)) {
-				try {
-					mapInstance.moveLayer(id);
-				} catch {
-					/* style mid-reload */
-				}
-			}
-		}
-	}
-
 	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
 		const visibility = on ? 'visible' : 'none';
 		for (const id of TRAFFIC_STYLE_LAYERS) {
@@ -772,116 +672,43 @@
 		}
 	}
 
-	function pushTracersToMap() {
-		if (!map?.getSource('traffic-tracers')) return;
-		(map.getSource('traffic-tracers') as GeoJSONSource).setData(tracersToGeoJSON(trafficTracers));
-	}
-
-	const ROAD_QUERY_LAYERS = ['traffic-roads-query', 'traffic-flow', 'traffic-case'] as const;
-
-	function featureHasLine(feature: GeoJSON.Feature): boolean {
-		const g = feature.geometry;
-		if (!g) return false;
-		if (g.type === 'LineString') return g.coordinates.length >= 2;
-		if (g.type === 'MultiLineString') return g.coordinates.some((line) => line.length >= 2);
-		return false;
-	}
-
-	function queryRoadFeatures(): GeoJSON.Feature[] {
-		if (!map) return [];
-		const fromSource = (): GeoJSON.Feature[] => {
-			const m = map;
-			if (!m) return [];
-			try {
-				return (
-					m.querySourceFeatures('openmaptiles', {
-						sourceLayer: 'transportation',
-						filter: [
-							'all',
-							['==', ['geometry-type'], 'LineString'],
-							[
-								'in',
-								['get', 'class'],
-								['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-							]
-						]
-					}) as GeoJSON.Feature[]
-				).filter(featureHasLine);
-			} catch {
-				return [];
-			}
-		};
-
-		// Prefer source geometries — rendered features sometimes omit coordinates.
-		const sourced = fromSource();
-		if (sourced.length >= 6) return sourced;
-
-		const liveLayers = ROAD_QUERY_LAYERS.filter((id) => map?.getLayer(id));
-		if (liveLayers.length) {
-			try {
-				const rendered = (
-					map.queryRenderedFeatures({
-						layers: [...liveLayers]
-					}) as GeoJSON.Feature[]
-				).filter(featureHasLine);
-				if (rendered.length) return rendered;
-			} catch {
-				/* ignore */
-			}
-		}
-		return sourced;
-	}
-
-	function reseedTrafficTracers(force = false) {
-		if (!map || !intelLayers.traffic) return;
-		ensureTrafficTracersLayer(map);
-		if (!map.getSource('traffic-tracers')) return;
-		const now = performance.now();
-		if (!force && now - lastTrafficReseed < 2600) return;
-		lastTrafficReseed = now;
-
-		const features = queryRoadFeatures();
-		const next = spawnTracersFromRoadFeatures(features, {
-			maxTracers: TRAFFIC_TRACER_COUNT
-		});
-		// Keep the previous fleet if tiles are still empty — avoid wiping cars mid-drive.
-		if (next.length === 0 && trafficTracers.length > 0) return;
-		trafficTracers = next;
-		pushTracersToMap();
-	}
-
-	function startTrafficLoop() {
+	/** March light dashes along traffic-colored roads (no sprites / models). */
+	function startTrafficPulse() {
 		if (trafficRaf || typeof requestAnimationFrame !== 'function') return;
 		lastTrafficTs = performance.now();
-		if (trafficTracers.length === 0) reseedTrafficTracers(true);
 		const tick = (ts: number) => {
 			trafficRaf = 0;
-			if (!map || !intelLayers.traffic || disposed) return;
-			const dt = Math.min(0.05, Math.max(0.012, (ts - lastTrafficTs) / 1000));
+			if (disposed) return;
+			if (!map || !intelLayers.traffic) {
+				trafficRaf = requestAnimationFrame(tick);
+				return;
+			}
+			const dt = Math.min(0.05, Math.max(0.008, (ts - lastTrafficTs) / 1000));
 			lastTrafficTs = ts;
-			if (trafficTracers.length === 0) {
-				// Tiles often arrive after first paint — keep trying until the fleet appears.
-				reseedTrafficTracers(false);
-			} else {
-				trafficTracers = advanceTracers(trafficTracers, dt);
-				pushTracersToMap();
+			trafficPulsePhase = (trafficPulsePhase + dt * 9) % 10;
+			if (map.getLayer('traffic-pulse')) {
+				const gapLead = Math.max(0.05, trafficPulsePhase);
+				const dash = 1.6;
+				const gapTrail = Math.max(0.05, 8.4 - trafficPulsePhase);
+				try {
+					map.setPaintProperty('traffic-pulse', 'line-dasharray', [
+						gapLead,
+						dash,
+						gapTrail
+					]);
+				} catch {
+					/* style mid-reload */
+				}
 			}
 			trafficRaf = requestAnimationFrame(tick);
 		};
 		trafficRaf = requestAnimationFrame(tick);
 	}
 
-	function stopTrafficLoop() {
+	function stopTrafficPulse() {
 		if (trafficRaf) {
 			cancelAnimationFrame(trafficRaf);
 			trafficRaf = 0;
-		}
-		trafficTracers = [];
-		if (map?.getSource('traffic-tracers')) {
-			(map.getSource('traffic-tracers') as GeoJSONSource).setData({
-				type: 'FeatureCollection',
-				features: []
-			});
 		}
 	}
 
@@ -1013,11 +840,6 @@
 					styleReady = true;
 					ensureLayers(instance);
 				});
-				const onViewportSettle = () => {
-					if (intelLayers.traffic) reseedTrafficTracers(false);
-				};
-				instance.on('moveend', onViewportSettle);
-				instance.on('zoomend', onViewportSettle);
 				for (const layer of [
 					'places-core',
 					'places-glow',
@@ -1077,7 +899,7 @@
 
 	onDestroy(() => {
 		disposed = true;
-		stopTrafficLoop();
+		stopTrafficPulse();
 		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
 		userMarker?.remove();
 		terrainHandle?.unregister?.();

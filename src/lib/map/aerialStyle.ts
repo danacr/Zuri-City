@@ -141,6 +141,74 @@ export function zurichAerialStyle(): StyleSpecification {
 				}
 			},
 			{
+				/** Moving light dashes — dasharray is animated from ZurichCity. */
+				id: 'traffic-pulse',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				minzoom: CITY_MIN_ZOOM,
+				maxzoom: CITY_MAX_ZOOM + 1,
+				filter: [
+					'all',
+					[
+						'in',
+						['get', 'class'],
+						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+					],
+					['!=', ['get', 'brunnel'], 'tunnel']
+				],
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility: 'visible'
+				},
+				paint: {
+					'line-color': [
+						'match',
+						[
+							'%',
+							[
+								'+',
+								[
+									'match',
+									['get', 'class'],
+									'motorway',
+									0,
+									'trunk',
+									1,
+									'primary',
+									2,
+									'secondary',
+									3,
+									1
+								],
+								['length', ['coalesce', ['get', 'ref'], '']],
+								['length', ['coalesce', ['get', 'name'], ['get', 'name:en'], 'rd']]
+							],
+							3
+						],
+						0,
+						'#b8ffd0',
+						1,
+						'#ffe0a0',
+						'#ffb0b0'
+					],
+					'line-opacity': 0.88,
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						CITY_MIN_ZOOM,
+						1.1,
+						15,
+						2.6,
+						CITY_MAX_ZOOM,
+						4.2
+					],
+					'line-dasharray': [0.5, 2.5, 1.5, 5]
+				}
+			},
+			{
 				id: 'traffic-roads-query',
 				type: 'line',
 				source: 'openmaptiles',
@@ -224,7 +292,6 @@ export function zurichAerialStyle(): StyleSpecification {
 export const TRAFFIC_STYLE_LAYERS = [
 	'traffic-case',
 	'traffic-flow',
-	'traffic-roads-query',
-	'traffic-tracers-glow',
-	'traffic-tracers'
+	'traffic-pulse',
+	'traffic-roads-query'
 ] as const;
