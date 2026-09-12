@@ -3,11 +3,13 @@ import Parser from 'rss-parser';
 import { parseParking, type Parking } from '$lib/parking';
 import { enrichParkings } from '$lib/server/parking-details';
 import { loadCityPlaces } from '$lib/server/places';
+import { loadIntelSnapshot } from '$lib/server/intel';
 
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
 
 	const placesPromise = loadCityPlaces(fetch);
+	const intelPromise = loadIntelSnapshot(fetch);
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), 10000);
@@ -29,13 +31,14 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		clearTimeout(timer);
 	}
 
-	const city = await placesPromise;
+	const [city, intel] = await Promise.all([placesPromise, intelPromise]);
 	return {
 		parkings,
 		refreshedAt,
 		error: parkingError,
 		places: city.places,
 		placesSource: city.source,
-		placesError: city.error
+		placesError: city.error,
+		intel
 	};
 };

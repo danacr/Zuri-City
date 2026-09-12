@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import type { Map as MapLibreMap, GeoJSONSource, Marker } from 'maplibre-gl';
+	import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 	import {
 		CATEGORY_COLOR,
 		ZURICH_CENTER,
@@ -9,16 +9,35 @@
 		type PlaceCategory
 	} from './places';
 	import { availability, parkingTone, spotCount, type Parking } from '$lib/parking';
+	import {
+		cameraViewshedsGeoJSON,
+		camerasToGeoJSON,
+		flightsToGeoJSON,
+		quakesToGeoJSON,
+		trafficToGeoJSON
+	} from '$lib/intel/geo';
+	import type { Camera, Flight, IntelLayer, Quake, TrafficSegment } from '$lib/intel/types';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
 	export let layers: Record<PlaceCategory | 'parking', boolean>;
+	export let intelLayers: Record<IntelLayer, boolean> = {
+		flights: true,
+		cameras: true,
+		traffic: true,
+		quakes: false,
+		detection: true
+	};
+	export let flights: Flight[] = [];
+	export let cameras: Camera[] = [];
+	export let traffic: TrafficSegment[] = [];
+	export let quakes: Quake[] = [];
 	export let mode: 'orbit' | 'walk' = 'orbit';
 	export let selectedId: string | null = null;
 	export let userPosition: [number, number] | null = null;
 
 	const dispatch = createEventDispatcher<{
-		select: { id: string; kind: 'place' | 'parking' };
+		select: { id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' };
 		ready: void;
 	}>();
 
@@ -35,6 +54,10 @@
 	$: visibleParkings = layers.parking
 		? parkings.filter((parking) => parking.coordinates !== null)
 		: [];
+	$: visibleFlights = intelLayers.flights ? flights : [];
+	$: visibleCameras = intelLayers.cameras ? cameras : [];
+	$: visibleTraffic = intelLayers.traffic ? traffic : [];
+	$: visibleQuakes = intelLayers.quakes ? quakes : [];
 
 	$: if (map?.getSource('places')) {
 		(map.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
@@ -59,7 +82,27 @@
 			}))
 		});
 	}
-
+	$: if (map?.getSource('flights')) {
+		(map.getSource('flights') as GeoJSONSource).setData(flightsToGeoJSON(visibleFlights));
+	}
+	$: if (map?.getSource('cameras')) {
+		(map.getSource('cameras') as GeoJSONSource).setData(camerasToGeoJSON(visibleCameras));
+	}
+	$: if (map?.getSource('viewsheds')) {
+		(map.getSource('viewsheds') as GeoJSONSource).setData(cameraViewshedsGeoJSON(visibleCameras));
+	}
+	$: if (map?.getSource('traffic')) {
+		(map.getSource('traffic') as GeoJSONSource).setData(trafficToGeoJSON(visibleTraffic));
+	}
+	$: if (map?.getSource('quakes')) {
+		(map.getSource('quakes') as GeoJSONSource).setData(quakesToGeoJSON(visibleQuakes));
+	}
+	$: if (map) {
+		const opacity = intelLayers.detection ? 0.95 : 0;
+		if (map.getLayer('detection-flights')) {
+			map.setPaintProperty('detection-flights', 'circle-stroke-opacity', opacity);
+		}
+	}
 	$: if (map && mode) applyMode(mode, false);
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
@@ -93,6 +136,28 @@
 				zoom: Math.max(map.getZoom(), 16),
 				duration: 900
 			});
+			return;
+		}
+		const flight = flights.find((item) => item.id === id);
+		if (flight) {
+			map.easeTo({
+				center: [flight.lon, flight.lat],
+				zoom: 12.5,
+				pitch: 55,
+				bearing: flight.heading ?? map.getBearing(),
+				duration: 1200
+			});
+			return;
+		}
+		const camera = cameras.find((item) => item.id === id);
+		if (camera) {
+			map.easeTo({
+				center: [camera.lon, camera.lat],
+				zoom: 16.8,
+				pitch: 65,
+				bearing: camera.bearing,
+				duration: 1000
+			});
 		}
 	}
 
@@ -111,10 +176,7 @@
 
 	function ensureLayers(mapInstance: MapLibreMap) {
 		if (!mapInstance.getSource('places')) {
-			mapInstance.addSource('places', {
-				type: 'geojson',
-				data: placesToGeoJSON(visiblePlaces)
-			});
+			mapInstance.addSource('places', { type: 'geojson', data: placesToGeoJSON(visiblePlaces) });
 			mapInstance.addLayer({
 				id: 'places-glow',
 				type: 'circle',
@@ -173,7 +235,10 @@
 		}
 
 		if (!mapInstance.getSource('parking')) {
-			mapInstance.addSource('parking', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+			mapInstance.addSource('parking', {
+				type: 'geojson',
+				data: { type: 'FeatureCollection', features: [] }
+			});
 			mapInstance.addLayer({
 				id: 'parking-pill',
 				type: 'circle',
@@ -211,6 +276,141 @@
 			});
 		}
 
+		if (!mapInstance.getSource('traffic')) {
+			mapInstance.addSource('traffic', {
+				type: 'geojson',
+				data: trafficToGeoJSON(visibleTraffic)
+			});
+			mapInstance.addLayer({
+				id: 'traffic-line',
+				type: 'line',
+				source: 'traffic',
+				paint: {
+					'line-color': ['get', 'color'],
+					'line-width': 5,
+					'line-opacity': 0.85
+				},
+				layout: { 'line-cap': 'round', 'line-join': 'round' }
+			});
+		}
+
+		if (!mapInstance.getSource('viewsheds')) {
+			mapInstance.addSource('viewsheds', {
+				type: 'geojson',
+				data: cameraViewshedsGeoJSON(visibleCameras)
+			});
+			mapInstance.addLayer({
+				id: 'camera-viewsheds',
+				type: 'fill',
+				source: 'viewsheds',
+				paint: {
+					'fill-color': '#7c5cff',
+					'fill-opacity': 0.14
+				}
+			});
+		}
+
+		if (!mapInstance.getSource('cameras')) {
+			mapInstance.addSource('cameras', {
+				type: 'geojson',
+				data: camerasToGeoJSON(visibleCameras)
+			});
+			mapInstance.addLayer({
+				id: 'cameras-core',
+				type: 'circle',
+				source: 'cameras',
+				paint: {
+					'circle-radius': 7,
+					'circle-color': '#7c5cff',
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#ffffff'
+				}
+			});
+			mapInstance.addLayer({
+				id: 'cameras-label',
+				type: 'symbol',
+				source: 'cameras',
+				layout: {
+					'text-field': 'CCTV',
+					'text-size': 9,
+					'text-offset': [0, 1.3],
+					'text-font': ['Noto Sans Bold']
+				},
+				paint: {
+					'text-color': '#4c3d99',
+					'text-halo-color': '#ffffff',
+					'text-halo-width': 1.2
+				}
+			});
+		}
+
+		if (!mapInstance.getSource('flights')) {
+			mapInstance.addSource('flights', {
+				type: 'geojson',
+				data: flightsToGeoJSON(visibleFlights)
+			});
+			mapInstance.addLayer({
+				id: 'flights-core',
+				type: 'circle',
+				source: 'flights',
+				paint: {
+					'circle-radius': 6,
+					'circle-color': '#f0b429',
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#1a1303'
+				}
+			});
+			mapInstance.addLayer({
+				id: 'flights-label',
+				type: 'symbol',
+				source: 'flights',
+				layout: {
+					'text-field': ['get', 'callsign'],
+					'text-size': 10,
+					'text-offset': [0, 1.25],
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': false
+				},
+				paint: {
+					'text-color': '#7a5a00',
+					'text-halo-color': '#fff8e1',
+					'text-halo-width': 1.2
+				}
+			});
+			mapInstance.addLayer({
+				id: 'detection-flights',
+				type: 'circle',
+				source: 'flights',
+				paint: {
+					'circle-radius': 14,
+					'circle-color': '#3dd68c',
+					'circle-opacity': 0,
+					'circle-stroke-width': 1.5,
+					'circle-stroke-color': '#3dd68c',
+					'circle-stroke-opacity': intelLayers.detection ? 0.95 : 0
+				}
+			});
+		}
+
+		if (!mapInstance.getSource('quakes')) {
+			mapInstance.addSource('quakes', {
+				type: 'geojson',
+				data: quakesToGeoJSON(visibleQuakes)
+			});
+			mapInstance.addLayer({
+				id: 'quakes-core',
+				type: 'circle',
+				source: 'quakes',
+				paint: {
+					'circle-radius': ['get', 'radius'],
+					'circle-color': '#e03131',
+					'circle-opacity': 0.35,
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#ff8787'
+				}
+			});
+		}
+
 		if (!mapInstance.getLayer('zurich-3d-buildings') && mapInstance.getSource('openmaptiles')) {
 			mapInstance.addLayer({
 				id: 'zurich-3d-buildings',
@@ -226,8 +426,6 @@
 						['get', 'render_height'],
 						0,
 						'#d9e2ec',
-						40,
-						'#b7c7d6',
 						80,
 						'#8fa3b8',
 						140,
@@ -254,17 +452,21 @@
 		}
 	}
 
+	function kindFromLayer(layerId: string) {
+		if (layerId.startsWith('parking')) return 'parking' as const;
+		if (layerId.startsWith('flights') || layerId === 'detection-flights') return 'flight' as const;
+		if (layerId.startsWith('cameras') || layerId === 'detection-cameras') return 'camera' as const;
+		if (layerId.startsWith('quakes')) return 'quake' as const;
+		return 'place' as const;
+	}
+
 	function onClick(event: {
 		features?: { properties?: Record<string, unknown>; layer?: { id?: string } }[];
 	}) {
 		const feature = event.features?.[0];
 		const id = feature?.properties?.id;
 		if (id == null) return;
-		const layerId = feature?.layer?.id || '';
-		dispatch('select', {
-			id: String(id),
-			kind: layerId.startsWith('parking') ? 'parking' : 'place'
-		});
+		dispatch('select', { id: String(id), kind: kindFromLayer(feature?.layer?.id || '') });
 	}
 
 	function stepWalk() {
@@ -344,24 +546,23 @@
 					applyMode(mode, false);
 					dispatch('ready');
 				});
-				instance.on('style.load', () => {
-					ensureLayers(instance);
-				});
-				instance.on('click', 'places-core', onClick);
-				instance.on('click', 'places-glow', onClick);
-				instance.on('click', 'parking-pill', onClick);
-				instance.on('mouseenter', 'places-core', () => {
-					instance.getCanvas().style.cursor = 'pointer';
-				});
-				instance.on('mouseleave', 'places-core', () => {
-					instance.getCanvas().style.cursor = '';
-				});
-				instance.on('mouseenter', 'parking-pill', () => {
-					instance.getCanvas().style.cursor = 'pointer';
-				});
-				instance.on('mouseleave', 'parking-pill', () => {
-					instance.getCanvas().style.cursor = '';
-				});
+				instance.on('style.load', () => ensureLayers(instance));
+				for (const layer of [
+					'places-core',
+					'places-glow',
+					'parking-pill',
+					'flights-core',
+					'cameras-core',
+					'quakes-core'
+				]) {
+					instance.on('click', layer, onClick);
+					instance.on('mouseenter', layer, () => {
+						instance.getCanvas().style.cursor = 'pointer';
+					});
+					instance.on('mouseleave', layer, () => {
+						instance.getCanvas().style.cursor = '';
+					});
+				}
 				resizeObserver = new ResizeObserver(() => instance.resize());
 				resizeObserver.observe(container);
 				raf = requestAnimationFrame(stepWalk);
@@ -373,9 +574,19 @@
 		const down = (event: KeyboardEvent) => {
 			const key = event.key.toLowerCase();
 			if (
-				['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(
-					key
-				)
+				[
+					'w',
+					'a',
+					's',
+					'd',
+					'q',
+					'e',
+					'arrowup',
+					'arrowdown',
+					'arrowleft',
+					'arrowright',
+					'shift'
+				].includes(key)
 			) {
 				keys.add(key);
 				if (mode === 'walk') event.preventDefault();
@@ -404,14 +615,34 @@
 	}
 
 	export function flyTo(lon: number, lat: number, zoom = 16.8) {
-		map?.easeTo({ center: [lon, lat], zoom, pitch: mode === 'walk' ? 72 : 60, duration: 1000 });
+		map?.easeTo({
+			center: [lon, lat],
+			zoom,
+			pitch: mode === 'walk' ? 72 : 60,
+			duration: 1000
+		});
+	}
+
+	export function trackFlight(flight: Flight) {
+		map?.easeTo({
+			center: [flight.lon, flight.lat],
+			zoom: 12.2,
+			pitch: 60,
+			bearing: flight.heading ?? -20,
+			duration: 1400
+		});
 	}
 </script>
 
 {#if mapError}
 	<p class="map-error" role="alert">{mapError}</p>
 {/if}
-<div class="city-map" bind:this={container} role="application" aria-label="Walkable 3D map of Zürich"></div>
+<div
+	class="city-map"
+	bind:this={container}
+	role="application"
+	aria-label="Walkable 3D map of Zürich"
+></div>
 
 <style>
 	.city-map {

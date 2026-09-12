@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { title, description, structuredData } from '$lib/seo';
 	$: jsonLd = `<script type="application/ld+json">${structuredData(data.siteUrl)}<${'/'}script>`;
@@ -6,20 +7,29 @@
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import ZurichCity from '$lib/city/ZurichCity.svelte';
 	import ParkingPanel from '$lib/ParkingPanel.svelte';
-	import {
-		CATEGORY_LABEL,
-		type Place,
-		type PlaceCategory
-	} from '$lib/city/places';
+	import ContactViewer from '$lib/intel/ContactViewer.svelte';
+	import { CATEGORY_LABEL, type Place, type PlaceCategory } from '$lib/city/places';
 	import type { Parking } from '$lib/parking';
+	import {
+		INTEL_LAYER_COLOR,
+		INTEL_LAYER_LABEL,
+		SENSOR_LOOKS,
+		type Camera,
+		type Flight,
+		type IntelLayer,
+		type SensorLook,
+		type TrafficSegment,
+		type Quake
+	} from '$lib/intel/types';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
 	let mode: 'orbit' | 'walk' = 'orbit';
 	let parkingOpen = false;
-	let selected: Place | Parking | null = null;
-	let selectedKind: 'place' | 'parking' | null = null;
+	let layersOpen = false;
+	let selected: Place | Parking | Flight | Camera | null = null;
+	let selectedKind: 'place' | 'parking' | 'flight' | 'camera' | null = null;
 	let city: ZurichCity;
 	let position: [number, number] | null = null;
 	let locating = false;
@@ -31,15 +41,61 @@
 		shop: true,
 		parking: false
 	};
-	let hudVisible = true;
-	const layerKeys: PlaceCategory[] = ['attraction', 'restaurant', 'shop'];
+	let intelLayers: Record<IntelLayer, boolean> = {
+		flights: true,
+		cameras: true,
+		traffic: true,
+		quakes: false,
+		detection: true
+	};
+	let sensorLook: SensorLook = 'normal';
+	let flights: Flight[] = data.intel?.flights ?? [];
+	let cameras: Camera[] = data.intel?.cameras ?? [];
+	let traffic: TrafficSegment[] = data.intel?.traffic ?? [];
+	let quakes: Quake[] = data.intel?.quakes ?? [];
+	let intelNotes: string[] = data.intel?.notes ?? [];
+	let pollTimer: ReturnType<typeof setInterval> | undefined;
+	const placeKeys: PlaceCategory[] = ['attraction', 'restaurant', 'shop'];
+	const intelKeys: IntelLayer[] = ['flights', 'cameras', 'traffic', 'quakes', 'detection'];
 
 	$: counts = {
 		attraction: data.places.filter((p) => p.category === 'attraction').length,
 		restaurant: data.places.filter((p) => p.category === 'restaurant').length,
 		shop: data.places.filter((p) => p.category === 'shop').length,
-		parking: data.parkings.length
+		parking: data.parkings.length,
+		flights: flights.length,
+		cameras: cameras.length,
+		traffic: traffic.length,
+		quakes: quakes.length
 	};
+
+	onMount(() => {
+		pollTimer = setInterval(() => {
+			void refreshIntel();
+		}, 20000);
+		return () => {
+			if (pollTimer) clearInterval(pollTimer);
+		};
+	});
+
+	onDestroy(() => {
+		if (pollTimer) clearInterval(pollTimer);
+	});
+
+	async function refreshIntel() {
+		try {
+			const response = await fetch('/api/intel');
+			if (!response.ok) return;
+			const payload = await response.json();
+			if (payload.flights) flights = payload.flights;
+			if (payload.traffic) traffic = payload.traffic;
+			if (payload.quakes) quakes = payload.quakes;
+			if (payload.cameras) cameras = payload.cameras;
+			if (payload.notes) intelNotes = payload.notes;
+		} catch {
+			/* Keep last good snapshot. */
+		}
+	}
 
 	function home(event: MouseEvent) {
 		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
@@ -48,38 +104,66 @@
 		selected = null;
 		selectedKind = null;
 		setParkingOpen(false);
+		layersOpen = false;
 		mode = 'orbit';
 		city?.flyHome();
-	}
-
-	function toggleParking() {
-		setParkingOpen(!parkingOpen);
 	}
 
 	function setParkingOpen(value: boolean) {
 		parkingOpen = value;
 		layers = { ...layers, parking: value };
+		if (value) layersOpen = false;
 		if (!value && selectedKind === 'parking') {
 			selected = null;
 			selectedKind = null;
 		}
 	}
 
-	function toggleLayer(key: PlaceCategory) {
+	function toggleParking() {
+		setParkingOpen(!parkingOpen);
+	}
+
+	function togglePlaceLayer(key: PlaceCategory) {
 		layers = { ...layers, [key]: !layers[key] };
 	}
 
-	function onSelect(event: CustomEvent<{ id: string; kind: 'place' | 'parking' }>) {
+	function toggleIntelLayer(key: IntelLayer) {
+		intelLayers = { ...intelLayers, [key]: !intelLayers[key] };
+		if (key === 'cameras' && !intelLayers.cameras && selectedKind === 'camera') {
+			selected = null;
+			selectedKind = null;
+		}
+		if (key === 'flights' && !intelLayers.flights && selectedKind === 'flight') {
+			selected = null;
+			selectedKind = null;
+		}
+	}
+
+	function onSelect(
+		event: CustomEvent<{ id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' }>
+	) {
 		const { id, kind } = event.detail;
 		if (kind === 'parking') {
 			const parking = data.parkings.find((item) => (item.id || item.name) === id) || null;
 			selected = parking;
 			selectedKind = parking ? 'parking' : null;
-			if (parking) {
-				setParkingOpen(true);
-			}
+			if (parking) setParkingOpen(true);
 			return;
 		}
+		if (kind === 'flight') {
+			const flight = flights.find((item) => item.id === id) || null;
+			selected = flight;
+			selectedKind = flight ? 'flight' : null;
+			if (flight) city?.trackFlight?.(flight);
+			return;
+		}
+		if (kind === 'camera') {
+			const camera = cameras.find((item) => item.id === id) || null;
+			selected = camera;
+			selectedKind = camera ? 'camera' : null;
+			return;
+		}
+		if (kind === 'quake') return;
 		const place = data.places.find((item) => item.id === id) || null;
 		selected = place;
 		selectedKind = place ? 'place' : null;
@@ -125,12 +209,27 @@
 		);
 	}
 
-	function placeOf(value: Place | Parking | null): Place | null {
+	function placeOf(value: Place | Parking | Flight | Camera | null): Place | null {
 		return selectedKind === 'place' ? (value as Place) : null;
 	}
-	function parkingOf(value: Place | Parking | null): Parking | null {
+	function parkingOf(value: Place | Parking | Flight | Camera | null): Parking | null {
 		return selectedKind === 'parking' ? (value as Parking) : null;
 	}
+	function flightOf(value: Place | Parking | Flight | Camera | null): Flight | null {
+		return selectedKind === 'flight' ? (value as Flight) : null;
+	}
+	function cameraOf(value: Place | Parking | Flight | Camera | null): Camera | null {
+		return selectedKind === 'camera' ? (value as Camera) : null;
+	}
+
+	onMount(() => {
+		const onKey = (event: KeyboardEvent) => {
+			const match = SENSOR_LOOKS.find((look) => look.key === event.key);
+			if (match) sensorLook = match.id;
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	});
 </script>
 
 <svelte:head>
@@ -147,36 +246,43 @@
 	<meta property="og:description" content={description} />
 	<meta property="og:url" content={data.siteUrl} />
 	<meta property="og:image" content={`${data.siteUrl}android-chrome-512x512.png`} />
-	<meta property="og:image:alt" content="Züri City emblem" />
 	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:title" content={title} />
 	<meta name="twitter:description" content={description} />
-	<meta name="twitter:image" content={`${data.siteUrl}android-chrome-512x512.png`} />
 	{@html jsonLd}
 </svelte:head>
 
-<div class="shell">
-	<div class="sky" aria-hidden="true"></div>
+<div class="shell" data-sensor={sensorLook}>
+	<div class="sensor-veil" aria-hidden="true"></div>
 	<ZurichCity
 		bind:this={city}
 		places={data.places}
 		parkings={data.parkings}
 		{layers}
+		{intelLayers}
+		{flights}
+		{cameras}
+		{traffic}
+		{quakes}
 		{mode}
 		selectedId={selectedKind === 'place'
 			? placeOf(selected)?.id || null
 			: selectedKind === 'parking'
 				? parkingOf(selected)?.id || parkingOf(selected)?.name || null
-				: null}
+				: selectedKind === 'flight'
+					? flightOf(selected)?.id || null
+					: selectedKind === 'camera'
+						? cameraOf(selected)?.id || null
+						: null}
 		userPosition={position}
 		on:select={onSelect}
 	/>
 
 	<header class="topbar">
 		<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
-			<img src="/favicon.svg" alt="" width="34" height="34" />
+			<img src="/favicon.svg" alt="" width="32" height="32" />
 			<div>
-				<p class="brand-kicker">Virtual Zürich</p>
+				<p class="brand-kicker">God’s-eye Zürich</p>
 				<h1>Züri City</h1>
 			</div>
 		</a>
@@ -188,7 +294,6 @@
 				class:active={parkingOpen}
 				aria-pressed={parkingOpen}
 				aria-label={parkingOpen ? 'Hide parking feature' : 'Show parking feature'}
-				title="Toggle parking"
 				on:click={toggleParking}
 			>
 				<span class="p-badge">P</span>
@@ -197,87 +302,218 @@
 		</div>
 	</header>
 
-	{#if hudVisible}
-		<div class="hud" aria-label="City controls">
-			<section class="panel intro">
-				<p class="eyebrow">God’s-eye Zürich</p>
-				<h2>Walk the city in 3D</h2>
-				<p>
-					Orbit above the rooftops, then drop into street level. Open stores, restaurants and
-					attractions stay pinned on the map — parking is one tap away when you need it.
-				</p>
-				<div class="mode-row">
-					<button
-						class:active={mode === 'orbit'}
-						aria-pressed={mode === 'orbit'}
-						on:click={() => (mode = 'orbit')}>Orbit</button
-					>
-					<button
-						class:active={mode === 'walk'}
-						aria-pressed={mode === 'walk'}
-						on:click={() => (mode = 'walk')}>Walk</button
-					>
-					<button on:click={locate} disabled={locating}
-						>{locating ? 'Locating…' : 'Locate me'}</button
+	<!-- Desktop left briefing -->
+	<aside class="desk-hud" aria-label="City briefing">
+		<p class="eyebrow">Live recon</p>
+		<h2>Walk Zürich in 3D</h2>
+		<p>
+			Orbit the rooftops, track aircraft, flip CCTV viewsheds and drop into street level. Parking stays
+			one tap away.
+		</p>
+		<div class="mode-row">
+			<button
+				type="button"
+				class:active={mode === 'orbit'}
+				aria-pressed={mode === 'orbit'}
+				on:click={() => (mode = 'orbit')}>Orbit</button
+			>
+			<button
+				type="button"
+				class:active={mode === 'walk'}
+				aria-pressed={mode === 'walk'}
+				on:click={() => (mode = 'walk')}>Walk</button
+			>
+			<button type="button" on:click={locate} disabled={locating}
+				>{locating ? 'Locating…' : 'Locate'}</button
+			>
+		</div>
+		{#if mode === 'walk'}
+			<p class="hint">Move with WASD or arrows · Q/E turn · Shift hurry</p>
+		{/if}
+		{#if locationError}
+			<p class="notice error" role="alert">{locationError}</p>
+		{/if}
+		{#if data.placesError || intelNotes[0]}
+			<p class="notice" role="status">{data.placesError || intelNotes[0]}</p>
+		{/if}
+		<div class="sensor-row" aria-label="Sensor looks">
+			{#each SENSOR_LOOKS as look (look.id)}
+				<button
+					type="button"
+					class:active={sensorLook === look.id}
+					aria-pressed={sensorLook === look.id}
+					on:click={() => (sensorLook = look.id)}>{look.label}</button
+				>
+			{/each}
+		</div>
+	</aside>
+
+	<!-- Mobile-first bottom dock: map stays full-bleed; sheet stacks above controls -->
+	{#if locationError}
+		<p class="mobile-alert" role="alert">{locationError}</p>
+	{/if}
+	{#if !parkingOpen}
+	<div class="dock" aria-label="Map controls">
+		{#if layersOpen}
+			<div id="layer-sheet" class="layer-sheet" role="region" aria-label="Map layers">
+				<div class="sheet-head">
+					<p class="sheet-title">Layers</p>
+					<button type="button" class="sheet-close" aria-label="Close layers" on:click={() => (layersOpen = false)}
+						>Done</button
 					>
 				</div>
-				{#if mode === 'walk'}
-					<p class="hint">Move with WASD or arrows · turn with Q / E · hold Shift to hurry</p>
-				{/if}
-				{#if locationError}
-					<p class="notice error" role="alert">{locationError}</p>
-				{/if}
-				{#if data.placesError}
-					<p class="notice" role="status">{data.placesError}</p>
-				{/if}
-			</section>
-
-			<section class="panel layers" aria-label="Map layers">
-				<p class="eyebrow">Layers</p>
-				{#each layerKeys as key (key)}
+				<p class="sheet-title">Places</p>
+				<div class="chip-row">
+					{#each placeKeys as key (key)}
+						<button
+							type="button"
+							class="chip"
+							class:on={layers[key]}
+							aria-pressed={layers[key]}
+							on:click={() => togglePlaceLayer(key)}
+						>
+							<i
+								style:background={key === 'attraction'
+									? '#c45c26'
+									: key === 'restaurant'
+										? '#0f7a5a'
+										: '#1260ce'}
+							></i>
+							{CATEGORY_LABEL[key]}
+							<span>{counts[key]}</span>
+						</button>
+					{/each}
 					<button
-						class="layer"
-						class:on={layers[key]}
-						aria-pressed={layers[key]}
-						on:click={() => toggleLayer(key)}
+						type="button"
+						class="chip"
+						class:on={layers.parking}
+						aria-pressed={layers.parking}
+						on:click={toggleParking}
 					>
-						<i
-							style:background={key === 'attraction'
-								? '#c45c26'
-								: key === 'restaurant'
-									? '#0f7a5a'
-									: '#1260ce'}
-						></i>
-						<span>{CATEGORY_LABEL[key]}</span>
-						<strong>{counts[key]}</strong>
+						<i class="parking"></i>
+						Parking
+						<span>{counts.parking}</span>
 					</button>
-				{/each}
-				<button
-					class="layer"
-					class:on={layers.parking}
-					aria-pressed={layers.parking}
-					on:click={toggleParking}
-				>
-					<i class="parking"></i>
-					<span>Parking garages</span>
-					<strong>{counts.parking}</strong>
-				</button>
-			</section>
+				</div>
+				<p class="sheet-title">God’s-eye</p>
+				<div class="chip-row">
+					{#each intelKeys as key (key)}
+						<button
+							type="button"
+							class="chip"
+							class:on={intelLayers[key]}
+							aria-pressed={intelLayers[key]}
+							on:click={() => toggleIntelLayer(key)}
+						>
+							<i style:background={INTEL_LAYER_COLOR[key]}></i>
+							{INTEL_LAYER_LABEL[key]}
+							{#if key !== 'detection'}
+								<span>{counts[key] ?? ''}</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+				<p class="sheet-title">Sensors · keys 1–6</p>
+				<div class="chip-row sensors">
+					{#each SENSOR_LOOKS as look (look.id)}
+						<button
+							type="button"
+							class="chip"
+							class:on={sensorLook === look.id}
+							aria-pressed={sensorLook === look.id}
+							on:click={() => (sensorLook = look.id)}>{look.label}</button
+						>
+					{/each}
+				</div>
+			</div>
+		{/if}
+		<div class="dock-modes">
+			<button
+				type="button"
+				class:active={mode === 'orbit'}
+				aria-pressed={mode === 'orbit'}
+				on:click={() => (mode = 'orbit')}>Orbit</button
+			>
+			<button
+				type="button"
+				class:active={mode === 'walk'}
+				aria-pressed={mode === 'walk'}
+				on:click={() => (mode = 'walk')}>Walk</button
+			>
+			<button type="button" on:click={locate} disabled={locating} aria-label="Locate me"
+				>{locating ? '…' : 'Locate'}</button
+			>
+			<button
+				type="button"
+				class:active={layersOpen}
+				aria-pressed={layersOpen}
+				aria-expanded={layersOpen}
+				aria-controls="layer-sheet"
+				on:click={() => {
+					layersOpen = !layersOpen;
+					if (layersOpen) setParkingOpen(false);
+				}}>Layers</button
+			>
 		</div>
+	</div>
 	{/if}
 
-	<button
-		class="hud-toggle"
-		aria-label={hudVisible ? 'Hide city panel' : 'Show city panel'}
-		aria-pressed={hudVisible}
-		on:click={() => (hudVisible = !hudVisible)}>{hudVisible ? 'Hide UI' : 'Show UI'}</button
-	>
+	<!-- Desktop layer rail -->
+	<aside class="desk-layers" aria-label="Desktop map layers">
+		<p class="eyebrow">Layers</p>
+		{#each placeKeys as key (key)}
+			<button
+				type="button"
+				class="layer"
+				class:on={layers[key]}
+				aria-pressed={layers[key]}
+				on:click={() => togglePlaceLayer(key)}
+			>
+				<i
+					style:background={key === 'attraction'
+						? '#c45c26'
+						: key === 'restaurant'
+							? '#0f7a5a'
+							: '#1260ce'}
+				></i>
+				<span>{CATEGORY_LABEL[key]}</span>
+				<strong>{counts[key]}</strong>
+			</button>
+		{/each}
+		<button
+			type="button"
+			class="layer"
+			class:on={layers.parking}
+			aria-pressed={layers.parking}
+			on:click={toggleParking}
+		>
+			<i class="parking"></i>
+			<span>Parking</span>
+			<strong>{counts.parking}</strong>
+		</button>
+		<p class="eyebrow intel-label">God’s-eye</p>
+		{#each intelKeys as key (key)}
+			<button
+				type="button"
+				class="layer"
+				class:on={intelLayers[key]}
+				aria-pressed={intelLayers[key]}
+				on:click={() => toggleIntelLayer(key)}
+			>
+				<i style:background={INTEL_LAYER_COLOR[key]}></i>
+				<span>{INTEL_LAYER_LABEL[key]}</span>
+				<strong>{key === 'detection' ? '' : counts[key]}</strong>
+			</button>
+		{/each}
+	</aside>
 
 	{#if selected && selectedKind === 'place'}
 		{@const place = placeOf(selected)}
 		{#if place}
 			<article class="inspect" aria-label={place.name}>
-				<button class="close" aria-label="Close place" on:click={() => (selected = null)}>×</button>
+				<button type="button" class="close" aria-label="Close place" on:click={() => (selected = null)}
+					>×</button
+				>
 				<p class="eyebrow">{CATEGORY_LABEL[place.category]}</p>
 				<h3>{place.name}</h3>
 				<p>{place.subtitle}</p>
@@ -292,23 +528,14 @@
 		{/if}
 	{/if}
 
-	{#if selected && selectedKind === 'parking'}
-		{@const parking = parkingOf(selected)}
-		{#if parking}
-			<article class="inspect parking" aria-label={parking.name}>
-				<button class="close" aria-label="Close garage" on:click={() => (selected = null)}>×</button>
-				<p class="eyebrow">Parking</p>
-				<h3>{parking.name.replace(/^Parkhaus\s+/, '')}</h3>
-				<p>{parking.address || 'Address unavailable'}</p>
-				<p class="open-hint">
-					{parking.free ?? '—'} free / {parking.capacity ?? '—'} total · {parking.status || 'unknown'}
-				</p>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -->
-				<a href={parking.directions}>Directions ↗</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			</article>
-		{/if}
-	{/if}
+	<ContactViewer
+		camera={cameraOf(selected)}
+		flight={flightOf(selected)}
+		onClose={() => {
+			selected = null;
+			selectedKind = null;
+		}}
+	/>
 
 	<ParkingPanel
 		open={parkingOpen}
@@ -324,47 +551,76 @@
 	/>
 
 	<footer class="credits">
-		<span>Map © OpenStreetMap · 3D tiles OpenFreeMap · Parking PLS Zürich</span>
+		<span>OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich</span>
 		<span class="dot">·</span>
 		<InstallApp />
 		<span class="dot">·</span>
 		<a href="https://github.com/danacr/Zuri-City">GitHub</a>
-		<span class="dot">·</span>
-		<a href="https://dan.cv">dan.cv</a>
 	</footer>
 </div>
 
 <style>
 	.shell {
 		position: relative;
-		min-height: 100vh;
-		min-height: 100svh;
+		height: 100dvh;
+		height: 100svh;
 		overflow: hidden;
-		background: #0b1a2a;
+		background: #07131f;
 		color: var(--text);
 		font-family: 'Quicksand', 'Avenir Next', 'Segoe UI', sans-serif;
 	}
-	.sky {
+	.sensor-veil {
 		pointer-events: none;
 		position: absolute;
 		inset: 0;
-		z-index: 1;
-		background:
-			radial-gradient(ellipse 80% 45% at 50% -10%, #7eb6ff55, transparent 60%),
-			linear-gradient(180deg, #0b1a2a00 55%, #0b1a2a33 100%);
+		z-index: 2;
+		mix-blend-mode: color;
+		opacity: 0;
+		transition: opacity 0.35s ease;
 	}
+	.shell[data-sensor='nvg'] .sensor-veil {
+		opacity: 1;
+		background: #1cff6a55;
+		mix-blend-mode: color;
+		box-shadow: inset 0 0 80px #003311aa;
+	}
+	.shell[data-sensor='flir'] .sensor-veil {
+		opacity: 1;
+		background: linear-gradient(180deg, #ff003388, #ffaa0044 40%, #0011ff55);
+		mix-blend-mode: hard-light;
+	}
+	.shell[data-sensor='crt'] .sensor-veil {
+		opacity: 1;
+		background: repeating-linear-gradient(
+			0deg,
+			#00ff8822 0 1px,
+			transparent 1px 3px
+		);
+		mix-blend-mode: screen;
+	}
+	.shell[data-sensor='noir'] .sensor-veil {
+		opacity: 1;
+		background: #00000055;
+		mix-blend-mode: saturation;
+	}
+	.shell[data-sensor='snow'] .sensor-veil {
+		opacity: 1;
+		background: #dfefff66;
+		mix-blend-mode: soft-light;
+	}
+
 	.topbar {
 		position: absolute;
-		z-index: 20;
+		z-index: 30;
 		top: 0;
 		left: 0;
 		right: 0;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 12px;
-		padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-		background: linear-gradient(180deg, #0b1a2acc, transparent);
+		gap: 10px;
+		padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+		background: linear-gradient(180deg, #07131fdd, transparent);
 		pointer-events: none;
 	}
 	.topbar > * {
@@ -373,20 +629,20 @@
 	.brand {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 8px;
 		text-decoration: none;
 		color: #f4f7fb;
 		min-width: 0;
 	}
 	.brand-kicker {
-		font-size: 10px;
-		letter-spacing: 0.16em;
+		font-size: 9px;
+		letter-spacing: 0.14em;
 		text-transform: uppercase;
 		opacity: 0.75;
 		font-weight: 700;
 	}
 	h1 {
-		font-size: clamp(22px, 4vw, 30px);
+		font-size: clamp(20px, 5vw, 28px);
 		font-weight: 800;
 		letter-spacing: -0.04em;
 		line-height: 1;
@@ -394,37 +650,32 @@
 	.header-actions {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 6px;
 	}
 	.parking-toggle {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		min-height: 44px;
-		padding: 0 12px 0 8px;
+		gap: 6px;
+		min-height: 40px;
+		padding: 0 10px 0 6px;
 		border-radius: 999px;
 		background: #ffffff18;
 		color: #f4f7fb;
 		border: 1px solid #ffffff33;
 		font-weight: 750;
-		font-size: 13px;
+		font-size: 12px;
 		backdrop-filter: blur(10px);
-		transition:
-			background 0.25s ease,
-			border-color 0.25s ease,
-			transform 0.25s ease;
 	}
 	.parking-toggle.active {
 		background: #1260ce;
 		border-color: #7eb6ff;
-		transform: translateY(-1px);
 	}
 	.p-badge {
 		display: grid;
 		place-items: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 9px;
+		width: 26px;
+		height: 26px;
+		border-radius: 8px;
 		background: #f4f7fb;
 		color: #1260ce;
 		font-weight: 800;
@@ -433,139 +684,179 @@
 		background: #031427;
 		color: #9dceff;
 	}
-	.hud {
-		position: absolute;
-		z-index: 15;
-		left: 16px;
-		top: calc(78px + env(safe-area-inset-top));
-		width: min(360px, calc(100vw - 32px));
-		display: grid;
-		gap: 10px;
-		animation: rise 0.7s ease both;
+
+	/* Desktop briefing — hidden on mobile */
+	.desk-hud,
+	.desk-layers {
+		display: none;
 	}
-	.panel {
-		padding: 16px;
-		border-radius: 20px;
-		background: color-mix(in srgb, var(--surface) 88%, transparent);
+
+	.mobile-alert {
+		position: absolute;
+		z-index: 29;
+		left: 10px;
+		right: 10px;
+		bottom: calc(118px + env(safe-area-inset-bottom));
+		padding: 10px 12px;
+		border-radius: 12px;
+		background: var(--red-soft, #ffedf0);
+		color: var(--red, #b42332);
+		border: 1px solid var(--red-border, #f4ced3);
+		font-size: 12px;
+		line-height: 1.4;
+		box-shadow: 0 10px 28px #07152644;
+	}
+
+	/* Mobile-first dock — map remains the primary surface */
+	.dock {
+		position: absolute;
+		z-index: 28;
+		left: 10px;
+		right: 10px;
+		bottom: calc(40px + env(safe-area-inset-bottom));
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: 8px;
+		max-height: min(42vh, 340px);
+		pointer-events: none;
+	}
+	.dock > * {
+		pointer-events: auto;
+	}
+	.dock-modes {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 6px;
+		padding: 8px;
+		border-radius: 16px;
+		background: color-mix(in srgb, #0b1a2a 88%, transparent);
+		border: 1px solid #ffffff28;
+		backdrop-filter: blur(14px);
+		box-shadow: 0 12px 32px #03101855;
+		flex: 0 0 auto;
+	}
+	.dock-modes button {
+		min-height: 40px;
+		border-radius: 11px;
+		background: #ffffff12;
+		color: #f4f7fb;
+		font-weight: 750;
+		font-size: 12px;
+	}
+	.dock-modes button.active {
+		background: #1260ce;
+	}
+
+	.layer-sheet {
+		flex: 1 1 auto;
+		min-height: 0;
+		max-height: min(28vh, 240px);
+		overflow: auto;
+		padding: 10px 12px 12px;
+		border-radius: 16px;
+		background: color-mix(in srgb, var(--surface) 94%, transparent);
 		border: 1px solid var(--border);
 		backdrop-filter: blur(16px);
-		box-shadow: 0 16px 40px #07152633;
+		box-shadow: 0 16px 40px #07152655;
+		-webkit-overflow-scrolling: touch;
 	}
-	.intro h2 {
-		font-size: 24px;
-		letter-spacing: -0.04em;
-		font-weight: 800;
-		margin: 4px 0 8px;
+	.sheet-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		margin-bottom: 2px;
 	}
-	.intro > p {
-		color: var(--muted);
-		font-size: 13px;
-		line-height: 1.55;
+	.sheet-head .sheet-title {
+		margin: 0;
 	}
-	.eyebrow {
+	.sheet-close {
+		min-height: 32px;
+		padding: 0 10px;
+		border-radius: 999px;
+		background: var(--accent-soft);
+		color: var(--accent);
+		font-size: 12px;
+		font-weight: 750;
+	}
+	.sheet-title {
 		font-size: 10px;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		font-weight: 750;
 		color: var(--muted);
+		margin: 8px 0 6px;
 	}
-	.mode-row {
+	.chip-row {
 		display: flex;
-		flex-wrap: wrap;
 		gap: 8px;
-		margin-top: 14px;
+		overflow-x: auto;
+		padding-bottom: 4px;
+		scrollbar-width: none;
 	}
-	.mode-row button,
-	.layer {
-		min-height: 42px;
-		padding: 0 12px;
-		border-radius: 12px;
+	.chip-row::-webkit-scrollbar {
+		display: none;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		flex: 0 0 auto;
+		min-height: 36px;
+		padding: 0 10px;
+		border-radius: 999px;
 		background: var(--surface-muted);
 		color: var(--text);
-		font-weight: 700;
 		font-size: 12px;
-	}
-	.mode-row button.active {
-		background: var(--accent-button);
-		color: #fff;
-	}
-	.hint {
-		margin-top: 10px;
-		font-size: 11px;
-		color: var(--muted);
-	}
-	.layers {
-		display: grid;
-		gap: 8px;
-	}
-	.layer {
-		display: grid;
-		grid-template-columns: 12px 1fr auto;
-		align-items: center;
-		gap: 10px;
-		width: 100%;
-		text-align: left;
+		font-weight: 700;
 		opacity: 0.55;
 	}
-	.layer.on {
+	.chip.on {
 		opacity: 1;
 		background: var(--accent-soft);
 		color: var(--accent);
 	}
-	.layer i {
-		width: 10px;
-		height: 10px;
+	.chip i {
+		width: 8px;
+		height: 8px;
 		border-radius: 50%;
 	}
-	.layer i.parking {
+	.chip i.parking {
 		background: #1260ce;
-		border-radius: 3px;
+		border-radius: 2px;
 	}
-	.layer strong {
+	.chip span {
 		font-variant-numeric: tabular-nums;
+		opacity: 0.8;
 	}
-	.hud-toggle {
-		position: absolute;
-		z-index: 15;
-		left: 16px;
-		bottom: calc(52px + env(safe-area-inset-bottom));
-		min-height: 40px;
-		padding: 0 12px;
-		border-radius: 999px;
-		background: #0b1a2acc;
-		color: #f4f7fb;
-		border: 1px solid #ffffff33;
-		font-size: 12px;
-		font-weight: 700;
-		backdrop-filter: blur(8px);
-	}
+
 	.inspect {
 		position: absolute;
-		z-index: 18;
-		right: 16px;
-		bottom: calc(56px + env(safe-area-inset-bottom));
-		width: min(320px, calc(100vw - 32px));
-		padding: 16px 18px;
-		border-radius: 18px;
-		background: color-mix(in srgb, var(--surface) 92%, transparent);
+		z-index: 26;
+		left: 10px;
+		right: 10px;
+		bottom: calc(108px + env(safe-area-inset-bottom));
+		padding: 14px 16px;
+		border-radius: 16px;
+		background: color-mix(in srgb, var(--surface) 94%, transparent);
 		border: 1px solid var(--border);
 		backdrop-filter: blur(14px);
-		box-shadow: 0 16px 36px #07152640;
-		animation: rise 0.35s ease both;
+		box-shadow: 0 14px 32px #07152650;
 	}
 	.inspect h3 {
-		font-size: 20px;
+		font-size: 18px;
 		font-weight: 800;
 		letter-spacing: -0.03em;
-		margin: 4px 0 8px;
+		margin: 2px 0 6px;
 	}
 	.inspect p {
 		color: var(--muted);
 		font-size: 13px;
-		line-height: 1.5;
+		line-height: 1.45;
 	}
 	.open-hint {
-		margin: 10px 0 12px !important;
+		margin: 8px 0 10px !important;
 		color: var(--text) !important;
 		font-weight: 650;
 	}
@@ -577,16 +868,23 @@
 	}
 	.close {
 		position: absolute;
-		top: 8px;
-		right: 8px;
+		top: 6px;
+		right: 6px;
 		width: 40px;
 		height: 40px;
 		font-size: 22px;
 		color: var(--muted);
 	}
+	.eyebrow {
+		font-size: 10px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		font-weight: 750;
+		color: var(--muted);
+	}
 	.credits {
 		position: absolute;
-		z-index: 20;
+		z-index: 24;
 		left: 0;
 		right: 0;
 		bottom: 0;
@@ -595,63 +893,139 @@
 		align-items: center;
 		justify-content: center;
 		gap: 6px;
-		padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-		font-size: 10px;
-		color: #d7e4f3;
-		background: #0b1a2ae6;
+		padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+		font-size: 9px;
+		color: #c9d8e8;
+		background: #07131ef2;
 	}
 	.credits a {
 		color: #9dceff;
 	}
 	.dot {
-		opacity: 0.5;
+		opacity: 0.45;
 	}
 	.notice {
-		margin-top: 10px;
-		padding: 10px 12px;
+		margin-top: 8px;
+		padding: 8px 10px;
 		border-radius: 10px;
 		background: var(--accent-soft);
 		color: var(--accent);
 		font-size: 12px;
-		line-height: 1.45;
+		line-height: 1.4;
 	}
 	.error {
-		background: var(--red-soft);
-		color: var(--red);
+		background: var(--red-soft, #ffedf0);
+		color: var(--red, #b42332);
 	}
-	@keyframes rise {
-		from {
-			opacity: 0;
-			transform: translateY(12px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
+	.hint {
+		margin-top: 8px;
+		font-size: 11px;
+		color: var(--muted);
 	}
-	@media (max-width: 720px) {
-		.hud {
-			width: calc(100vw - 24px);
-			left: 12px;
-			max-height: 42vh;
-			overflow: auto;
-		}
-		.inspect {
-			left: 12px;
-			right: 12px;
-			width: auto;
-			bottom: calc(64px + env(safe-area-inset-bottom));
-		}
-		.parking-toggle span:last-child {
+
+	@media (min-width: 860px) {
+		.dock,
+		.mobile-alert {
 			display: none;
 		}
+		.desk-hud,
+		.desk-layers {
+			display: grid;
+			position: absolute;
+			z-index: 22;
+			width: min(340px, calc(100vw - 32px));
+			padding: 16px;
+			border-radius: 20px;
+			background: color-mix(in srgb, var(--surface) 90%, transparent);
+			border: 1px solid var(--border);
+			backdrop-filter: blur(16px);
+			box-shadow: 0 16px 40px #07152640;
+			gap: 8px;
+		}
+		.desk-hud {
+			left: 16px;
+			top: calc(78px + env(safe-area-inset-top));
+		}
+		.desk-hud h2 {
+			font-size: 24px;
+			font-weight: 800;
+			letter-spacing: -0.04em;
+			margin: 2px 0 6px;
+		}
+		.desk-hud > p {
+			color: var(--muted);
+			font-size: 13px;
+			line-height: 1.5;
+		}
+		.desk-layers {
+			left: 16px;
+			top: calc(320px + env(safe-area-inset-top));
+			max-height: calc(100dvh - 380px);
+			overflow: auto;
+		}
+		.mode-row,
+		.sensor-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 10px;
+		}
+		.mode-row button,
+		.sensor-row button,
+		.layer {
+			min-height: 40px;
+			padding: 0 12px;
+			border-radius: 12px;
+			background: var(--surface-muted);
+			color: var(--text);
+			font-weight: 700;
+			font-size: 12px;
+		}
+		.mode-row button.active,
+		.sensor-row button.active {
+			background: var(--accent-button, #1260ce);
+			color: #fff;
+		}
+		.layer {
+			display: grid;
+			grid-template-columns: 10px 1fr auto;
+			align-items: center;
+			gap: 10px;
+			width: 100%;
+			text-align: left;
+			opacity: 0.55;
+		}
+		.layer.on {
+			opacity: 1;
+			background: var(--accent-soft);
+			color: var(--accent);
+		}
+		.layer i {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+		}
+		.layer i.parking {
+			background: #1260ce;
+			border-radius: 3px;
+		}
+		.intel-label {
+			margin-top: 8px;
+		}
+		.inspect {
+			left: auto;
+			right: 16px;
+			width: min(320px, calc(100vw - 32px));
+			bottom: calc(56px + env(safe-area-inset-bottom));
+		}
+		.parking-toggle span:last-child {
+			display: inline;
+		}
 	}
-	@media (prefers-reduced-motion: reduce) {
-		.hud,
-		.inspect,
-		.parking-toggle {
-			animation: none;
-			transition: none;
+
+	@media (max-width: 859px) {
+		.parking-toggle span:last-child {
+			display: none;
 		}
 	}
 </style>

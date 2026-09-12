@@ -168,7 +168,7 @@
 <style>
 	.parking-panel {
 		position: absolute;
-		z-index: 25;
+		z-index: 32;
 		top: calc(72px + env(safe-area-inset-top));
 		right: 12px;
 		bottom: 12px;
@@ -310,14 +310,15 @@
 		color: var(--muted);
 		font-size: 12px;
 	}
-	@media (max-width: 720px) {
+	@media (max-width: 859px) {
 		.parking-panel {
 			top: auto;
 			left: 0;
 			right: 0;
 			bottom: 0;
 			width: 100%;
-			height: min(58vh, 520px);
+			height: min(46vh, 420px);
+			max-height: 46vh;
 			border-radius: 22px 22px 0 0;
 		}
 	}

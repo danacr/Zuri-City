@@ -9,8 +9,13 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 	const headers: Record<string, string>[] = [];
 	const fetcher: typeof fetch = async (input, init) => {
 		const url = String(input);
+		if (url.includes('api.adsb.lol') || url.includes('earthquake.usgs.gov')) {
+			return new Response(JSON.stringify(url.includes('adsb') ? { ac: [] } : { features: [] }), {
+				headers: { 'content-type': 'application/json' }
+			});
+		}
 		expect(init?.cache).toBe('no-store');
-		if (url.includes('overpass-api.de')) {
+		if (url.includes('overpass-api.de') || url.includes('overpass')) {
 			return new Response('{"elements":[]}', {
 				headers: { 'content-type': 'application/json' }
 			});
