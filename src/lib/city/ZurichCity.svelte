@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
+	import type {
+		ExpressionSpecification,
+		GeoJSONSource,
+		Map as MapLibreMap,
+		Marker
+	} from 'maplibre-gl';
 	import {
 		categoryColorExpression,
 		ZURICH_CENTER,
@@ -637,6 +642,18 @@
 				data: { type: 'FeatureCollection', features: [] }
 			});
 		}
+		// Oversized on purpose — readable from orbit without hunting for ants.
+		const carIconSize: ExpressionSpecification = [
+			'interpolate',
+			['linear'],
+			['zoom'],
+			CITY_MIN_ZOOM,
+			0.7,
+			15,
+			1.05,
+			CITY_MAX_ZOOM,
+			1.35
+		];
 		if (!mapInstance.getLayer('traffic-cars')) {
 			mapInstance.addLayer({
 				id: 'traffic-cars',
@@ -646,17 +663,7 @@
 				maxzoom: CITY_MAX_ZOOM + 1,
 				layout: {
 					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
-					'icon-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						CITY_MIN_ZOOM,
-						0.2,
-						15,
-						0.3,
-						CITY_MAX_ZOOM,
-						0.55
-					],
+					'icon-size': carIconSize,
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
 					'icon-pitch-alignment': 'map',
@@ -665,6 +672,8 @@
 					visibility: intelLayers.traffic ? 'visible' : 'none'
 				}
 			});
+		} else {
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', carIconSize);
 		}
 	}
 

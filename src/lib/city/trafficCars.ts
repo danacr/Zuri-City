@@ -16,7 +16,7 @@ export type SimCar = {
 const ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 
 /**
- * Matches street traffic-flow colors. Cars are a zoom-in accent only.
+ * Matches street traffic-flow colors. Icons stay large enough to read from orbit.
  */
 export const CONGESTION_COLOR: Record<Congestion, string> = {
 	free: '#2f9e44',
