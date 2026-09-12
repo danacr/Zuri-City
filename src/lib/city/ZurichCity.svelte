@@ -611,11 +611,11 @@
 						['linear'],
 						['zoom'],
 						15,
-						0.22,
+						0.95,
 						16,
-						0.34,
+						1.4,
 						18,
-						0.55
+						2.2
 					],
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',

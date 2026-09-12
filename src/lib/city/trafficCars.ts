@@ -242,7 +242,8 @@ export function drawCarIcon(
 	canvas.height = pixelSize;
 	const ctx = canvas.getContext('2d');
 	if (!ctx) return null;
-	const u = pixelSize / 64;
+	/** Fatter drawing so cars read as street-width when icon-size is bumped. */
+	const u = (pixelSize / 64) * 1.55;
 	const body = CONGESTION_COLOR[congestion];
 	const roof = shade(body, 42);
 	const side = shade(body, -38);
