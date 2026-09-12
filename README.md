@@ -10,7 +10,7 @@ product.
 ## What it does
 
 - Opens Zürich as **the interactive city** from orbit, then lets you walk street-level with WASD / arrow keys.
-- Colors major streets green / amber / red by modeled congestion; tiny cars appear when you zoom in.
+- Colors major streets green / amber / red by modeled congestion, with glowing streaks that slide along the roads.
 - Pins open attractions, restaurants and shops on a 3D building map (SWISSIMAGE + OpenFreeMap).
 - Shows live PLS parking pins on the map in blue, with a garage list from Layers.
 - Can be added to your home screen as a web app (dark city chrome).
