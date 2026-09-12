@@ -168,7 +168,7 @@
 <style>
 	.parking-panel {
 		position: absolute;
-		z-index: 6;
+		z-index: 25;
 		top: calc(72px + env(safe-area-inset-top));
 		right: 12px;
 		bottom: 12px;

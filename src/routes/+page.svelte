@@ -183,6 +183,7 @@
 		<div class="header-actions">
 			<ThemeToggle />
 			<button
+				type="button"
 				class="parking-toggle"
 				class:active={parkingOpen}
 				aria-pressed={parkingOpen}
@@ -354,7 +355,7 @@
 	}
 	.topbar {
 		position: absolute;
-		z-index: 4;
+		z-index: 20;
 		top: 0;
 		left: 0;
 		right: 0;
@@ -364,6 +365,10 @@
 		gap: 12px;
 		padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
 		background: linear-gradient(180deg, #0b1a2acc, transparent);
+		pointer-events: none;
+	}
+	.topbar > * {
+		pointer-events: auto;
 	}
 	.brand {
 		display: flex;
@@ -430,7 +435,7 @@
 	}
 	.hud {
 		position: absolute;
-		z-index: 4;
+		z-index: 15;
 		left: 16px;
 		top: calc(78px + env(safe-area-inset-top));
 		width: min(360px, calc(100vw - 32px));
@@ -521,7 +526,7 @@
 	}
 	.hud-toggle {
 		position: absolute;
-		z-index: 4;
+		z-index: 15;
 		left: 16px;
 		bottom: calc(52px + env(safe-area-inset-bottom));
 		min-height: 40px;
@@ -536,7 +541,7 @@
 	}
 	.inspect {
 		position: absolute;
-		z-index: 5;
+		z-index: 18;
 		right: 16px;
 		bottom: calc(56px + env(safe-area-inset-bottom));
 		width: min(320px, calc(100vw - 32px));
@@ -581,7 +586,7 @@
 	}
 	.credits {
 		position: absolute;
-		z-index: 4;
+		z-index: 20;
 		left: 0;
 		right: 0;
 		bottom: 0;

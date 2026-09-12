@@ -1,6 +1,9 @@
 import { FALLBACK_PLACES, type Place, type PlaceCategory } from '$lib/city/places';
 
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+	'https://overpass-api.de/api/interpreter',
+	'https://overpass.kumi.systems/api/interpreter'
+];
 /** Rough central Zürich bbox: south,west,north,east */
 const BBOX = '47.355,8.510,47.395,8.565';
 
@@ -108,31 +111,34 @@ export async function loadCityPlaces(fetchFn: typeof fetch): Promise<{
 out center 180;
 `.trim();
 
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 12000);
-	try {
-		const response = await fetchFn(OVERPASS, {
-			method: 'POST',
-			headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-			body: `data=${encodeURIComponent(query)}`,
-			signal: controller.signal,
-			cache: 'no-store'
-		});
-		if (!response.ok) throw new Error(`Overpass ${response.status}`);
-		const payload = (await response.json()) as { elements?: OverpassElement[] };
-		const mapped = (payload.elements || [])
-			.map(fromElement)
-			.filter((place): place is Place => place !== null);
-		const places = balance(dedupe([...FALLBACK_PLACES, ...mapped]));
-		if (places.length < 20) throw new Error('Sparse Overpass response');
-		return { places, source: 'overpass', error: '' };
-	} catch {
-		return {
-			places: FALLBACK_PLACES,
-			source: 'fallback',
-			error: 'Live city places timed out — showing curated Zürich highlights.'
-		};
-	} finally {
-		clearTimeout(timer);
+	for (const endpoint of OVERPASS_ENDPOINTS) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 4500);
+		try {
+			const response = await fetchFn(endpoint, {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+				body: `data=${encodeURIComponent(query)}`,
+				signal: controller.signal,
+				cache: 'no-store'
+			});
+			if (!response.ok) throw new Error(`Overpass ${response.status}`);
+			const payload = (await response.json()) as { elements?: OverpassElement[] };
+			const mapped = (payload.elements || [])
+				.map(fromElement)
+				.filter((place): place is Place => place !== null);
+			const places = balance(dedupe([...FALLBACK_PLACES, ...mapped]));
+			if (places.length < 20) throw new Error('Sparse Overpass response');
+			return { places, source: 'overpass', error: '' };
+		} catch {
+			/* Try the next endpoint, then curated fallback. */
+		} finally {
+			clearTimeout(timer);
+		}
 	}
+	return {
+		places: FALLBACK_PLACES,
+		source: 'fallback',
+		error: 'Live city places timed out — showing curated Zürich highlights.'
+	};
 }

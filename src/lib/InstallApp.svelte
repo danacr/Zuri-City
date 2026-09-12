@@ -39,8 +39,9 @@
 		};
 	});
 	async function install() {
+		const modal = dialog;
 		if (!promptEvent) {
-			dialog.showModal();
+			modal?.showModal();
 			return;
 		}
 		installing = true;
@@ -50,7 +51,7 @@
 			await event.prompt();
 			await event.userChoice;
 		} catch {
-			dialog.showModal();
+			modal?.showModal();
 		} finally {
 			installing = false;
 		}
@@ -58,12 +59,14 @@
 </script>
 
 {#if !installed}<button
+		type="button"
 		class="install"
 		class:labeled
+		data-testid="install-app"
 		aria-label="Install web app"
 		title="Install web app"
 		disabled={installing}
-		on:click={install}
+		onclick={install}
 		><svg
 			width="20"
 			height="20"
@@ -74,11 +77,12 @@
 			aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5" /></svg
 		>{#if labeled}<span>Install web app</span>{/if}</button
 	>{/if}
-<dialog bind:this={dialog} aria-labelledby="install-title">
+<dialog id="install-instructions" bind:this={dialog} aria-labelledby="install-title">
 	<div class="heading">
 		<img src="/favicon.svg" alt="" width="40" height="40" /><button
+			type="button"
 			aria-label="Close install instructions"
-			on:click={() => dialog.close()}>×</button
+			onclick={() => dialog.close()}>×</button
 		>
 	</div>
 	<h2 id="install-title">Züri City, one tap away.</h2>
@@ -97,7 +101,7 @@
 		</p>
 		<p>If no install option appears, bookmark this page or try a supported browser.</p>{/if}
 	<p class="note">An internet connection is needed for current parking data.</p>
-	<button class="done" on:click={() => dialog.close()}>Got it</button>
+	<button type="button" class="done" onclick={() => dialog.close()}>Got it</button>
 </dialog>
 
 <style>

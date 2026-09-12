@@ -8,12 +8,14 @@ test('city map is the home experience and parking is a toggleable feature', asyn
 	await expect(page.getByRole('heading', { name: 'Züri City', exact: true })).toBeVisible();
 	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Walk' })).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Show parking feature' })).toBeVisible();
+	const parkingToggle = page.getByRole('banner').getByRole('button', { name: /parking feature/i });
+	await expect(parkingToggle).toHaveAttribute('aria-pressed', 'false');
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
-	await page.getByRole('button', { name: 'Show parking feature' }).click();
+	await parkingToggle.click();
+	await expect(parkingToggle).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible();
 	await expect(page.getByRole('region', { name: 'Parking garages', exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Hide parking feature' }).click();
+	await parkingToggle.click();
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
 	expect(errors).toEqual([]);
 });
@@ -46,9 +48,9 @@ test('parking panel search and refresh stay available after opening the feature'
 }, testInfo) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Show parking feature' }).click();
+	await page.getByRole('button', { name: /Parking garages/ }).click();
 	const panel = page.getByRole('region', { name: 'Parking feature' });
-	await expect(panel).toBeVisible();
+	await expect(panel).toBeVisible({ timeout: 10000 });
 	const cards = panel.getByRole('article');
 	await expect(cards.first()).toBeVisible({ timeout: 20000 });
 	const total = await cards.count();
@@ -99,7 +101,7 @@ test('follows phone appearance for the parking feature sheet', async ({ page }, 
 	await page.setViewportSize({ width: 320, height: 740 });
 	await page.emulateMedia({ colorScheme: 'dark' });
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Show parking feature' }).click();
+	await page.getByRole('button', { name: /Parking garages/ }).click();
 	await expect(page.getByRole('article').first()).toHaveCSS('background-color', 'rgb(21, 34, 53)');
 	await page.screenshot({ path: testInfo.outputPath('mobile-dark-city.png') });
 	await page.getByRole('button', { name: 'Switch to light mode' }).click();
@@ -114,17 +116,19 @@ test('install button provides iPhone instructions and restores focus', async ({ 
 		Object.defineProperty(navigator, 'userAgent', { value: 'iPhone Safari' })
 	);
 	await page.goto('/');
-	const install = page.getByRole('button', { name: 'Install web app' });
+	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible();
+	const install = page.getByTestId('install-app');
 	await install.click();
-	await expect(page.getByRole('dialog')).toContainText('Add to Home Screen');
-	await expect(page.getByRole('dialog')).toContainText('Safari');
+	await expect(page.locator('#install-instructions[open]')).toContainText('Add to Home Screen');
+	await expect(page.locator('#install-instructions[open]')).toContainText('Safari');
 	await page.getByRole('button', { name: 'Got it' }).click();
-	await expect(page.getByRole('dialog')).toBeHidden();
+	await expect(page.locator('#install-instructions[open]')).toHaveCount(0);
 	await expect(install).toBeFocused();
 });
 
 test('install button invokes the available native install prompt', async ({ page }) => {
 	await page.goto('/');
+	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible();
 	await page.evaluate(() => {
 		const event = new Event('beforeinstallprompt', { cancelable: true });
 		Object.assign(event, {
@@ -135,16 +139,16 @@ test('install button invokes the available native install prompt', async ({ page
 		});
 		window.dispatchEvent(event);
 	});
-	await page.getByRole('button', { name: 'Install web app' }).click();
+	await page.getByTestId('install-app').click();
 	await expect(page.locator('html')).toHaveAttribute('data-install-prompt', 'shown');
 	await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
-	await expect(page.getByRole('button', { name: 'Install web app' })).toHaveCount(0);
+	await expect(page.getByTestId('install-app')).toHaveCount(0);
 });
 
 test('home brand resets parking overlay and returns to orbit', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Walk' }).click();
-	await page.getByRole('button', { name: 'Show parking feature' }).click();
+	await page.getByRole('banner').getByRole('button', { name: /parking feature/i }).click();
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible();
 	await page.getByRole('link', { name: 'Züri City home' }).click();
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);

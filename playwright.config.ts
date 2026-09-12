@@ -4,7 +4,8 @@ const config: PlaywrightTestConfig = {
 	webServer: {
 		command: 'npm run build && npm run preview',
 		url: 'https://localhost:4173',
-		ignoreHTTPSErrors: true
+		ignoreHTTPSErrors: true,
+		reuseExistingServer: !process.env.CI
 	},
 	testDir: 'tests',
 	testMatch: '**/*.ts',
