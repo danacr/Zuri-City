@@ -160,6 +160,19 @@
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
 
+	function mountSwissOverlay(mapInstance: MapLibreMap, maplibregl: typeof import('maplibre-gl')) {
+		const beforeId = ['traffic-case', 'traffic-flow', 'place-label', 'road-label'].find((id) =>
+			mapInstance.getLayer(id)
+		);
+		if (!mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
+			try {
+				mapInstance.addLayer(createSwissBuildingsLayer(maplibregl), beforeId);
+			} catch (error) {
+				console.warn('swiss buildings layer failed to mount', error);
+			}
+		}
+	}
+
 	function applyMode(next: 'orbit' | 'walk', animate = true) {
 		if (!map) return;
 		const camera =
@@ -834,9 +847,7 @@
 				instance.on('load', () => {
 					void (async () => {
 						terrainHandle = await attachSwissTerrain(instance, maplibregl);
-						if (!instance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
-							instance.addLayer(createSwissBuildingsLayer(maplibregl), 'traffic-case');
-						}
+						mountSwissOverlay(instance, maplibregl);
 					})();
 					styleReady = true;
 					ensureLayers(instance);
@@ -863,9 +874,7 @@
 					void (async () => {
 						terrainHandle?.unregister?.();
 						terrainHandle = await attachSwissTerrain(instance, maplibregl);
-						if (!instance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
-							instance.addLayer(createSwissBuildingsLayer(maplibregl), 'traffic-case');
-						}
+						mountSwissOverlay(instance, maplibregl);
 					})();
 					styleReady = true;
 					ensureLayers(instance);
