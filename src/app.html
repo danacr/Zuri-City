@@ -13,8 +13,165 @@
 		<link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		%sveltekit.head%
+		<style>
+			/* Instant boot splash — paints with first HTML, before JS/data. */
+			#boot-splash-instant {
+				position: fixed;
+				inset: 0;
+				z-index: 100000;
+				display: grid;
+				place-items: end center;
+				overflow: hidden;
+				background: #07131f;
+				color: #f4f7fb;
+				font-family: 'Avenir Next', 'Segoe UI', Quicksand, sans-serif;
+				opacity: 1;
+				transition: opacity 0.45s ease;
+				pointer-events: all;
+			}
+			#boot-splash-instant.leaving {
+				opacity: 0;
+				pointer-events: none;
+			}
+			#boot-splash-instant .sky {
+				position: absolute;
+				inset: 0;
+				background:
+					radial-gradient(ellipse 90% 55% at 50% 18%, rgba(255, 214, 150, 0.28), transparent 58%),
+					radial-gradient(ellipse 70% 50% at 78% 30%, rgba(120, 170, 210, 0.18), transparent 55%),
+					linear-gradient(180deg, #0a1a2e 0%, #12314a 42%, #1a4a5c 68%, #0e2a38 100%);
+			}
+			#boot-splash-instant .mist {
+				position: absolute;
+				inset: 0;
+				background: radial-gradient(
+					ellipse 120% 40% at 50% 62%,
+					rgba(220, 235, 245, 0.12),
+					transparent 70%
+				);
+			}
+			#boot-splash-instant .lake {
+				position: absolute;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				height: 38%;
+				background: linear-gradient(
+					180deg,
+					rgba(40, 110, 130, 0.15) 0%,
+					rgba(18, 70, 90, 0.55) 35%,
+					rgba(8, 30, 42, 0.92) 100%
+				);
+			}
+			#boot-splash-instant .skyline {
+				position: absolute;
+				left: 50%;
+				bottom: 26%;
+				width: min(920px, 118vw);
+				transform: translateX(-50%);
+				filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+			}
+			#boot-splash-instant .ridge {
+				fill: #16344a;
+				opacity: 0.85;
+			}
+			#boot-splash-instant .city {
+				fill: #0b1c2a;
+			}
+			#boot-splash-instant .windows rect {
+				fill: #f0b429;
+				opacity: 0.45;
+			}
+			#boot-splash-instant .brand {
+				position: relative;
+				z-index: 2;
+				width: min(420px, calc(100% - 40px));
+				margin: 0 20px max(48px, env(safe-area-inset-bottom, 0px) + 36px);
+				text-align: center;
+			}
+			#boot-splash-instant .kicker {
+				margin: 0 0 8px;
+				font-size: 0.72rem;
+				font-weight: 700;
+				letter-spacing: 0.22em;
+				text-transform: uppercase;
+				color: rgba(240, 180, 41, 0.92);
+			}
+			#boot-splash-instant h1 {
+				margin: 0;
+				font-size: clamp(2.4rem, 8vw, 3.4rem);
+				font-weight: 700;
+				letter-spacing: -0.03em;
+				line-height: 1;
+				color: #f7fafc;
+			}
+			#boot-splash-instant .tag {
+				margin: 12px 0 0;
+				font-size: 0.98rem;
+				font-weight: 500;
+				color: rgba(220, 232, 242, 0.78);
+			}
+			#boot-splash-instant .progress {
+				margin: 22px auto 0;
+				width: min(220px, 70%);
+				height: 3px;
+				border-radius: 999px;
+				background: rgba(255, 255, 255, 0.12);
+				overflow: hidden;
+			}
+			#boot-splash-instant .bar {
+				display: block;
+				height: 100%;
+				width: 42%;
+				border-radius: inherit;
+				background: linear-gradient(90deg, #f0b429, #ffe8a3, #87baff);
+				animation: boot-progress 1.35s ease-in-out infinite;
+			}
+			@keyframes boot-progress {
+				0% {
+					transform: translateX(-120%);
+				}
+				100% {
+					transform: translateX(280%);
+				}
+			}
+		</style>
 	</head>
-	<body data-sveltekit-preload-data="hover" style="background:#07131f">
+	<body data-sveltekit-preload-data="hover" style="background:#07131f;margin:0">
+		<div
+			id="boot-splash-instant"
+			role="status"
+			aria-live="polite"
+			aria-busy="true"
+			aria-label="Loading Züri City"
+		>
+			<div class="sky" aria-hidden="true"></div>
+			<div class="mist" aria-hidden="true"></div>
+			<div class="lake" aria-hidden="true"></div>
+			<svg class="skyline" viewBox="0 0 720 220" aria-hidden="true">
+				<path
+					class="ridge"
+					d="M0 168 C60 150 110 142 170 148 C230 154 270 130 330 126 C390 122 430 138 490 134 C560 128 620 118 720 108 L720 220 L0 220 Z"
+				/>
+				<path
+					class="city"
+					d="M0 188 H48 L56 176 H72 L78 188 H110 L118 162 H128 L134 152 L140 162 H150 L158 188 H190 L196 170 H208 L214 188 H248 L252 148 L260 148 L264 118 L272 108 L280 118 L284 148 L292 148 L296 188 H318 L322 140 L330 140 L334 96 L342 84 L350 96 L354 140 L362 140 L366 188 H392 L398 128 L406 118 L414 128 L420 188 H448 L454 158 H468 L474 188 H510 L516 166 H528 L534 188 H570 L576 150 L584 150 L590 130 L598 150 L606 150 L612 188 H648 L654 172 H668 L674 188 H720 V220 H0 Z"
+				/>
+				<g class="windows">
+					<rect x="122" y="168" width="3" height="3" rx="0.5" />
+					<rect x="268" y="128" width="2.5" height="2.5" rx="0.5" />
+					<rect x="340" y="108" width="2.5" height="2.5" rx="0.5" />
+					<rect x="404" y="136" width="3" height="3" rx="0.5" />
+					<rect x="588" y="138" width="3" height="3" rx="0.5" />
+				</g>
+			</svg>
+			<div class="brand">
+				<p class="kicker">The interactive city</p>
+				<h1>Züri City</h1>
+				<p class="tag">Opening the living city</p>
+				<div class="progress" aria-hidden="true"><span class="bar"></span></div>
+			</div>
+		</div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

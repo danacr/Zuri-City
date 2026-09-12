@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { title, description, structuredData } from '$lib/seo';
 	$: jsonLd = `<script type="application/ld+json">${structuredData(data.siteUrl)}<${'/'}script>`;
@@ -48,17 +49,51 @@
 		detection: true
 	};
 	let sensorLook: SensorLook = 'normal';
+	/** Local copies so the shell can paint before streamed `hydrateCity` resolves. */
+	let places: Place[] = data.places;
+	let parkings: Parking[] = data.parkings;
+	let placesError = data.placesError;
+	let parkingError = data.error;
+	let refreshedAt: string | null = data.refreshedAt;
 	let flights: Flight[] = data.intel?.flights ?? [];
 	let cameras: Camera[] = data.intel?.cameras ?? [];
 	let quakes: Quake[] = data.intel?.quakes ?? [];
 	let intelNotes: string[] = data.intel?.notes ?? [];
+	let hydrateGen = 0;
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 	const placeKeys: PlaceCategory[] = PLACE_CATEGORIES;
 	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
 	const intelKeys: IntelLayer[] = ['flights', 'cameras', 'traffic', 'quakes', 'detection'];
 
+	$: {
+		places = data.places;
+		parkings = data.parkings;
+		placesError = data.placesError;
+		parkingError = data.error;
+		refreshedAt = data.refreshedAt;
+		flights = data.intel?.flights ?? [];
+		cameras = data.intel?.cameras ?? [];
+		quakes = data.intel?.quakes ?? [];
+		intelNotes = data.intel?.notes ?? [];
+		if (!browser) break $;
+		const gen = ++hydrateGen;
+		void Promise.resolve(data.hydrateCity).then((live) => {
+			if (gen !== hydrateGen || !live) return;
+			places = live.places;
+			parkings = live.parkings;
+			placesError = live.placesError;
+			parkingError = live.error;
+			refreshedAt = live.refreshedAt;
+			flights = live.intel?.flights ?? [];
+			cameras = live.intel?.cameras ?? [];
+			quakes = live.intel?.quakes ?? [];
+			intelNotes = live.intel?.notes ?? [];
+			tryRevealFlights();
+		});
+	}
+
 	$: placeOrigin = (position || ZURICH_CENTER) as [number, number];
-	$: visibleMapPlaces = [...data.places]
+	$: visibleMapPlaces = [...places]
 		.filter((place) => layers[place.category] && (!openNowOnly || place.isOpen === true))
 		.sort((a, b) => {
 			const openScore = (value: boolean | null) => (value === true ? 0 : value === false ? 2 : 1);
@@ -70,10 +105,10 @@
 		});
 	$: counts = {
 		...(Object.fromEntries(
-			PLACE_CATEGORIES.map((key) => [key, data.places.filter((p) => p.category === key).length])
+			PLACE_CATEGORIES.map((key) => [key, places.filter((p) => p.category === key).length])
 		) as Record<PlaceCategory, number>),
-		openNow: data.places.filter((p) => p.isOpen === true).length,
-		parking: data.parkings.length,
+		openNow: places.filter((p) => p.isOpen === true).length,
+		parking: parkings.length,
 		flights: flights.length,
 		cameras: cameras.length,
 		// Live streets: simulated cars on OpenMapTiles roads — no corridor count.
@@ -191,7 +226,7 @@
 	) {
 		const { id, kind } = event.detail;
 		if (kind === 'parking') {
-			const parking = data.parkings.find((item) => (item.id || item.name) === id) || null;
+			const parking = parkings.find((item) => (item.id || item.name) === id) || null;
 			selected = parking;
 			selectedKind = parking ? 'parking' : null;
 			if (parking) setParkingOpen(true);
@@ -211,7 +246,7 @@
 			return;
 		}
 		if (kind === 'quake') return;
-		const place = data.places.find((item) => item.id === id) || null;
+		const place = places.find((item) => item.id === id) || null;
 		selected = place;
 		selectedKind = place ? 'place' : null;
 	}
@@ -305,7 +340,7 @@
 	<ZurichCity
 		bind:this={city}
 		places={visibleMapPlaces}
-		parkings={data.parkings}
+		parkings={parkings}
 		{layers}
 		{intelLayers}
 		{flights}
@@ -369,8 +404,8 @@
 		{#if locationError}
 			<p class="notice error" role="alert">{locationError}</p>
 		{/if}
-		{#if data.placesError || intelNotes[0]}
-			<p class="notice" role="status">{data.placesError || intelNotes[0]}</p>
+		{#if placesError || intelNotes[0]}
+			<p class="notice" role="status">{placesError || intelNotes[0]}</p>
 		{/if}
 		<div class="sensor-row" aria-label="Sensor looks">
 			{#each SENSOR_LOOKS as look (look.id)}
@@ -614,9 +649,9 @@
 
 	<ParkingPanel
 		open={parkingOpen}
-		parkings={data.parkings}
-		refreshedAt={data.refreshedAt}
-		error={data.error}
+		parkings={parkings}
+		refreshedAt={refreshedAt}
+		error={parkingError}
 		{position}
 		{locating}
 		{locationError}
