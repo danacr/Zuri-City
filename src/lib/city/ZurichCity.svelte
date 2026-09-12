@@ -588,7 +588,7 @@
 		number,
 		number,
 		number
-	] = ['interpolate', ['linear'], ['zoom'], 15, 2.6, 16, 4.2, 18, 7];
+	] = ['interpolate', ['linear'], ['zoom'], 15, 1.5, 16, 2.4, 18, 3.8];
 
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
 		if (!mapInstance.isStyleLoaded()) return;
@@ -622,7 +622,8 @@
 					'icon-size': CAR_ICON_SIZE,
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
-					'icon-pitch-alignment': 'map',
+					// Viewport pitch keeps cars screen-sized in tilted god's-eye / walk views
+					'icon-pitch-alignment': 'viewport',
 					'icon-allow-overlap': true,
 					'icon-ignore-placement': true,
 					visibility: intelLayers.traffic ? 'visible' : 'none'
@@ -630,6 +631,7 @@
 			});
 		} else {
 			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', CAR_ICON_SIZE);
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'viewport');
 		}
 	}
 
