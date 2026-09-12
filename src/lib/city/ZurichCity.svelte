@@ -685,7 +685,7 @@
 		if (!carIconsReady) {
 			for (const congestion of congestions) {
 				const id = CAR_ICON_IDS[congestion];
-				// 128px master + pixelRatio 2 → crisp icons when drawn large on orbit.
+				// 128px master + pixelRatio 2 → crisp when zoomed to street scale.
 				const sprite = drawCarIcon(congestion, 128);
 				if (!sprite) continue;
 				try {
@@ -703,17 +703,21 @@
 				data: { type: 'FeatureCollection', features: [] }
 			});
 		}
-		// Big on purpose — readable from the default orbit camera without zooming in.
+		// Scale with zoom: tiny accents at orbit, road-sized when you zoom in.
 		const carIconSize: ExpressionSpecification = [
 			'interpolate',
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			2.0,
-			15,
-			2.6,
+			0.28,
+			14.6,
+			0.42,
+			16,
+			0.7,
+			17.4,
+			1.05,
 			CITY_MAX_ZOOM,
-			3.2
+			1.2
 		];
 		if (!mapInstance.getLayer('traffic-cars')) {
 			mapInstance.addLayer({
@@ -727,7 +731,7 @@
 					'icon-size': carIconSize,
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
-					'icon-pitch-alignment': 'viewport',
+					'icon-pitch-alignment': 'map',
 					'icon-allow-overlap': true,
 					'icon-ignore-placement': true,
 					'symbol-z-order': 'viewport-y',
@@ -739,7 +743,7 @@
 			});
 		} else {
 			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', carIconSize);
-			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'viewport');
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'map');
 			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-anchor', 'ground');
 			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-offset', 8);
 		}

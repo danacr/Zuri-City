@@ -15,9 +15,7 @@ export type SimCar = {
 
 const ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 
-/**
- * Matches street traffic-flow colors. Icons stay large enough to read from orbit.
- */
+/** Matches street traffic-flow colors. */
 export const CONGESTION_COLOR: Record<Congestion, string> = {
 	free: '#2f9e44',
 	slow: '#f08c00',
@@ -36,17 +34,30 @@ const SPEED_MPS: Record<Congestion, [number, number]> = {
 	jam: [0.55, 1.6]
 };
 
-/** Wider spacing → fewer green cars; tight spacing → many red cars. */
+/**
+ * Spacing along a road. Kept generous so the fleet spreads across many
+ * corridors instead of stacking on a few jam segments.
+ */
 const SPACING_M: Record<Congestion, number> = {
-	free: 220,
-	slow: 95,
-	jam: 30
+	free: 180,
+	slow: 110,
+	jam: 70
 };
 
+/** Cap per segment — jam roads must not monopolize the global budget. */
 const MAX_PER_ROAD: Record<Congestion, number> = {
 	free: 2,
-	slow: 5,
-	jam: 12
+	slow: 3,
+	jam: 4
+};
+
+type RoadSegment = {
+	key: string;
+	line: Position[];
+	distanceM: number;
+	congestion: Congestion;
+	color: string;
+	roadIndex: number;
 };
 
 export function congestionForRoad(props: Record<string, unknown>, featureId: unknown): Congestion {
@@ -137,53 +148,111 @@ function pickSpeed(congestion: Congestion, seed: number): number {
 	return lo + (hi - lo) * rand(seed);
 }
 
-/** Build a car fleet from vector-tile road features currently loaded. */
-export function spawnCarsFromRoadFeatures(
-	features: Feature[],
-	options: { maxCars?: number } = {}
-): SimCar[] {
-	const maxCars = options.maxCars ?? 110;
-	const cars: SimCar[] = [];
+function segmentKey(line: Position[]): string {
+	const a = line[0];
+	const b = line[line.length - 1];
+	const mid = line[Math.floor(line.length / 2)] ?? a;
+	const q = (n: number) => n.toFixed(5);
+	return `${q(a[0])},${q(a[1])}|${q(mid[0])},${q(mid[1])}|${q(b[0])},${q(b[1])}`;
+}
+
+function collectSegments(features: Feature[]): RoadSegment[] {
+	const seen = new Set<string>();
+	const segments: RoadSegment[] = [];
 	let roadIndex = 0;
 
 	for (const feature of features) {
-		if (cars.length >= maxCars) break;
 		const props = (feature.properties ?? {}) as Record<string, unknown>;
 		const roadClass = String(props.class ?? '');
 		if (!ROAD_CLASSES.has(roadClass)) continue;
 		if (props.brunnel === 'tunnel') continue;
 
 		const congestion = congestionForRoad(props, feature.id);
-		const spacing = SPACING_M[congestion];
 		const color = CONGESTION_COLOR[congestion];
 
 		for (const line of asLineCoords(feature.geometry)) {
-			if (cars.length >= maxCars) break;
 			if (line.length < 2) continue;
 			const distanceM = lineLengthM(line);
 			if (distanceM < 40) continue;
-
-			const count = Math.max(
-				1,
-				Math.min(MAX_PER_ROAD[congestion], Math.floor(distanceM / spacing))
-			);
-			for (let i = 0; i < count; i++) {
-				if (cars.length >= maxCars) break;
-				const seed = roadIndex * 97 + i * 13 + distanceM;
-				const progressM = (distanceM * ((i + rand(seed)) / count)) % distanceM;
-				const { bearing } = pointAlongLine(line, progressM);
-				cars.push({
-					id: `car-${roadIndex}-${i}-${Math.floor(seed)}`,
-					line,
-					distanceM,
-					progressM,
-					speedMps: pickSpeed(congestion, seed + 3),
-					congestion,
-					bearing,
-					color
-				});
-			}
+			const key = segmentKey(line);
+			if (seen.has(key)) continue;
+			seen.add(key);
+			segments.push({ key, line, distanceM, congestion, color, roadIndex });
 			roadIndex++;
+		}
+	}
+
+	return segments;
+}
+
+/** Stable spatial sort so the budget spreads across the viewport, not tile order. */
+function spreadSegments(segments: RoadSegment[]): RoadSegment[] {
+	return [...segments].sort((a, b) => {
+		const aLon = a.line[0]?.[0] ?? 0;
+		const aLat = a.line[0]?.[1] ?? 0;
+		const bLon = b.line[0]?.[0] ?? 0;
+		const bLat = b.line[0]?.[1] ?? 0;
+		const aCell = Math.floor(aLon * 200) * 10007 + Math.floor(aLat * 200);
+		const bCell = Math.floor(bLon * 200) * 10007 + Math.floor(bLat * 200);
+		if (aCell !== bCell) return aCell - bCell;
+		return b.distanceM - a.distanceM;
+	});
+}
+
+function makeCar(segment: RoadSegment, slot: number, slots: number): SimCar {
+	const seed = segment.roadIndex * 97 + slot * 13 + segment.distanceM;
+	const progressM =
+		(segment.distanceM * ((slot + rand(seed)) / Math.max(1, slots))) % segment.distanceM;
+	const { bearing } = pointAlongLine(segment.line, progressM);
+	return {
+		id: `car-${segment.roadIndex}-${slot}-${Math.floor(seed)}`,
+		line: segment.line,
+		distanceM: segment.distanceM,
+		progressM,
+		speedMps: pickSpeed(segment.congestion, seed + 3),
+		congestion: segment.congestion,
+		bearing,
+		color: segment.color
+	};
+}
+
+/**
+ * Build a car fleet from vector-tile road features currently loaded.
+ * Two-pass: one car per road first (coverage), then fill remaining slots by spacing.
+ */
+export function spawnCarsFromRoadFeatures(
+	features: Feature[],
+	options: { maxCars?: number } = {}
+): SimCar[] {
+	const maxCars = options.maxCars ?? 110;
+	const segments = spreadSegments(collectSegments(features));
+	if (segments.length === 0 || maxCars <= 0) return [];
+
+	const cars: SimCar[] = [];
+	const placed = new Map<string, number>();
+
+	// Pass 1 — cover as many distinct roads as possible.
+	for (const segment of segments) {
+		if (cars.length >= maxCars) break;
+		cars.push(makeCar(segment, 0, 1));
+		placed.set(segment.key, 1);
+	}
+
+	// Pass 2 — densify longer / jammer roads without starving coverage.
+	for (const segment of segments) {
+		if (cars.length >= maxCars) break;
+		const already = placed.get(segment.key) ?? 0;
+		const target = Math.max(
+			1,
+			Math.min(
+				MAX_PER_ROAD[segment.congestion],
+				Math.floor(segment.distanceM / SPACING_M[segment.congestion])
+			)
+		);
+		for (let slot = already; slot < target; slot++) {
+			if (cars.length >= maxCars) break;
+			cars.push(makeCar(segment, slot, target));
+			placed.set(segment.key, slot + 1);
 		}
 	}
 
@@ -232,11 +301,8 @@ function shade(hex: string, amount: number): string {
 	return `rgb(${r},${g},${b})`;
 }
 
-/** Top-down car (nose up), colored by congestion — drawn large for orbit readability. */
-export function drawCarIcon(
-	congestion: Congestion = 'free',
-	pixelSize = 128
-): ImageData | null {
+/** Top-down car (nose up), colored by congestion. */
+export function drawCarIcon(congestion: Congestion = 'free', pixelSize = 128): ImageData | null {
 	const canvas = document.createElement('canvas');
 	canvas.width = pixelSize;
 	canvas.height = pixelSize;
