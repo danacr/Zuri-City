@@ -622,7 +622,7 @@
 	}
 
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
-		if (!mapInstance.isStyleLoaded()) return;
+		if (!mapInstance.getLayer('traffic-case') && !mapInstance.isStyleLoaded()) return;
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
 		for (const congestion of congestions) {
 			const id = CAR_ICON_IDS[congestion];
@@ -691,41 +691,54 @@
 		(map.getSource('traffic-cars') as GeoJSONSource).setData(carsToGeoJSON(trafficCars));
 	}
 
+	const ROAD_QUERY_LAYERS = ['traffic-roads-query', 'traffic-flow', 'traffic-case'] as const;
+
+	function queryRoadFeatures(): GeoJSON.Feature[] {
+		if (!map) return [];
+		const liveLayers = ROAD_QUERY_LAYERS.filter((id) => map?.getLayer(id));
+		if (liveLayers.length) {
+			try {
+				const rendered = map.queryRenderedFeatures({
+					layers: [...liveLayers]
+				}) as GeoJSON.Feature[];
+				if (rendered.length >= 6) return rendered;
+			} catch {
+				/* fall through to source query */
+			}
+		}
+		try {
+			return map.querySourceFeatures('openmaptiles', {
+				sourceLayer: 'transportation',
+				filter: [
+					'all',
+					['==', ['geometry-type'], 'LineString'],
+					[
+						'in',
+						['get', 'class'],
+						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+					]
+				]
+			}) as GeoJSON.Feature[];
+		} catch {
+			return [];
+		}
+	}
+
 	function reseedTrafficCars(force = false) {
 		if (!map || !intelLayers.traffic) return;
+		ensureTrafficCarsLayer(map);
+		if (!map.getSource('traffic-cars')) return;
 		const now = performance.now();
 		if (!force && now - lastTrafficReseed < 2600) return;
 		lastTrafficReseed = now;
 
-		let features: GeoJSON.Feature[] = [];
-		try {
-			features = map.queryRenderedFeatures({ layers: ['traffic-roads-query'] }) as GeoJSON.Feature[];
-		} catch {
-			features = [];
-		}
-
-		if (features.length < 6) {
-			try {
-				features = map.querySourceFeatures('openmaptiles', {
-					sourceLayer: 'transportation',
-					filter: [
-						'all',
-						['==', ['geometry-type'], 'LineString'],
-						[
-							'in',
-							['get', 'class'],
-							['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-						]
-					]
-				}) as GeoJSON.Feature[];
-			} catch {
-				features = [];
-			}
-		}
-
-		trafficCars = spawnCarsFromRoadFeatures(features, {
+		const features = queryRoadFeatures();
+		const next = spawnCarsFromRoadFeatures(features, {
 			maxCars: TRAFFIC_CAR_COUNT
 		});
+		// Keep the previous fleet if tiles are still empty — avoid wiping cars mid-drive.
+		if (next.length === 0 && trafficCars.length > 0) return;
+		trafficCars = next;
 		pushCarsToMap();
 	}
 
@@ -738,7 +751,10 @@
 			if (!map || !intelLayers.traffic || disposed) return;
 			const dt = Math.min(0.05, Math.max(0.012, (ts - lastTrafficTs) / 1000));
 			lastTrafficTs = ts;
-			if (trafficCars.length) {
+			if (trafficCars.length === 0) {
+				// Tiles often arrive after first paint — keep trying until the fleet appears.
+				reseedTrafficCars(false);
+			} else {
 				trafficCars = advanceCars(trafficCars, dt);
 				pushCarsToMap();
 			}
