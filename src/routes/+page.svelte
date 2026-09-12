@@ -18,7 +18,6 @@
 		type Flight,
 		type IntelLayer,
 		type SensorLook,
-		type TrafficSegment,
 		type Quake
 	} from '$lib/intel/types';
 	import type { PageData } from './$types';
@@ -51,7 +50,6 @@
 	let sensorLook: SensorLook = 'normal';
 	let flights: Flight[] = data.intel?.flights ?? [];
 	let cameras: Camera[] = data.intel?.cameras ?? [];
-	let traffic: TrafficSegment[] = data.intel?.traffic ?? [];
 	let quakes: Quake[] = data.intel?.quakes ?? [];
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -65,7 +63,8 @@
 		parking: data.parkings.length,
 		flights: flights.length,
 		cameras: cameras.length,
-		traffic: traffic.length,
+		// Traffic uses OpenMapTiles roads on the map — no custom corridor count.
+		traffic: intelLayers.traffic ? 'roads' : 0,
 		quakes: quakes.length
 	};
 
@@ -89,7 +88,6 @@
 			const payload = await response.json();
 			// Keep last-good aircraft if a poll returns empty (transient ADS-B blip).
 			if (Array.isArray(payload.flights) && payload.flights.length > 0) flights = payload.flights;
-			if (payload.traffic) traffic = payload.traffic;
 			if (payload.quakes) quakes = payload.quakes;
 			if (payload.cameras) cameras = payload.cameras;
 			if (payload.notes) intelNotes = payload.notes;
@@ -274,7 +272,6 @@
 		{intelLayers}
 		{flights}
 		{cameras}
-		{traffic}
 		{quakes}
 		{mode}
 		selectedId={selectedKind === 'place'

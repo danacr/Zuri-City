@@ -13,11 +13,10 @@
 		cameraViewshedsGeoJSON,
 		camerasToGeoJSON,
 		flightsToGeoJSON,
-		quakesToGeoJSON,
-		trafficToGeoJSON
+		quakesToGeoJSON
 	} from '$lib/intel/geo';
-	import type { Camera, Flight, IntelLayer, Quake, TrafficSegment } from '$lib/intel/types';
-	import { zurichAerialStyle } from '$lib/map/aerialStyle';
+	import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
+	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
@@ -31,7 +30,6 @@
 	};
 	export let flights: Flight[] = [];
 	export let cameras: Camera[] = [];
-	export let traffic: TrafficSegment[] = [];
 	export let quakes: Quake[] = [];
 	export let mode: 'orbit' | 'walk' = 'orbit';
 	export let selectedId: string | null = null;
@@ -57,7 +55,6 @@
 		: [];
 	$: visibleFlights = intelLayers.flights ? flights : [];
 	$: visibleCameras = intelLayers.cameras ? cameras : [];
-	$: visibleTraffic = intelLayers.traffic ? traffic : [];
 	$: visibleQuakes = intelLayers.quakes ? quakes : [];
 
 	$: if (map?.getSource('places')) {
@@ -92,9 +89,6 @@
 	$: if (map?.getSource('viewsheds')) {
 		(map.getSource('viewsheds') as GeoJSONSource).setData(cameraViewshedsGeoJSON(visibleCameras));
 	}
-	$: if (map?.getSource('traffic')) {
-		(map.getSource('traffic') as GeoJSONSource).setData(trafficToGeoJSON(visibleTraffic));
-	}
 	$: if (map?.getSource('quakes')) {
 		(map.getSource('quakes') as GeoJSONSource).setData(quakesToGeoJSON(visibleQuakes));
 	}
@@ -103,6 +97,7 @@
 		if (map.getLayer('detection-flights')) {
 			map.setPaintProperty('detection-flights', 'circle-stroke-opacity', opacity);
 		}
+		syncTrafficVisibility(map, intelLayers.traffic);
 	}
 	$: if (map && mode) applyMode(mode, false);
 	$: if (map && selectedId) focusSelection(selectedId);
@@ -417,53 +412,17 @@
 			});
 		}
 
-		// Traffic above 3D building extrusions (aerial style already includes buildings).
-		if (!mapInstance.getSource('traffic')) {
-			mapInstance.addSource('traffic', {
-				type: 'geojson',
-				data: trafficToGeoJSON(visibleTraffic)
-			});
-			mapInstance.addLayer({
-				id: 'traffic-case',
-				type: 'line',
-				source: 'traffic',
-				paint: {
-					'line-color': '#0b1724',
-					'line-width': 10,
-					'line-opacity': 0.45,
-					'line-blur': 0.2
-				},
-				layout: { 'line-cap': 'round', 'line-join': 'round' }
-			});
-			mapInstance.addLayer({
-				id: 'traffic-line',
-				type: 'line',
-				source: 'traffic',
-				paint: {
-					'line-color': ['get', 'color'],
-					'line-width': 6,
-					'line-opacity': 0.95
-				},
-				layout: { 'line-cap': 'round', 'line-join': 'round' }
-			});
-			mapInstance.addLayer({
-				id: 'traffic-label',
-				type: 'symbol',
-				source: 'traffic',
-				minzoom: 13,
-				layout: {
-					'symbol-placement': 'line-center',
-					'text-field': ['get', 'name'],
-					'text-size': 11,
-					'text-font': ['Noto Sans Bold'],
-					'text-allow-overlap': false
-				},
-				paint: {
-					'text-color': '#fff4e5',
-					'text-halo-color': '#1a0f08',
-					'text-halo-width': 1.4
-				}
-			});
+		// Traffic is painted from OpenMapTiles `transportation` in the aerial style
+		// (layers traffic-case / traffic-flow) — no hand-drawn GeoJSON corridors.
+		syncTrafficVisibility(mapInstance, intelLayers.traffic);
+	}
+
+	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
+		const visibility = on ? 'visible' : 'none';
+		for (const id of TRAFFIC_STYLE_LAYERS) {
+			if (mapInstance.getLayer(id)) {
+				mapInstance.setLayoutProperty(id, 'visibility', visibility);
+			}
 		}
 	}
 

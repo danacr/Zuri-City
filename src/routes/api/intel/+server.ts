@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { ZURICH_CAMERAS } from '$lib/intel/cameras';
 import { loadFlights, loadQuakes } from '$lib/server/intel';
-import { TRAFFIC_CORRIDORS, ZURICH_CAMERAS, jitterTraffic } from '$lib/intel/cameras';
 
 export const GET: RequestHandler = async ({ fetch, url, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
@@ -16,10 +16,12 @@ export const GET: RequestHandler = async ({ fetch, url, setHeaders }) => {
 		return json({ ...result, fetchedAt: new Date().toISOString() });
 	}
 	if (layer === 'traffic') {
+		// Road geometry is OpenMapTiles on the client — no custom corridor payload.
 		return json({
-			traffic: jitterTraffic(TRAFFIC_CORRIDORS),
+			traffic: [],
 			fetchedAt: new Date().toISOString(),
-			modeled: true
+			modeled: true,
+			source: 'openmaptiles-transportation'
 		});
 	}
 	if (layer === 'cameras') {
@@ -30,7 +32,7 @@ export const GET: RequestHandler = async ({ fetch, url, setHeaders }) => {
 	return json({
 		flights: flights.flights,
 		quakes: quakes.quakes,
-		traffic: jitterTraffic(TRAFFIC_CORRIDORS),
+		traffic: [],
 		cameras: ZURICH_CAMERAS,
 		fetchedAt: new Date().toISOString(),
 		notes: [flights.error, quakes.error].filter(Boolean)

@@ -1,10 +1,9 @@
 import type { StyleSpecification } from 'maplibre-gl';
 
 /**
- * Aerial / satellite god’s-eye basemap for Zürich:
- * satellite/aerial imagery under solid OpenMapTiles 3D building masses.
- * (True street-view façade meshes need a commercial 3D-tiles key; this is the
- * best keyless photoreal ground + volumetric city read.)
+ * Aerial god’s-eye basemap for Zürich:
+ * SWISSIMAGE under OpenMapTiles 3D buildings, with traffic painted on the
+ * same `transportation` centerlines (no hand-drawn corridors).
  */
 export function zurichAerialStyle(): StyleSpecification {
 	return {
@@ -15,13 +14,13 @@ export function zurichAerialStyle(): StyleSpecification {
 			aerial: {
 				type: 'raster',
 				tiles: [
-					// Esri World Imagery — CORS-friendly satellite/aerial (XYZ z/y/x).
-					'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+					// SWISSIMAGE — official Swiss orthophoto (XYZ Web Mercator, CORS OK).
+					'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg'
 				],
 				tileSize: 256,
+				minzoom: 0,
 				maxzoom: 19,
-				attribution:
-					'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+				attribution: '© swisstopo — SWISSIMAGE'
 			},
 			terrain: {
 				type: 'raster-dem',
@@ -42,10 +41,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				id: 'satellite',
 				type: 'raster',
 				source: 'aerial',
-				paint: { 'raster-opacity': 1, 'raster-saturation': -0.02, 'raster-contrast': 0.06 }
+				paint: { 'raster-opacity': 1, 'raster-saturation': -0.02, 'raster-contrast': 0.08 }
 			},
-			// No OSM road casings on the aerial — Zürich city streets read from
-			// imagery. Vector road lines were drifting off Esri tiles in-town.
 			{
 				id: 'zurich-3d-buildings',
 				type: 'fill-extrusion',
@@ -86,8 +83,89 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'render_min_height'],
 						0
 					],
-					'fill-extrusion-opacity': 0.82,
+					'fill-extrusion-opacity': 0.78,
 					'fill-extrusion-vertical-gradient': true
+				}
+			},
+			// Traffic on real OSM road centerlines (same tiles as buildings) — not custom polylines.
+			{
+				id: 'traffic-case',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				minzoom: 12,
+				filter: [
+					'all',
+					[
+						'in',
+						['get', 'class'],
+						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+					],
+					['!=', ['get', 'brunnel'], 'tunnel']
+				],
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility: 'visible'
+				},
+				paint: {
+					'line-color': '#0b1724',
+					'line-opacity': 0.4,
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						2.2,
+						15,
+						5.5,
+						17,
+						9
+					]
+				}
+			},
+			{
+				id: 'traffic-flow',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				minzoom: 12,
+				filter: [
+					'all',
+					[
+						'in',
+						['get', 'class'],
+						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+					],
+					['!=', ['get', 'brunnel'], 'tunnel']
+				],
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility: 'visible'
+				},
+				paint: {
+					// Modeled congestion by road name length (stable per segment, free to run).
+					'line-color': [
+						'case',
+						['==', ['%', ['length', ['coalesce', ['get', 'name'], 'rd']], 3], 0],
+						'#30d158',
+						['==', ['%', ['length', ['coalesce', ['get', 'name'], 'rd']], 3], 1],
+						'#ff9f0a',
+						'#ff3b30'
+					],
+					'line-opacity': 0.92,
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						1.4,
+						15,
+						3.4,
+						17,
+						6
+					]
 				}
 			},
 			{
@@ -131,3 +209,5 @@ export function zurichAerialStyle(): StyleSpecification {
 		]
 	};
 }
+
+export const TRAFFIC_STYLE_LAYERS = ['traffic-case', 'traffic-flow'] as const;

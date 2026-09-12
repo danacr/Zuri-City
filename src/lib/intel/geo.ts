@@ -1,5 +1,4 @@
-import { trafficLevelColor } from './cameras';
-import type { Camera, Flight, Quake, TrafficSegment } from './types';
+import type { Camera, Flight, Quake } from './types';
 
 export function flightsToGeoJSON(flights: Flight[]) {
 	return {
@@ -43,28 +42,6 @@ export function camerasToGeoJSON(cameras: Camera[]) {
 			geometry: {
 				type: 'Point' as const,
 				coordinates: [camera.lon, camera.lat]
-			}
-		}))
-	};
-}
-
-export function trafficToGeoJSON(segments: TrafficSegment[]) {
-	return {
-		type: 'FeatureCollection' as const,
-		features: segments.map((segment) => ({
-			type: 'Feature' as const,
-			id: segment.id,
-			properties: {
-				id: segment.id,
-				kind: 'traffic',
-				name: segment.name,
-				level: segment.level,
-				color: trafficLevelColor(segment.level),
-				modeled: segment.modeled
-			},
-			geometry: {
-				type: 'LineString' as const,
-				coordinates: segment.coordinates
 			}
 		}))
 	};

@@ -1,4 +1,4 @@
-import { ZURICH_CAMERAS, TRAFFIC_CORRIDORS, jitterTraffic } from '$lib/intel/cameras';
+import { ZURICH_CAMERAS } from '$lib/intel/cameras';
 import { ZRH_BBOX, type Flight, type IntelSnapshot, type Quake } from '$lib/intel/types';
 
 type AdsbAircraft = {
@@ -108,16 +108,16 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 	const notes = [
 		flightsResult.error,
 		quakesResult.error,
-		'Traffic flow is a labeled simulation along published Zürich corridors until a TomTom key is configured.',
+		'Traffic is painted on OpenMapTiles road centerlines (free) — modeled congestion colors, not a paid live-feed API.',
 		'CCTV stills are live ASTRA Mobcam JPEGs (proxied + validated). Map pins are approximate corridor placements.',
 		'Aircraft are live ADS-B (adsb.lol). Tap “Find aircraft” or enable Aircraft — most contacts are outside the city bowl.',
-		'Basemap is satellite/aerial imagery with solid 3D building masses (keyless). Photoreal street façades need a commercial 3D-tiles key.'
+		'Basemap is SWISSIMAGE (swisstopo) with solid 3D building masses (keyless). Photoreal street façades need a commercial 3D-tiles key.'
 	].filter(Boolean);
 
 	return {
 		flights: flightsResult.flights,
 		cameras: ZURICH_CAMERAS,
-		traffic: jitterTraffic(TRAFFIC_CORRIDORS),
+		traffic: [],
 		quakes: quakesResult.quakes,
 		fetchedAt: new Date().toISOString(),
 		notes
