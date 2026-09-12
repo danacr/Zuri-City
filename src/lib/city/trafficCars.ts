@@ -232,10 +232,10 @@ function shade(hex: string, amount: number): string {
 	return `rgb(${r},${g},${b})`;
 }
 
-/** Small 3D-shaded top-down car (nose up), colored by congestion. */
+/** Top-down car (nose up), colored by congestion — drawn large for orbit readability. */
 export function drawCarIcon(
 	congestion: Congestion = 'free',
-	pixelSize = 64
+	pixelSize = 128
 ): ImageData | null {
 	const canvas = document.createElement('canvas');
 	canvas.width = pixelSize;

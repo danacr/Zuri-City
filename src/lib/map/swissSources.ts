@@ -16,7 +16,7 @@ export const WALK_CAMERA = {
 } as const;
 
 /** Cars stay present across the city zoom range (density by viewport, not zoom gates). */
-export const TRAFFIC_CAR_COUNT = 32;
+export const TRAFFIC_CAR_COUNT = 48;
 
 export const SWISSIMAGE_TILES =
 	'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg';

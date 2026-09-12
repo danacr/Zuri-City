@@ -626,14 +626,14 @@
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
 		for (const congestion of congestions) {
 			const id = CAR_ICON_IDS[congestion];
-			if (mapInstance.hasImage(id)) continue;
-			const sprite = drawCarIcon(congestion, 64);
-			if (sprite) {
-				try {
-					mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
-				} catch (error) {
-					console.warn('car icon add failed', id, error);
-				}
+			// 128px master + pixelRatio 2 → crisp icons when drawn large on orbit.
+			const sprite = drawCarIcon(congestion, 128);
+			if (!sprite) continue;
+			try {
+				if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
+				mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
+			} catch (error) {
+				console.warn('car icon add failed', id, error);
 			}
 		}
 		if (!mapInstance.getSource('traffic-cars')) {
@@ -642,17 +642,17 @@
 				data: { type: 'FeatureCollection', features: [] }
 			});
 		}
-		// Oversized on purpose — readable from orbit without hunting for ants.
+		// Big on purpose — readable from the default orbit camera without zooming in.
 		const carIconSize: ExpressionSpecification = [
 			'interpolate',
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			0.7,
+			1.35,
 			15,
-			1.05,
+			1.85,
 			CITY_MAX_ZOOM,
-			1.35
+			2.4
 		];
 		if (!mapInstance.getLayer('traffic-cars')) {
 			mapInstance.addLayer({
@@ -666,14 +666,29 @@
 					'icon-size': carIconSize,
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
-					'icon-pitch-alignment': 'map',
+					'icon-pitch-alignment': 'viewport',
 					'icon-allow-overlap': true,
 					'icon-ignore-placement': true,
+					'symbol-z-order': 'viewport-y',
+					// Lift above the road so terrain / 3D buildings don't swallow the icons.
+					'symbol-height-anchor': 'ground',
+					'symbol-height-offset': 8,
 					visibility: intelLayers.traffic ? 'visible' : 'none'
 				}
 			});
 		} else {
 			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', carIconSize);
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'viewport');
+			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-anchor', 'ground');
+			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-offset', 8);
+		}
+		// Keep cars above roads, labels, and swiss buildings when those remount.
+		if (mapInstance.getLayer('traffic-cars')) {
+			try {
+				mapInstance.moveLayer('traffic-cars');
+			} catch {
+				/* style mid-reload */
+			}
 		}
 	}
 
