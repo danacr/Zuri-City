@@ -86,6 +86,7 @@
 	let trafficRaf = 0;
 	let lastTrafficTs = 0;
 	let lastTrafficReseed = 0;
+	let carIconsReady = false;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
 	$: visibleParkings = parkings.filter((parking) => parking.coordinates !== null);
@@ -624,17 +625,20 @@
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
 		if (!mapInstance.getLayer('traffic-case') && !mapInstance.isStyleLoaded()) return;
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
-		for (const congestion of congestions) {
-			const id = CAR_ICON_IDS[congestion];
-			// 128px master + pixelRatio 2 → crisp icons when drawn large on orbit.
-			const sprite = drawCarIcon(congestion, 128);
-			if (!sprite) continue;
-			try {
-				if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
-				mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
-			} catch (error) {
-				console.warn('car icon add failed', id, error);
+		if (!carIconsReady) {
+			for (const congestion of congestions) {
+				const id = CAR_ICON_IDS[congestion];
+				// 128px master + pixelRatio 2 → crisp icons when drawn large on orbit.
+				const sprite = drawCarIcon(congestion, 128);
+				if (!sprite) continue;
+				try {
+					if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
+					mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
+				} catch (error) {
+					console.warn('car icon add failed', id, error);
+				}
 			}
+			carIconsReady = congestions.every((c) => mapInstance.hasImage(CAR_ICON_IDS[c]));
 		}
 		if (!mapInstance.getSource('traffic-cars')) {
 			mapInstance.addSource('traffic-cars', {
@@ -916,6 +920,7 @@
 						terrainHandle = await attachSwissTerrain(instance, maplibregl);
 						mountSwissOverlay(instance, maplibregl);
 					})();
+					carIconsReady = false;
 					styleReady = true;
 					ensureLayers(instance);
 				});
