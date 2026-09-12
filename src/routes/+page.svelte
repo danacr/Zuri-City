@@ -98,7 +98,7 @@
 
 	onMount(() => {
 		categoryIcons = Object.fromEntries(
-			PLACE_CATEGORIES.map((key) => [key, placeIconDataUrl(key, 64)])
+			PLACE_CATEGORIES.map((key) => [key, placeIconDataUrl(key, 96)])
 		) as Record<PlaceCategory, string>;
 
 		void refreshIntel().then(() => tryRevealFlights());
@@ -412,7 +412,7 @@
 							on:click={() => togglePlaceLayer(key)}
 						>
 							{#if categoryIcons[key]}
-								<img class="cat-icon" src={categoryIcons[key]} alt="" width="14" height="14" />
+								<img class="cat-icon" src={categoryIcons[key]} alt="" width="18" height="18" />
 							{:else}
 								<i style:background={CATEGORY_COLOR[key]}></i>
 							{/if}
@@ -528,7 +528,7 @@
 				on:click={() => togglePlaceLayer(key)}
 			>
 				{#if categoryIcons[key]}
-					<img class="cat-icon" src={categoryIcons[key]} alt="" width="16" height="16" />
+					<img class="cat-icon" src={categoryIcons[key]} alt="" width="18" height="18" />
 				{:else}
 					<i style:background={CATEGORY_COLOR[key]}></i>
 				{/if}
@@ -867,11 +867,12 @@
 		color: var(--accent);
 	}
 	.cat-icon {
-		width: 14px;
-		height: 14px;
+		width: 18px;
+		height: 18px;
 		border-radius: 50%;
 		flex: 0 0 auto;
 		display: block;
+		object-fit: cover;
 	}
 	.chip i {
 		width: 7px;
@@ -1117,9 +1118,10 @@
 			color: var(--accent);
 		}
 		.layer .cat-icon {
-			width: 16px;
-			height: 16px;
+			width: 18px;
+			height: 18px;
 			border-radius: 50%;
+			object-fit: cover;
 		}
 		.layer i {
 			width: 8px;
