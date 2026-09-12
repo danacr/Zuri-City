@@ -129,7 +129,16 @@
 		(map.getSource('cameras') as GeoJSONSource).setData(camerasToGeoJSON(visibleCameras));
 	}
 	$: if (map?.getSource('viewsheds')) {
-		(map.getSource('viewsheds') as GeoJSONSource).setData(cameraViewshedsGeoJSON(visibleCameras));
+		(map.getSource('viewsheds') as GeoJSONSource).setData(
+			cameraViewshedsGeoJSON(intelLayers.detection ? visibleCameras : [])
+		);
+	}
+	$: if (map && styleReady && map.getLayer('camera-viewsheds')) {
+		map.setLayoutProperty(
+			'camera-viewsheds',
+			'visibility',
+			intelLayers.detection && intelLayers.cameras ? 'visible' : 'none'
+		);
 	}
 	$: if (map?.getSource('quakes')) {
 		(map.getSource('quakes') as GeoJSONSource).setData(quakesToGeoJSON(visibleQuakes));
@@ -326,6 +335,10 @@
 				id: 'camera-viewsheds',
 				type: 'fill',
 				source: 'viewsheds',
+				layout: {
+					visibility:
+						intelLayers.detection && intelLayers.cameras ? 'visible' : 'none'
+				},
 				paint: {
 					'fill-color': '#7c5cff',
 					'fill-opacity': 0.14

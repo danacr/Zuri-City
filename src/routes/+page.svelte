@@ -14,6 +14,7 @@
 		INTEL_LAYER_COLOR,
 		INTEL_LAYER_LABEL,
 		SENSOR_LOOKS,
+		TRAFFIC_LEGEND,
 		type Camera,
 		type Flight,
 		type IntelLayer,
@@ -326,7 +327,7 @@
 		<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
 			<img src="/favicon.svg" alt="" width="32" height="32" />
 			<div>
-				<p class="brand-kicker">God’s-eye Zürich</p>
+				<p class="brand-kicker">Live Zürich</p>
 				<h1>Züri City</h1>
 			</div>
 		</a>
@@ -334,11 +335,10 @@
 
 	<!-- Desktop left briefing -->
 	<aside class="desk-hud" aria-label="City briefing">
-		<p class="eyebrow">Living city</p>
-		<h2>Zürich in motion</h2>
+		<p class="eyebrow">Map</p>
+		<h2>Zürich live</h2>
 		<p>
-			Streets glow green, amber, or red by traffic. Orbit the rooftops, track aircraft, flip CCTV
-			viewsheds, and drop to street level. Parking pins stay on the map in blue.
+			Green / amber / red streets show traffic. Toggle places and live feeds below. Parking stays on the map in blue.
 		</p>
 		<div class="mode-row">
 			<button
@@ -435,7 +435,7 @@
 						<span>{counts.parking}</span>
 					</button>
 				</div>
-				<p class="sheet-title">God’s-eye</p>
+				<p class="sheet-title">Live feeds</p>
 				<div class="chip-row">
 					{#each intelKeys as key (key)}
 						<button
@@ -453,10 +453,17 @@
 						</button>
 					{/each}
 				</div>
+				{#if intelLayers.traffic}
+					<div class="traffic-legend" aria-label="Traffic colors">
+						{#each TRAFFIC_LEGEND as item (item.label)}
+							<span><i style:background={item.color}></i>{item.label}</span>
+						{/each}
+					</div>
+				{/if}
 				<button type="button" class="sheet-action" on:click={findAircraft}>
-					Find aircraft on map · {counts.flights}
+					Find aircraft · {counts.flights}
 				</button>
-				<p class="sheet-title">Sensors · keys 1–6</p>
+				<p class="sheet-title">View mode</p>
 				<div class="chip-row sensors">
 					{#each SENSOR_LOOKS as look (look.id)}
 						<button
@@ -541,7 +548,7 @@
 			<span>Parking list</span>
 			<strong>{counts.parking}</strong>
 		</button>
-		<p class="eyebrow intel-label">God’s-eye</p>
+		<p class="eyebrow intel-label">Live feeds</p>
 		{#each intelKeys as key (key)}
 			<button
 				type="button"
@@ -555,6 +562,13 @@
 				<strong>{key === 'detection' ? '' : counts[key]}</strong>
 			</button>
 		{/each}
+		{#if intelLayers.traffic}
+			<div class="traffic-legend desk" aria-label="Traffic colors">
+				{#each TRAFFIC_LEGEND as item (item.label)}
+					<span><i style:background={item.color}></i>{item.label}</span>
+				{/each}
+			</div>
+		{/if}
 	</aside>
 
 	{#if selected && selectedKind === 'place'}
@@ -765,10 +779,10 @@
 	.layer-sheet {
 		flex: 1 1 auto;
 		min-height: 0;
-		max-height: min(28vh, 240px);
+		max-height: min(32vh, 280px);
 		overflow: auto;
-		padding: 10px 12px 12px;
-		border-radius: 16px;
+		padding: 8px 10px 10px;
+		border-radius: 14px;
 		background: color-mix(in srgb, var(--surface) 94%, transparent);
 		border: 1px solid var(--border);
 		backdrop-filter: blur(16px);
@@ -807,17 +821,17 @@
 	}
 	.sheet-title {
 		font-size: 10px;
-		letter-spacing: 0.12em;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		font-weight: 750;
 		color: var(--muted);
-		margin: 8px 0 6px;
+		margin: 6px 0 4px;
 	}
 	.chip-row {
 		display: flex;
-		gap: 8px;
+		gap: 5px;
 		overflow-x: auto;
-		padding-bottom: 4px;
+		padding-bottom: 2px;
 		scrollbar-width: none;
 	}
 	.chip-row::-webkit-scrollbar {
@@ -826,14 +840,14 @@
 	.chip {
 		display: inline-flex;
 		align-items: center;
-		gap: 6px;
+		gap: 5px;
 		flex: 0 0 auto;
-		min-height: 36px;
-		padding: 0 10px;
+		min-height: 30px;
+		padding: 0 8px;
 		border-radius: 999px;
 		background: var(--surface-muted);
 		color: var(--text);
-		font-size: 12px;
+		font-size: 11px;
 		font-weight: 700;
 		opacity: 0.55;
 	}
@@ -843,9 +857,10 @@
 		color: var(--accent);
 	}
 	.chip i {
-		width: 8px;
-		height: 8px;
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
+		flex: 0 0 auto;
 	}
 	.chip i.parking {
 		background: #1c7ed6;
@@ -959,6 +974,36 @@
 		color: var(--muted);
 	}
 
+
+	.traffic-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 12px;
+		align-items: center;
+		margin: 6px 0 2px;
+		padding: 6px 8px;
+		border-radius: 10px;
+		background: color-mix(in srgb, var(--surface-muted) 85%, transparent);
+		font-size: 10px;
+		font-weight: 700;
+		color: var(--muted);
+	}
+	.traffic-legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+	}
+	.traffic-legend i {
+		width: 8px;
+		height: 8px;
+		border-radius: 999px;
+		flex: 0 0 auto;
+	}
+	.traffic-legend.desk {
+		margin-top: 4px;
+		padding: 5px 8px;
+	}
+
 	@media (min-width: 860px) {
 		.dock,
 		.mobile-alert {
@@ -969,9 +1014,9 @@
 			display: grid;
 			position: absolute;
 			z-index: 22;
-			width: min(340px, calc(100vw - 32px));
-			padding: 16px;
-			border-radius: 20px;
+			width: min(300px, calc(100vw - 28px));
+			padding: 12px;
+			border-radius: 16px;
 			background: color-mix(in srgb, var(--surface) 90%, transparent);
 			border: 1px solid var(--border);
 			backdrop-filter: blur(16px);
@@ -995,9 +1040,10 @@
 		}
 		.desk-layers {
 			left: 16px;
-			top: calc(320px + env(safe-area-inset-top));
-			max-height: calc(100dvh - 380px);
+			top: calc(268px + env(safe-area-inset-top));
+			max-height: calc(100dvh - 300px);
 			overflow: auto;
+			gap: 4px;
 		}
 		.mode-row,
 		.find-aircraft,
@@ -1039,10 +1085,12 @@
 		}
 		.layer {
 			display: grid;
-			grid-template-columns: 10px 1fr auto;
+			grid-template-columns: 8px 1fr auto;
 			align-items: center;
-			gap: 10px;
+			gap: 8px;
 			width: 100%;
+			min-height: 32px;
+			padding: 0 10px;
 			text-align: left;
 			opacity: 0.55;
 		}
@@ -1052,8 +1100,8 @@
 			color: var(--accent);
 		}
 		.layer i {
-			width: 10px;
-			height: 10px;
+			width: 8px;
+			height: 8px;
 			border-radius: 50%;
 		}
 		.layer i.parking {

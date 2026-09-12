@@ -38,10 +38,10 @@
 </script>
 
 {#if camera || flight}
-	<aside class="viewer" aria-label={camera ? 'CCTV viewer' : 'Aircraft track'}>
+	<aside class="viewer" aria-label={camera ? 'Camera view' : 'Aircraft track'}>
 		<header>
 			<div>
-				<p class="eyebrow">{camera ? 'CCTV MESH' : 'AIR TRACK'}</p>
+				<p class="eyebrow">{camera ? 'Camera' : 'Aircraft'}</p>
 				<h3>{title}</h3>
 			</div>
 			<button type="button" aria-label="Close viewer" on:click={onClose}>×</button>
@@ -51,23 +51,20 @@
 			<div class="frame" class:empty={!liveImage}>
 				{#if liveImage}
 					<img src={liveImage} alt={`View from ${camera.name}`} />
-					<span class="badge">{camera.modeled ? 'MODELED VIEW' : 'LIVE'}</span>
+					<span class="badge">{camera.modeled ? 'Modeled' : 'Live'}</span>
 				{:else}
 					<div class="placeholder">
-						<strong>NO LIVE FEED</strong>
-						<p>Pose estimated · {camera.note}</p>
+						<strong>No live feed</strong>
+						<p>{camera.note}</p>
 					</div>
-					<span class="badge">MODELED</span>
+					<span class="badge">Modeled</span>
 				{/if}
-				<div class="scan" aria-hidden="true"></div>
 			</div>
 			<dl>
 				<div><dt>Kind</dt><dd>{camera.kind}</dd></div>
 				<div><dt>Bearing</dt><dd>{camera.bearing}°</dd></div>
-				<div><dt>Lat / Lon</dt><dd>{camera.lat.toFixed(4)}, {camera.lon.toFixed(4)}</dd></div>
-				<div><dt>Stamp</dt><dd>{stamp} ZRH</dd></div>
+				<div><dt>Stamp</dt><dd>{stamp}</dd></div>
 			</dl>
-			<p class="note">{camera.note}</p>
 		{/if}
 
 		{#if flight}
@@ -80,17 +77,16 @@
 						{flight.heading == null ? 'HDG —' : `HDG ${Math.round(flight.heading)}°`}
 					</p>
 					<p class="sub">
-						{flight.onGround ? 'ON GROUND' : 'AIRBORNE'} · ADS-B ·
-						{flight.size.toUpperCase()}{flight.typeCode ? ` · ${flight.typeCode}` : ''}
+						{flight.onGround ? 'On ground' : 'Airborne'} · ADS-B
+						{flight.typeCode ? ` · ${flight.typeCode}` : ''}
 					</p>
 				</div>
-				<span class="badge">TRACK</span>
+				<span class="badge">Track</span>
 			</div>
 			<dl>
 				<div><dt>Position</dt><dd>{flight.lat.toFixed(4)}, {flight.lon.toFixed(4)}</dd></div>
-				<div><dt>Stamp</dt><dd>{stamp} ZRH</dd></div>
+				<div><dt>Stamp</dt><dd>{stamp}</dd></div>
 			</dl>
-			<p class="note">Live ADS-B contact over the Zürich area. Source: adsb.lol.</p>
 		{/if}
 	</aside>
 {/if}
@@ -99,47 +95,52 @@
 	.viewer {
 		position: absolute;
 		z-index: 26;
-		right: 16px;
-		top: calc(72px + env(safe-area-inset-top));
-		width: min(360px, calc(100vw - 24px));
+		right: 12px;
+		top: calc(64px + env(safe-area-inset-top));
+		width: min(260px, calc(100vw - 20px));
 		display: grid;
-		gap: 10px;
-		padding: 12px;
-		border-radius: 18px;
-		background: color-mix(in srgb, #07141f 88%, transparent);
+		gap: 6px;
+		padding: 8px;
+		border-radius: 12px;
+		background: color-mix(in srgb, #07141f 90%, transparent);
 		border: 1px solid #3d5a7388;
-		backdrop-filter: blur(14px);
+		backdrop-filter: blur(12px);
 		color: #e8f1fa;
-		box-shadow: 0 18px 40px #03101866;
+		box-shadow: 0 12px 28px #03101855;
 	}
 	header {
 		display: flex;
 		justify-content: space-between;
-		gap: 10px;
+		gap: 8px;
 		align-items: flex-start;
 	}
 	.eyebrow {
-		font-size: 10px;
-		letter-spacing: 0.16em;
+		font-size: 9px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
 		font-weight: 750;
 		color: #8fd0ff;
 	}
 	h3 {
-		font-size: 18px;
+		font-size: 14px;
 		font-weight: 800;
-		letter-spacing: -0.03em;
+		letter-spacing: -0.02em;
+		line-height: 1.2;
+		margin-top: 1px;
 	}
 	header button {
-		width: 40px;
-		height: 40px;
-		font-size: 24px;
+		width: 28px;
+		height: 28px;
+		font-size: 18px;
 		color: #9db4c8;
+		flex: 0 0 auto;
 	}
 	.frame {
 		position: relative;
 		overflow: hidden;
-		border-radius: 12px;
-		aspect-ratio: 16 / 10;
+		border-radius: 8px;
+		aspect-ratio: 16 / 9;
+		max-height: 110px;
 		background: #0a1520;
 		border: 1px solid #2d4558;
 	}
@@ -147,74 +148,56 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+		object-position: center;
+		display: block;
 		filter: contrast(1.05) saturate(0.9);
 	}
 	.placeholder {
 		height: 100%;
 		display: grid;
 		place-content: center;
-		gap: 6px;
-		padding: 16px;
+		gap: 2px;
+		padding: 8px;
 		text-align: center;
-		background:
-			repeating-linear-gradient(
-				0deg,
-				transparent,
-				transparent 2px,
-				#ffffff08 2px,
-				#ffffff08 3px
-			),
-			radial-gradient(circle at 50% 40%, #1a3348, #071018);
+		background: radial-gradient(circle at 50% 40%, #1a3348, #071018);
 	}
 	.placeholder strong {
-		letter-spacing: 0.12em;
-		font-size: 13px;
+		letter-spacing: 0.06em;
+		font-size: 11px;
 		color: #8fd0ff;
 	}
 	.placeholder p {
-		font-size: 12px;
+		font-size: 11px;
 		color: #9db4c8;
-		line-height: 1.45;
+		line-height: 1.35;
+		margin: 0;
 	}
 	.sub {
-		margin-top: 4px;
-		font-size: 11px !important;
-		letter-spacing: 0.08em;
+		margin-top: 2px;
+		font-size: 10px !important;
+		letter-spacing: 0.04em;
 		color: #3dd68c !important;
 	}
 	.badge {
 		position: absolute;
-		top: 8px;
-		left: 8px;
-		padding: 4px 8px;
-		border-radius: 6px;
+		top: 6px;
+		left: 6px;
+		padding: 2px 6px;
+		border-radius: 4px;
 		background: #031018cc;
 		border: 1px solid #8fd0ff55;
-		font-size: 10px;
+		font-size: 9px;
 		font-weight: 750;
-		letter-spacing: 0.1em;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 		color: #8fd0ff;
-	}
-	.scan {
-		pointer-events: none;
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(180deg, transparent 40%, #8fd0ff18 50%, transparent 60%);
-		animation: scan 2.8s linear infinite;
-	}
-	@keyframes scan {
-		from {
-			transform: translateY(-100%);
-		}
-		to {
-			transform: translateY(100%);
-		}
 	}
 	dl {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-		font-size: 11px;
+		gap: 4px 8px;
+		font-size: 10px;
+		margin: 0;
 	}
 	dt {
 		color: #7f96aa;
@@ -222,26 +205,20 @@
 	}
 	dd {
 		font-variant-numeric: tabular-nums;
-		margin-top: 2px;
-	}
-	.note {
-		font-size: 11px;
-		color: #9db4c8;
-		line-height: 1.45;
+		margin: 1px 0 0;
 	}
 	@media (max-width: 859px) {
 		.viewer {
-			left: 12px;
-			right: 12px;
+			left: 10px;
+			right: 10px;
 			width: auto;
 			top: auto;
-			bottom: calc(108px + env(safe-area-inset-bottom));
-			max-height: min(42vh, 360px);
+			bottom: calc(100px + env(safe-area-inset-bottom));
+			max-height: min(34vh, 260px);
 			overflow: auto;
 		}
 		.frame {
-			aspect-ratio: 16 / 9;
-			max-height: 140px;
+			max-height: 96px;
 		}
 	}
 </style>
