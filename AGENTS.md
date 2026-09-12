@@ -116,6 +116,14 @@ Favicon source: `static/favicon.svg`. Regenerate ICO/PNG with
 `node scripts/generate-icons.mjs` (Playwright Chromium) or
 `PLAYWRIGHT_CHANNEL=chrome node scripts/generate-icons.mjs`.
 
+## Pull requests
+
+The canonical in-progress product branch is **`cursor/zurich-city-3d-view-abf9`**
+([PR #1](https://github.com/danacr/Zuri-City/pull/1)). Open new feature branches
+and PRs **against that branch**, not against `main`, until PR #1 merges.
+
+Branch names: `cursor/<short-description>-abf9`.
+
 ## Agent preferences
 
 - Keep the **living streets / car simulation** as the map foundation.
