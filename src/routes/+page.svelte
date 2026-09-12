@@ -8,7 +8,7 @@
 	import ZurichBootSplash from '$lib/city/ZurichBootSplash.svelte';
 	import ParkingPanel from '$lib/ParkingPanel.svelte';
 	import ContactViewer from '$lib/intel/ContactViewer.svelte';
-	import { CATEGORY_LABEL, type Place, type PlaceCategory } from '$lib/city/places';
+	import { CATEGORY_LABEL, CATEGORY_COLOR, PLACE_CATEGORIES, ZURICH_CENTER, haversineMeters, type Place, type PlaceCategory } from '$lib/city/places';
 	import type { Parking } from '$lib/parking';
 	import {
 		INTEL_LAYER_COLOR,
@@ -34,11 +34,10 @@
 	let locating = false;
 	let locationError = '';
 	let request = 0;
-	let layers: Record<PlaceCategory, boolean> = {
-		attraction: true,
-		restaurant: true,
-		shop: true
-	};
+	let layers: Record<PlaceCategory, boolean> = Object.fromEntries(
+		PLACE_CATEGORIES.map((key) => [key, true])
+	) as Record<PlaceCategory, boolean>;
+	let openNowOnly = false;
 	let intelLayers: Record<IntelLayer, boolean> = {
 		flights: true,
 		cameras: true,
@@ -52,13 +51,25 @@
 	let quakes: Quake[] = data.intel?.quakes ?? [];
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
-	const placeKeys: PlaceCategory[] = ['attraction', 'restaurant', 'shop'];
+	const placeKeys: PlaceCategory[] = PLACE_CATEGORIES;
 	const intelKeys: IntelLayer[] = ['flights', 'cameras', 'traffic', 'quakes', 'detection'];
 
+	$: placeOrigin = (position || ZURICH_CENTER) as [number, number];
+	$: visibleMapPlaces = [...data.places]
+		.filter((place) => layers[place.category] && (!openNowOnly || place.isOpen === true))
+		.sort((a, b) => {
+			const openScore = (value: boolean | null) => (value === true ? 0 : value === false ? 2 : 1);
+			const openDiff = openScore(a.isOpen) - openScore(b.isOpen);
+			if (openDiff !== 0) return openDiff;
+			return (
+				haversineMeters(placeOrigin, [a.lon, a.lat]) - haversineMeters(placeOrigin, [b.lon, b.lat])
+			);
+		});
 	$: counts = {
-		attraction: data.places.filter((p) => p.category === 'attraction').length,
-		restaurant: data.places.filter((p) => p.category === 'restaurant').length,
-		shop: data.places.filter((p) => p.category === 'shop').length,
+		...(Object.fromEntries(
+			PLACE_CATEGORIES.map((key) => [key, data.places.filter((p) => p.category === key).length])
+		) as Record<PlaceCategory, number>),
+		openNow: data.places.filter((p) => p.isOpen === true).length,
 		parking: data.parkings.length,
 		flights: flights.length,
 		cameras: cameras.length,
@@ -66,6 +77,12 @@
 		traffic: intelLayers.traffic ? 'roads' : 0,
 		quakes: quakes.length
 	};
+
+	function formatDistance(place: Place): string {
+		const meters = haversineMeters(placeOrigin, [place.lon, place.lat]);
+		if (meters < 1000) return `${Math.round(meters / 10) * 10} m away`;
+		return `${(meters / 1000).toFixed(1)} km away`;
+	}
 
 	let didRevealFlights = false;
 	let mapReady = false;
@@ -280,7 +297,7 @@
 	<div class="sensor-veil" aria-hidden="true"></div>
 	<ZurichCity
 		bind:this={city}
-		places={data.places}
+		places={visibleMapPlaces}
 		parkings={data.parkings}
 		{layers}
 		{intelLayers}
@@ -389,16 +406,23 @@
 							on:click={() => togglePlaceLayer(key)}
 						>
 							<i
-								style:background={key === 'attraction'
-									? '#c45c26'
-									: key === 'restaurant'
-										? '#0f7a5a'
-										: '#1260ce'}
+								style:background={CATEGORY_COLOR[key]}
 							></i>
 							{CATEGORY_LABEL[key]}
 							<span>{counts[key]}</span>
 						</button>
 					{/each}
+					<button
+						type="button"
+						class="chip"
+						class:on={openNowOnly}
+						aria-pressed={openNowOnly}
+						on:click={() => (openNowOnly = !openNowOnly)}
+					>
+						<i style:background="#12b886"></i>
+						Open now
+						<span>{counts.openNow}</span>
+					</button>
 					<button
 						type="button"
 						class="chip on"
@@ -489,16 +513,23 @@
 				on:click={() => togglePlaceLayer(key)}
 			>
 				<i
-					style:background={key === 'attraction'
-						? '#c45c26'
-						: key === 'restaurant'
-							? '#0f7a5a'
-							: '#1260ce'}
+					style:background={CATEGORY_COLOR[key]}
 				></i>
 				<span>{CATEGORY_LABEL[key]}</span>
 				<strong>{counts[key]}</strong>
 			</button>
 		{/each}
+		<button
+			type="button"
+			class="layer"
+			class:on={openNowOnly}
+			aria-pressed={openNowOnly}
+			on:click={() => (openNowOnly = !openNowOnly)}
+		>
+			<i style:background="#12b886"></i>
+			<span>Open now</span>
+			<strong>{counts.openNow}</strong>
+		</button>
 		<button
 			type="button"
 			class="layer on"
@@ -536,7 +567,8 @@
 				<p class="eyebrow">{CATEGORY_LABEL[place.category]}</p>
 				<h3>{place.name}</h3>
 				<p>{place.subtitle}</p>
-				<p class="open-hint">{place.openHint}</p>
+				<p class="open-hint" class:open={place.isOpen === true} class:closed={place.isOpen === false}>{place.openHint}</p>
+				<p class="distance">{formatDistance(place)}</p>
 				<!-- eslint-disable svelte/no-navigation-without-resolve -->
 				<a
 					href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`}
@@ -852,6 +884,17 @@
 		margin: 8px 0 10px !important;
 		color: var(--text) !important;
 		font-weight: 650;
+	}
+	.open-hint.open {
+		color: #12b886 !important;
+	}
+	.open-hint.closed {
+		color: #fa5252 !important;
+	}
+	.distance {
+		margin: -4px 0 10px !important;
+		font-size: 12px !important;
+		color: var(--muted) !important;
 	}
 	.inspect a {
 		color: var(--accent);

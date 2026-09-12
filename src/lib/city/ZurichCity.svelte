@@ -2,7 +2,7 @@
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 	import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl';
 	import {
-		CATEGORY_COLOR,
+		categoryColorExpression,
 		ZURICH_CENTER,
 		placesToGeoJSON,
 		type Place,
@@ -217,15 +217,7 @@
 				source: 'places',
 				paint: {
 					'circle-radius': 14,
-					'circle-color': [
-						'match',
-						['get', 'category'],
-						'attraction',
-						CATEGORY_COLOR.attraction,
-						'restaurant',
-						CATEGORY_COLOR.restaurant,
-						CATEGORY_COLOR.shop
-					],
+					'circle-color': categoryColorExpression() as any,
 					'circle-opacity': 0.22,
 					'circle-blur': 0.6
 				}
@@ -236,14 +228,15 @@
 				source: 'places',
 				paint: {
 					'circle-radius': 6.5,
-					'circle-color': [
+					'circle-color': categoryColorExpression() as any,
+					'circle-opacity': [
 						'match',
-						['get', 'category'],
-						'attraction',
-						CATEGORY_COLOR.attraction,
-						'restaurant',
-						CATEGORY_COLOR.restaurant,
-						CATEGORY_COLOR.shop
+						['get', 'isOpen'],
+						'yes',
+						1,
+						'no',
+						0.45,
+						0.75
 					],
 					'circle-stroke-width': 2,
 					'circle-stroke-color': '#ffffff'
