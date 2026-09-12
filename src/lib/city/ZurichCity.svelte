@@ -21,9 +21,11 @@
 	import type { FlightSize } from '$lib/intel/types';
 	import {
 		advanceCars,
+		CAR_ICON_IDS,
 		carsToGeoJSON,
 		drawCarIcon,
 		spawnCarsFromRoadFeatures,
+		type Congestion,
 		type SimCar
 	} from '$lib/city/trafficCars';
 
@@ -453,9 +455,12 @@
 	}
 
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
-		const sprite = drawCarIcon(64);
-		if (sprite && !mapInstance.hasImage('traffic-car')) {
-			mapInstance.addImage('traffic-car', sprite, { pixelRatio: 2 });
+		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
+		for (const congestion of congestions) {
+			const id = CAR_ICON_IDS[congestion];
+			if (mapInstance.hasImage(id)) continue;
+			const sprite = drawCarIcon(congestion, 64);
+			if (sprite) mapInstance.addImage(id, sprite, { pixelRatio: 2 });
 		}
 		if (!mapInstance.getSource('traffic-cars')) {
 			mapInstance.addSource('traffic-cars', {
@@ -469,7 +474,7 @@
 				type: 'symbol',
 				source: 'traffic-cars',
 				layout: {
-					'icon-image': 'traffic-car',
+					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
 					'icon-size': [
 						'interpolate',
 						['linear'],

@@ -9,7 +9,8 @@ legacy Codex-specific notes.
 a god’s-eye / walkable **3D map of Zürich**. The foundation of the experience is
 the **living city** — SWISSIMAGE aerial basemap, extruded OSM buildings, and
 **small simulated cars** driving along OpenMapTiles road centerlines. Density and
-speed vary with modeled congestion (free / slow / jam). Parking from the
+speed vary with modeled congestion (**green** = free/few/fast, **amber** = busy,
+**red** = jam/many/slow). Parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) is a **toggle overlay**, not the
 main product.
 

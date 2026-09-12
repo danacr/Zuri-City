@@ -15,19 +15,40 @@ export type SimCar = {
 
 const ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 
+/**
+ * Traffic-signal colors for living streets:
+ * green = free flow (few, fast), amber = busy, red = jammed (many, slow).
+ */
+export const CONGESTION_COLOR: Record<Congestion, string> = {
+	free: '#2f9e44',
+	slow: '#f08c00',
+	jam: '#e03131'
+};
+
+export const CAR_ICON_IDS: Record<Congestion, string> = {
+	free: 'traffic-car-free',
+	slow: 'traffic-car-slow',
+	jam: 'traffic-car-jam'
+};
+
 const SPEED_MPS: Record<Congestion, [number, number]> = {
-	free: [11, 16],
-	slow: [4, 7],
-	jam: [0.8, 2.2]
+	free: [12, 17],
+	slow: [3.5, 6.5],
+	jam: [0.55, 1.6]
 };
 
+/** Wider spacing → fewer green cars; tight spacing → many red cars. */
 const SPACING_M: Record<Congestion, number> = {
-	free: 160,
-	slow: 85,
-	jam: 42
+	free: 220,
+	slow: 95,
+	jam: 30
 };
 
-const CAR_COLORS = ['#f4f0e8', '#d7dee8', '#2c333d', '#c45c26', '#3d6b8c', '#e8c547'];
+const MAX_PER_ROAD: Record<Congestion, number> = {
+	free: 2,
+	slow: 5,
+	jam: 12
+};
 
 export function congestionForRoad(props: Record<string, unknown>, featureId: unknown): Congestion {
 	const roadClass = String(props.class ?? '');
@@ -135,6 +156,7 @@ export function spawnCarsFromRoadFeatures(
 
 		const congestion = congestionForRoad(props, feature.id);
 		const spacing = SPACING_M[congestion];
+		const color = CONGESTION_COLOR[congestion];
 
 		for (const line of asLineCoords(feature.geometry)) {
 			if (cars.length >= maxCars) break;
@@ -142,7 +164,10 @@ export function spawnCarsFromRoadFeatures(
 			const distanceM = lineLengthM(line);
 			if (distanceM < 40) continue;
 
-			const count = Math.max(1, Math.min(8, Math.floor(distanceM / spacing)));
+			const count = Math.max(
+				1,
+				Math.min(MAX_PER_ROAD[congestion], Math.floor(distanceM / spacing))
+			);
 			for (let i = 0; i < count; i++) {
 				if (cars.length >= maxCars) break;
 				const seed = roadIndex * 97 + i * 13 + distanceM;
@@ -156,7 +181,7 @@ export function spawnCarsFromRoadFeatures(
 					speedMps: pickSpeed(congestion, seed + 3),
 					congestion,
 					bearing,
-					color: CAR_COLORS[Math.floor(rand(seed + 9) * CAR_COLORS.length)]
+					color
 				});
 			}
 			roadIndex++;
@@ -188,7 +213,7 @@ export function carsToGeoJSON(cars: SimCar[]): FeatureCollection {
 					bearing,
 					color: car.color,
 					congestion: car.congestion,
-					icon: 'traffic-car'
+					icon: CAR_ICON_IDS[car.congestion]
 				},
 				geometry: {
 					type: 'Point',
@@ -199,37 +224,80 @@ export function carsToGeoJSON(cars: SimCar[]): FeatureCollection {
 	};
 }
 
-/** Tiny top-down car sprite (nose up). */
-export function drawCarIcon(pixelSize = 48): ImageData | null {
+function shade(hex: string, amount: number): string {
+	const n = hex.replace('#', '');
+	const num = parseInt(n.length === 3 ? n.split('').map((c) => c + c).join('') : n, 16);
+	const r = Math.min(255, Math.max(0, ((num >> 16) & 255) + amount));
+	const g = Math.min(255, Math.max(0, ((num >> 8) & 255) + amount));
+	const b = Math.min(255, Math.max(0, (num & 255) + amount));
+	return `rgb(${r},${g},${b})`;
+}
+
+/** Small 3D-shaded top-down car (nose up), colored by congestion. */
+export function drawCarIcon(
+	congestion: Congestion = 'free',
+	pixelSize = 64
+): ImageData | null {
 	const canvas = document.createElement('canvas');
 	canvas.width = pixelSize;
 	canvas.height = pixelSize;
 	const ctx = canvas.getContext('2d');
 	if (!ctx) return null;
-	const u = pixelSize / 48;
+	const u = pixelSize / 64;
+	const body = CONGESTION_COLOR[congestion];
+	const roof = shade(body, 42);
+	const side = shade(body, -38);
 	ctx.clearRect(0, 0, pixelSize, pixelSize);
 	ctx.translate(pixelSize / 2, pixelSize / 2);
 
-	ctx.fillStyle = '#f2efe8';
-	ctx.strokeStyle = '#141a22';
-	ctx.lineWidth = 1.6 * u;
-	roundRect(ctx, -7 * u, -14 * u, 14 * u, 28 * u, 3.5 * u);
+	ctx.fillStyle = 'rgba(10, 14, 20, 0.28)';
+	ctx.beginPath();
+	ctx.ellipse(1.5 * u, 2 * u, 11 * u, 16 * u, 0, 0, Math.PI * 2);
+	ctx.fill();
+
+	ctx.fillStyle = side;
+	roundRect(ctx, -6 * u, -15 * u, 14 * u, 30 * u, 3.2 * u);
+	ctx.fill();
+
+	ctx.fillStyle = body;
+	ctx.strokeStyle = '#12161d';
+	ctx.lineWidth = 1.4 * u;
+	roundRect(ctx, -8 * u, -16 * u, 14 * u, 30 * u, 3.5 * u);
 	ctx.fill();
 	ctx.stroke();
 
-	ctx.fillStyle = '#6a849c';
-	roundRect(ctx, -5 * u, -6 * u, 10 * u, 10 * u, 2 * u);
+	ctx.fillStyle = roof;
+	roundRect(ctx, -5.5 * u, -5 * u, 10 * u, 11 * u, 2.2 * u);
+	ctx.fill();
+	ctx.stroke();
+
+	ctx.fillStyle = 'rgba(210, 230, 245, 0.75)';
+	roundRect(ctx, -4.5 * u, -13.5 * u, 8 * u, 5 * u, 1.6 * u);
+	ctx.fill();
+	ctx.fillStyle = 'rgba(170, 195, 215, 0.55)';
+	roundRect(ctx, -4.5 * u, 6.5 * u, 8 * u, 4 * u, 1.4 * u);
 	ctx.fill();
 
-	ctx.fillStyle = 'rgba(255,255,255,0.35)';
-	roundRect(ctx, -5 * u, -12 * u, 10 * u, 4 * u, 1.5 * u);
+	ctx.fillStyle = 'rgba(255,255,255,0.28)';
+	roundRect(ctx, -7 * u, -15 * u, 3.2 * u, 28 * u, 1.5 * u);
 	ctx.fill();
 
 	ctx.fillStyle = '#1a1f28';
-	ctx.fillRect(-9 * u, -9 * u, 2.4 * u, 6 * u);
-	ctx.fillRect(6.6 * u, -9 * u, 2.4 * u, 6 * u);
-	ctx.fillRect(-9 * u, 4 * u, 2.4 * u, 6 * u);
-	ctx.fillRect(6.6 * u, 4 * u, 2.4 * u, 6 * u);
+	for (const [x, y] of [
+		[-9.2, -8],
+		[7.2, -8],
+		[-9.2, 7],
+		[7.2, 7]
+	] as const) {
+		roundRect(ctx, x * u, y * u, 2.6 * u, 7 * u, 1 * u);
+		ctx.fill();
+	}
+
+	ctx.fillStyle = '#fff6c8';
+	ctx.beginPath();
+	ctx.arc(-3.2 * u, -15.2 * u, 1.3 * u, 0, Math.PI * 2);
+	ctx.arc(1.6 * u, -15.2 * u, 1.3 * u, 0, Math.PI * 2);
+	ctx.fill();
 
 	return ctx.getImageData(0, 0, pixelSize, pixelSize);
 }

@@ -316,8 +316,8 @@
 		<p class="eyebrow">Living city</p>
 		<h2>Zürich in motion</h2>
 		<p>
-			Cars crawl or stream along real roads while you orbit the rooftops, track aircraft, flip CCTV
-			viewsheds, and drop to street level. Parking stays one tap away.
+			Green cars stream light and fast; red packs crawl in jams. Orbit the rooftops, track aircraft,
+			flip CCTV viewsheds, and drop to street level. Parking stays one tap away.
 		</p>
 		<div class="mode-row">
 			<button
