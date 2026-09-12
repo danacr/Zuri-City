@@ -54,6 +54,7 @@
 	let container: HTMLDivElement;
 	let map: MapLibreMap | undefined;
 	let disposed = false;
+	let styleReady = false;
 	let mapError = '';
 	let userMarker: Marker | undefined;
 	let keys = new Set<string>();
@@ -107,7 +108,7 @@
 	$: if (map?.getSource('quakes')) {
 		(map.getSource('quakes') as GeoJSONSource).setData(quakesToGeoJSON(visibleQuakes));
 	}
-	$: if (map) {
+	$: if (map && styleReady) {
 		const opacity = intelLayers.detection ? 0.95 : 0;
 		if (map.getLayer('detection-flights')) {
 			map.setPaintProperty('detection-flights', 'circle-stroke-opacity', opacity);
@@ -455,6 +456,7 @@
 	}
 
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
+		if (!mapInstance.isStyleLoaded()) return;
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
 		for (const congestion of congestions) {
 			const id = CAR_ICON_IDS[congestion];
@@ -681,6 +683,7 @@
 					} catch {
 						/* Terrain is optional — aerial + buildings still work. */
 					}
+					styleReady = true;
 					ensureLayers(instance);
 					applyMode(mode, false);
 					dispatch('ready');
@@ -693,6 +696,7 @@
 					} catch {
 						/* ignore */
 					}
+					styleReady = true;
 					ensureLayers(instance);
 				});
 				const onViewportSettle = () => {
