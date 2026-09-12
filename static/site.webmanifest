@@ -1,6 +1,6 @@
 {
-	"name": "Züri City",
-	"short_name": "Züri City",
+	"name": "Z\u00fcri City",
+	"short_name": "Z\u00fcri City",
 	"icons": [
 		{
 			"src": "/android-chrome-192x192.png",
@@ -13,11 +13,11 @@
 			"type": "image/png"
 		}
 	],
-	"theme_color": "#0b1a2a",
-	"background_color": "#0b1a2a",
+	"theme_color": "#07131f",
+	"background_color": "#07131f",
 	"display": "standalone",
 	"id": "/",
 	"start_url": "/",
 	"scope": "/",
-	"description": "Walk a 3D Zürich city map of open stores, restaurants and attractions — with parking as an optional layer."
+	"description": "Walk a 3D Z\u00fcrich city map of open stores, restaurants and attractions \u2014 with live parking on the map."
 }

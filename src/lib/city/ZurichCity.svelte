@@ -37,7 +37,7 @@
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
-	export let layers: Record<PlaceCategory | 'parking', boolean>;
+	export let layers: Record<PlaceCategory, boolean>;
 	export let intelLayers: Record<IntelLayer, boolean> = {
 		flights: true,
 		cameras: true,
@@ -914,7 +914,8 @@
 	});
 
 	export function flyHome() {
-		applyMode(mode, true);
+		lastAppliedMode = 'orbit';
+		applyMode('orbit', true);
 	}
 
 	export function flyTo(lon: number, lat: number, zoom = 16.8) {

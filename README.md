@@ -12,8 +12,8 @@ product.
 - Puts you above Zürich in an orbital “god’s-eye” view, then lets you walk street-level with WASD / arrow keys.
 - Colors major streets green / amber / red by modeled congestion; tiny cars appear when you zoom in.
 - Pins open attractions, restaurants and shops on a 3D building map (SWISSIMAGE + OpenFreeMap).
-- Lets you toggle **Parking** for live garage free spaces, search, and directions.
-- Supports light and dark mode, and can be added to your home screen as a web app.
+- Shows live PLS parking pins on the map in blue, with a garage list from Layers.
+- Can be added to your home screen as a web app (dark city chrome).
 
 ## How it started
 

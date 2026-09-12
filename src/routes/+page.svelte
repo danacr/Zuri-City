@@ -4,7 +4,6 @@
 	import { title, description, structuredData } from '$lib/seo';
 	$: jsonLd = `<script type="application/ld+json">${structuredData(data.siteUrl)}<${'/'}script>`;
 	import InstallApp from '$lib/InstallApp.svelte';
-	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import ZurichCity from '$lib/city/ZurichCity.svelte';
 	import ZurichBootSplash from '$lib/city/ZurichBootSplash.svelte';
 	import ParkingPanel from '$lib/ParkingPanel.svelte';
@@ -35,11 +34,10 @@
 	let locating = false;
 	let locationError = '';
 	let request = 0;
-	let layers: Record<PlaceCategory | 'parking', boolean> = {
+	let layers: Record<PlaceCategory, boolean> = {
 		attraction: true,
 		restaurant: true,
-		shop: true,
-		parking: true
+		shop: true
 	};
 	let intelLayers: Record<IntelLayer, boolean> = {
 		flights: true,
@@ -125,7 +123,7 @@
 	}
 
 	function home(event: MouseEvent) {
-		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+		if ((event.button ?? 0) !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
 			return;
 		event.preventDefault();
 		selected = null;
@@ -133,7 +131,7 @@
 		setParkingOpen(false);
 		layersOpen = false;
 		mode = 'orbit';
-		city?.flyHome();
+		queueMicrotask(() => city?.flyHome());
 	}
 
 	function setParkingOpen(value: boolean) {
@@ -143,10 +141,6 @@
 			selected = null;
 			selectedKind = null;
 		}
-	}
-
-	function toggleParking() {
-		setParkingOpen(!parkingOpen);
 	}
 
 	function togglePlaceLayer(key: PlaceCategory) {
@@ -319,20 +313,6 @@
 				<h1>Züri City</h1>
 			</div>
 		</a>
-		<div class="header-actions">
-			<ThemeToggle />
-			<button
-				type="button"
-				class="parking-toggle"
-				class:active={parkingOpen}
-				aria-pressed={parkingOpen}
-				aria-label={parkingOpen ? 'Close parking list' : 'Open parking list'}
-				on:click={() => setParkingOpen(!parkingOpen)}
-			>
-				<span class="p-badge">P</span>
-				<span>Parking</span>
-			</button>
-		</div>
 	</header>
 
 	<!-- Desktop left briefing -->
@@ -423,10 +403,11 @@
 						type="button"
 						class="chip on"
 						aria-pressed="true"
+						aria-label="Open parking list"
 						on:click={() => setParkingOpen(true)}
 					>
 						<i class="parking"></i>
-						Parking
+						Parking list
 						<span>{counts.parking}</span>
 					</button>
 				</div>
@@ -522,10 +503,11 @@
 			type="button"
 			class="layer on"
 			aria-pressed="true"
+			aria-label="Open parking list"
 			on:click={() => setParkingOpen(true)}
 		>
 			<i class="parking"></i>
-			<span>Parking</span>
+			<span>Parking list</span>
 			<strong>{counts.parking}</strong>
 		</button>
 		<p class="eyebrow intel-label">God’s-eye</p>
@@ -683,43 +665,6 @@
 		font-weight: 800;
 		letter-spacing: -0.04em;
 		line-height: 1;
-	}
-	.header-actions {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-	}
-	.parking-toggle {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		min-height: 40px;
-		padding: 0 10px 0 6px;
-		border-radius: 999px;
-		background: #ffffff18;
-		color: #f4f7fb;
-		border: 1px solid #ffffff33;
-		font-weight: 750;
-		font-size: 12px;
-		backdrop-filter: blur(10px);
-	}
-	.parking-toggle.active {
-		background: #1260ce;
-		border-color: #7eb6ff;
-	}
-	.p-badge {
-		display: grid;
-		place-items: center;
-		width: 26px;
-		height: 26px;
-		border-radius: 8px;
-		background: #f4f7fb;
-		color: #1260ce;
-		font-weight: 800;
-	}
-	.parking-toggle.active .p-badge {
-		background: #031427;
-		color: #9dceff;
 	}
 
 	/* Desktop briefing — hidden on mobile */
@@ -1081,14 +1026,6 @@
 			width: min(320px, calc(100vw - 32px));
 			bottom: calc(56px + env(safe-area-inset-bottom));
 		}
-		.parking-toggle span:last-child {
-			display: inline;
-		}
 	}
 
-	@media (max-width: 859px) {
-		.parking-toggle span:last-child {
-			display: none;
-		}
-	}
 </style>

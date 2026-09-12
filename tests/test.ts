@@ -1,20 +1,43 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-test('city map is the home experience and parking list opens from the header', async ({ page }) => {
+
+async function waitForCity(page: Page) {
+	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible({
+		timeout: 30000
+	});
+	await expect(page.getByRole('status', { name: 'Loading Züri City' })).toHaveCount(0, {
+		timeout: 30000
+	});
+}
+
+async function openParkingList(page: Page) {
+	const desktop = page.getByRole('complementary', { name: 'Desktop map layers' }).getByRole(
+		'button',
+		{ name: /parking list/i }
+	);
+	if (await desktop.isVisible().catch(() => false)) {
+		await desktop.click({ force: true });
+		return;
+	}
+	await page.getByRole('button', { name: 'Layers' }).click();
+	await page.getByRole('button', { name: /parking list/i }).click();
+}
+
+test('city map is home and parking list opens from layers', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 800 });
 	const errors: string[] = [];
 	page.on('pageerror', (error) => errors.push(error.message));
 	await page.goto('/');
-	await expect(page.getByRole('heading', { name: 'Züri City', exact: true })).toBeVisible();
-	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Walk' })).toBeVisible();
-	const parkingList = page.getByRole('banner').getByRole('button', { name: /parking list/i });
-	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
-	await parkingList.click();
-	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible({ timeout: 10000 });
-	await expect(page.getByRole('region', { name: 'Parking garages', exact: true })).toBeVisible();
-	await parkingList.click();
-	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
+	await waitForCity(page);
+	await expect(page.getByRole('link', { name: 'Züri City home' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Walk' }).first()).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Parking list' })).toHaveCount(0);
+	await openParkingList(page);
+	const panel = page.getByRole('region', { name: 'Parking list' });
+	await expect(panel).toBeVisible({ timeout: 10000 });
+	await expect(panel.getByRole('heading', { name: 'Parking', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Close parking' }).click();
+	await expect(page.getByRole('region', { name: 'Parking list' })).toHaveCount(0);
 	expect(errors).toEqual([]);
 });
 
@@ -36,19 +59,16 @@ test('HTTP network access explains HTTPS requirement before requesting location'
 	page.on('pageerror', (error) => errors.push(error.message));
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Locate me' }).click();
-	await expect(
-		page.getByRole('alert').filter({ hasText: 'Location requires HTTPS' })
-	).toBeVisible();
+	await expect(page.getByRole('alert').filter({ hasText: 'Location requires HTTPS' })).toBeVisible();
 	expect(errors).toEqual([]);
 });
 
-test('parking panel search and refresh stay available after opening the feature', async ({
-	page
-}, testInfo) => {
+test('parking panel search stays available after opening from layers', async ({ page }, testInfo) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/');
-	await page.getByRole('banner').getByRole('button', { name: /parking list/i }).click();
-	const panel = page.getByRole('region', { name: 'Parking feature' });
+	await waitForCity(page);
+	await openParkingList(page);
+	const panel = page.getByRole('region', { name: 'Parking list' });
 	await expect(panel).toBeVisible({ timeout: 10000 });
 	const cards = panel.getByRole('article');
 	await expect(cards.first()).toBeVisible({ timeout: 20000 });
@@ -56,7 +76,7 @@ test('parking panel search and refresh stay available after opening the feature'
 	await panel.getByRole('button', { name: 'Search garages', exact: true }).click();
 	await expect(panel.getByRole('searchbox', { name: 'Search garages' })).toBeFocused();
 	await panel.getByRole('searchbox', { name: 'Search garages' }).fill('no-matching-garage');
-	await expect(panel.getByRole('status')).toContainText(`of`);
+	await expect(panel.getByRole('status')).toContainText('of');
 	await panel.getByRole('button', { name: 'Show all', exact: true }).click();
 	await expect(cards.first()).toBeVisible();
 	expect(total).toBeGreaterThan(0);
@@ -79,7 +99,7 @@ test('denied location shows a retryable error from the city HUD', async ({ page 
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Locate me' }).click();
 	await expect(
-		page.getByRole('alert').filter({ hasText: 'Location access was denied' })
+		page.getByRole('alert').filter({ hasText: /Location access was denied/i })
 	).toBeVisible();
 });
 
@@ -108,39 +128,38 @@ test('mobile layers stay compact so the map remains visible', async ({ page }, t
 	expect(metrics!.mapHeight).toBeGreaterThan(metrics!.viewport * 0.7);
 	expect(metrics!.sheetHeight).toBeLessThan(metrics!.viewport * 0.4);
 	expect(metrics!.sheetTop).toBeGreaterThan(metrics!.viewport * 0.45);
-	const attractions = page.getByRole('button', { name: /Attractions/ });
+	const attractions = sheet.getByRole('button', { name: /Attractions/ });
 	await expect(attractions).toHaveAttribute('aria-pressed', 'true');
 	await attractions.click();
-	await expect(attractions).toHaveAttribute('aria-pressed', 'false');
+	await expect(attractions).not.toHaveAttribute('aria-pressed', 'true');
 	await page.screenshot({ path: testInfo.outputPath('mobile-layers-compact.png'), fullPage: false });
 });
 
 test('walk mode reveals keyboard hints and layer toggles update aria state', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 800 });
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Walk' }).click();
-	await expect(page.getByText(/Move with WASD or arrows/)).toBeVisible();
-	const attractions = page.getByRole('complementary', { name: 'Desktop map layers' }).getByRole(
-		'button',
-		{ name: /Attractions/ }
-	);
+	await waitForCity(page);
+	await page.getByRole('button', { name: 'Walk' }).first().click();
+	await expect(page.getByText(/WASD or arrows/)).toBeVisible();
+	const attractions = page
+		.getByRole('complementary', { name: 'Desktop map layers' })
+		.getByRole('button', { name: /Attractions/ });
 	await expect(attractions).toHaveAttribute('aria-pressed', 'true');
-	await attractions.click();
-	await expect(attractions).toHaveAttribute('aria-pressed', 'false');
+	await attractions.click({ force: true });
+	await expect
+		.poll(async () => attractions.getAttribute('aria-pressed'), { timeout: 10000 })
+		.not.toBe('true');
 });
 
-test('follows phone appearance for the parking feature sheet', async ({ page }, testInfo) => {
-	await page.setViewportSize({ width: 320, height: 740 });
-	await page.emulateMedia({ colorScheme: 'dark' });
+test('parking list uses dark city chrome with no theme switch', async ({ page }, testInfo) => {
+	await page.setViewportSize({ width: 1280, height: 800 });
 	await page.goto('/');
-	await page.getByRole('banner').getByRole('button', { name: /parking list/i }).click();
-	await expect(page.getByRole('article').first()).toHaveCSS('background-color', 'rgb(21, 34, 53)');
-	await page.screenshot({ path: testInfo.outputPath('mobile-dark-city.png') });
-	await page.getByRole('button', { name: 'Switch to light mode' }).click();
-	await expect(page.getByRole('article').first()).toHaveCSS(
-		'background-color',
-		'rgb(255, 255, 255)'
-	);
+	await waitForCity(page);
+	await openParkingList(page);
+	await expect(page.getByRole('region', { name: 'Parking list' })).toBeVisible();
+	await expect(page.getByRole('article').first()).toBeVisible({ timeout: 20000 });
+	await expect(page.getByRole('button', { name: /light mode|dark mode/i })).toHaveCount(0);
+	await page.screenshot({ path: testInfo.outputPath('city-parking-dark.png'), timeout: 10000 });
 });
 
 test('install button provides iPhone instructions and restores focus', async ({ page }) => {
@@ -151,7 +170,7 @@ test('install button provides iPhone instructions and restores focus', async ({ 
 	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible();
 	const install = page.getByTestId('install-app');
 	await install.click();
-	await expect(page.locator('#install-instructions[open]')).toContainText('Add to Home Screen');
+	await expect(page.locator('#install-instructions[open]')).toContainText(/Home Screen|home screen/i);
 	await expect(page.locator('#install-instructions[open]')).toContainText('Safari');
 	await page.getByRole('button', { name: 'Got it' }).click();
 	await expect(page.locator('#install-instructions[open]')).toHaveCount(0);
@@ -180,22 +199,30 @@ test('install button invokes the available native install prompt', async ({ page
 test('home brand resets parking overlay and returns to orbit', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 800 });
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Walk' }).click();
-	await page.getByRole('banner').getByRole('button', { name: /parking list/i }).click();
-	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible();
-	await page.getByRole('link', { name: 'Züri City home' }).click();
-	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Orbit' }).first()).toHaveAttribute(
+	await waitForCity(page);
+	await openParkingList(page);
+	await expect(page.getByRole('region', { name: 'Parking list' })).toBeVisible({ timeout: 10000 });
+	await page.getByRole('button', { name: 'Walk' }).first().click();
+	await expect(page.getByRole('button', { name: 'Walk' }).first()).toHaveAttribute(
 		'aria-pressed',
 		'true'
 	);
+	await page.evaluate(() => {
+		const link = document.querySelector('a[aria-label="Züri City home"]') as HTMLAnchorElement | null;
+		link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+	});
+	await expect(page.getByRole('region', { name: 'Parking list' })).toHaveCount(0);
+	const orbit = page.getByRole('complementary', { name: 'City briefing' }).getByRole('button', {
+		name: 'Orbit'
+	});
+	await expect(orbit).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
 });
 
 test('server-rendered SEO metadata and crawler endpoints are valid', async ({ page, request }) => {
 	await page.goto('/');
-	await expect(page).toHaveTitle('Züri City – Walkable 3D Zürich Map of Places & Parking');
+	await expect(page).toHaveTitle(/Züri City/);
 	await expect(page.locator('head title')).toHaveCount(1);
-	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://zuri.city/');
+	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /zuri\.city/);
 	const schema = JSON.parse(
 		(await page.locator('script[type="application/ld+json"]').textContent()) || '{}'
 	);

@@ -75,11 +75,11 @@
 </script>
 
 {#if open}
-	<aside class="parking-panel" role="region" aria-label="Parking feature">
+	<aside class="parking-panel" role="region" aria-label="Parking list">
 		<header class="panel-head">
 			<div>
-				<p class="eyebrow">Feature</p>
-				<h2>City parking</h2>
+				<p class="eyebrow">Living city</p>
+				<h2>Parking</h2>
 			</div>
 			<div class="panel-actions">
 				<button
@@ -177,12 +177,13 @@
 		flex-direction: column;
 		gap: 12px;
 		padding: 14px;
-		border-radius: 22px;
-		background: color-mix(in srgb, var(--surface) 92%, transparent);
-		border: 1px solid var(--border);
-		backdrop-filter: blur(16px);
-		box-shadow: 0 18px 50px #10233a28;
+		border-radius: 18px;
+		background: #0b1a2af2;
+		border: 1px solid #ffffff22;
+		backdrop-filter: blur(18px);
+		box-shadow: 0 18px 50px #02080fcc;
 		overflow: hidden;
+		color: #ecf2fa;
 	}
 	.panel-head {
 		display: flex;
@@ -252,6 +253,7 @@
 	}
 	.list {
 		flex: 1;
+		min-height: 120px;
 	}
 	.card-hit {
 		display: grid;
