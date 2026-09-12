@@ -55,6 +55,7 @@
 	const dispatch = createEventDispatcher<{
 		select: { id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' };
 		ready: void;
+		error: void;
 	}>();
 
 	let container: HTMLDivElement;
@@ -895,6 +896,7 @@
 				raf = requestAnimationFrame(stepWalk);
 			} catch {
 				mapError = 'The 3D city map could not load. Check your connection and try again.';
+				dispatch('error');
 			}
 		}
 		boot();

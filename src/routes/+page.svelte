@@ -6,6 +6,7 @@
 	import InstallApp from '$lib/InstallApp.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import ZurichCity from '$lib/city/ZurichCity.svelte';
+	import ZurichBootSplash from '$lib/city/ZurichBootSplash.svelte';
 	import ParkingPanel from '$lib/ParkingPanel.svelte';
 	import ContactViewer from '$lib/intel/ContactViewer.svelte';
 	import { CATEGORY_LABEL, type Place, type PlaceCategory } from '$lib/city/places';
@@ -69,6 +70,8 @@
 	};
 
 	let didRevealFlights = false;
+	let mapReady = false;
+	let mapFailed = false;
 
 	function tryRevealFlights() {
 		if (didRevealFlights || !flights.length || !intelLayers.flights) return;
@@ -117,6 +120,7 @@
 	}
 
 	function onCityReady() {
+		mapReady = true;
 		tryRevealFlights();
 	}
 
@@ -278,6 +282,7 @@
 </svelte:head>
 
 <div class="shell" data-sensor={sensorLook}>
+	<ZurichBootSplash ready={mapReady} failed={mapFailed} />
 	<div class="sensor-veil" aria-hidden="true"></div>
 	<ZurichCity
 		bind:this={city}
@@ -301,6 +306,9 @@
 		userPosition={position}
 		on:select={onSelect}
 		on:ready={onCityReady}
+		on:error={() => {
+			mapFailed = true;
+		}}
 	/>
 
 	<header class="topbar">
