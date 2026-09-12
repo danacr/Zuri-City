@@ -2,6 +2,9 @@ export type IntelLayer = 'flights' | 'cameras' | 'traffic' | 'quakes' | 'detecti
 
 export type SensorLook = 'normal' | 'nvg' | 'flir' | 'crt' | 'noir' | 'snow';
 
+/** Rough airframe size for map icons (from ADS-B category / type). */
+export type FlightSize = 'light' | 'medium' | 'heavy' | 'rotor';
+
 export type Flight = {
 	id: string;
 	callsign: string;
@@ -11,6 +14,8 @@ export type Flight = {
 	heading: number | null;
 	speedKts: number | null;
 	onGround: boolean;
+	size: FlightSize;
+	typeCode: string | null;
 };
 
 export type Camera = {

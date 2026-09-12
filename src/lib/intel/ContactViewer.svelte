@@ -79,7 +79,10 @@
 						{flight.speedKts == null ? 'GS —' : `${Math.round(flight.speedKts)} kts`} ·
 						{flight.heading == null ? 'HDG —' : `HDG ${Math.round(flight.heading)}°`}
 					</p>
-					<p class="sub">{flight.onGround ? 'ON GROUND' : 'AIRBORNE'} · ADS-B</p>
+					<p class="sub">
+						{flight.onGround ? 'ON GROUND' : 'AIRBORNE'} · ADS-B ·
+						{flight.size.toUpperCase()}{flight.typeCode ? ` · ${flight.typeCode}` : ''}
+					</p>
 				</div>
 				<span class="badge">TRACK</span>
 			</div>

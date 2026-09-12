@@ -16,7 +16,9 @@
 		quakesToGeoJSON
 	} from '$lib/intel/geo';
 	import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
+	import { drawAircraftIcon, FLIGHT_ICON_IDS } from '$lib/intel/aircraftIcons';
 	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
+	import type { FlightSize } from '$lib/intel/types';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
@@ -329,37 +331,25 @@
 				type: 'geojson',
 				data: flightsToGeoJSON(visibleFlights)
 			});
-			if (!mapInstance.hasImage('aircraft-icon')) {
-				const size = 64;
-				const canvas = document.createElement('canvas');
-				canvas.width = size;
-				canvas.height = size;
-				const ctx = canvas.getContext('2d');
-				if (ctx) {
-					ctx.clearRect(0, 0, size, size);
-					ctx.translate(size / 2, size / 2);
-					ctx.fillStyle = '#f0b429';
-					ctx.strokeStyle = '#1a1303';
-					ctx.lineWidth = 3;
-					ctx.beginPath();
-					ctx.moveTo(0, -22);
-					ctx.lineTo(14, 18);
-					ctx.lineTo(0, 10);
-					ctx.lineTo(-14, 18);
-					ctx.closePath();
-					ctx.fill();
-					ctx.stroke();
-					mapInstance.addImage('aircraft-icon', ctx.getImageData(0, 0, size, size), {
-						pixelRatio: 2
-					});
-				}
-			}
+			registerAircraftIcons(mapInstance);
 			mapInstance.addLayer({
 				id: 'detection-flights',
 				type: 'circle',
 				source: 'flights',
 				paint: {
-					'circle-radius': 18,
+					'circle-radius': [
+						'match',
+						['get', 'size'],
+						'light',
+						14,
+						'medium',
+						18,
+						'heavy',
+						24,
+						'rotor',
+						16,
+						18
+					],
 					'circle-color': '#3dd68c',
 					'circle-opacity': 0,
 					'circle-stroke-width': 2,
@@ -372,15 +362,27 @@
 				type: 'symbol',
 				source: 'flights',
 				layout: {
-					'icon-image': 'aircraft-icon',
-					'icon-size': 0.85,
+					'icon-image': ['coalesce', ['get', 'icon'], 'plane-medium'],
+					'icon-size': [
+						'match',
+						['get', 'size'],
+						'light',
+						0.55,
+						'medium',
+						0.72,
+						'heavy',
+						0.95,
+						'rotor',
+						0.62,
+						0.72
+					],
 					'icon-rotate': ['coalesce', ['get', 'heading'], 0],
 					'icon-rotation-alignment': 'map',
 					'icon-allow-overlap': true,
 					'icon-ignore-placement': true,
 					'text-field': ['get', 'callsign'],
 					'text-size': 11,
-					'text-offset': [0, 1.55],
+					'text-offset': [0, 1.7],
 					'text-font': ['Noto Sans Bold'],
 					'text-allow-overlap': true,
 					'text-ignore-placement': true
@@ -415,6 +417,18 @@
 		// Traffic is painted from OpenMapTiles `transportation` in the aerial style
 		// (layers traffic-case / traffic-flow) — no hand-drawn GeoJSON corridors.
 		syncTrafficVisibility(mapInstance, intelLayers.traffic);
+	}
+
+	function registerAircraftIcons(mapInstance: MapLibreMap) {
+		const sizes = Object.keys(FLIGHT_ICON_IDS) as FlightSize[];
+		for (const size of sizes) {
+			const id = FLIGHT_ICON_IDS[size];
+			if (mapInstance.hasImage(id)) continue;
+			const image = drawAircraftIcon(size, 96);
+			if (image) {
+				mapInstance.addImage(id, image, { pixelRatio: 2 });
+			}
+		}
 	}
 
 	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {

@@ -15,7 +15,10 @@ export function flightsToGeoJSON(flights: Flight[]) {
 				heading: flight.heading ?? 0,
 				altitude: flight.altitudeFt,
 				speed: flight.speedKts,
-				onGround: flight.onGround
+				onGround: flight.onGround,
+				size: flight.size,
+				typeCode: flight.typeCode,
+				icon: `plane-${flight.size}`
 			},
 			geometry: {
 				type: 'Point' as const,

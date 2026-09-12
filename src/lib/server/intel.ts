@@ -1,5 +1,11 @@
 import { ZURICH_CAMERAS } from '$lib/intel/cameras';
-import { ZRH_BBOX, type Flight, type IntelSnapshot, type Quake } from '$lib/intel/types';
+import { inferFlightSize } from '$lib/intel/aircraftIcons';
+import {
+	ZRH_BBOX,
+	type Flight,
+	type IntelSnapshot,
+	type Quake
+} from '$lib/intel/types';
 
 type AdsbAircraft = {
 	hex?: string;
@@ -10,6 +16,9 @@ type AdsbAircraft = {
 	track?: number;
 	gs?: number;
 	r?: string;
+	t?: string;
+	category?: string;
+	desc?: string;
 };
 
 function parseFlight(item: AdsbAircraft): Flight | null {
@@ -17,6 +26,8 @@ function parseFlight(item: AdsbAircraft): Flight | null {
 	const onGround = item.alt_baro === 'ground' || item.alt_baro === 0;
 	const altitudeFt =
 		typeof item.alt_baro === 'number' ? Math.round(item.alt_baro) : onGround ? 0 : null;
+	const typeCode = (item.t || '').trim() || null;
+	const speedKts = item.gs ?? null;
 	return {
 		id: item.hex || `${item.lat.toFixed(3)}-${item.lon.toFixed(3)}`,
 		callsign: (item.flight || item.r || 'UNKN').trim() || 'UNKN',
@@ -24,8 +35,16 @@ function parseFlight(item: AdsbAircraft): Flight | null {
 		lon: item.lon,
 		altitudeFt,
 		heading: item.track ?? null,
-		speedKts: item.gs ?? null,
-		onGround
+		speedKts,
+		onGround,
+		typeCode,
+		size: inferFlightSize({
+			category: item.category,
+			typeCode,
+			speedKts,
+			altitudeFt,
+			onGround
+		})
 	};
 }
 

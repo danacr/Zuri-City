@@ -145,12 +145,36 @@ export function zurichAerialStyle(): StyleSpecification {
 					visibility: 'visible'
 				},
 				paint: {
-					// Modeled congestion by road name length (stable per segment, free to run).
+					// Modeled congestion: mix feature id + class + ref/name so unnamed
+					// roads don't all collapse to one (red) color.
 					'line-color': [
-						'case',
-						['==', ['%', ['length', ['coalesce', ['get', 'name'], 'rd']], 3], 0],
+						'match',
+						[
+							'%',
+							[
+								'+',
+								['coalesce', ['to-number', ['id']], 0],
+								[
+									'match',
+									['get', 'class'],
+									'motorway',
+									0,
+									'trunk',
+									1,
+									'primary',
+									2,
+									'secondary',
+									3,
+									1
+								],
+								['length', ['coalesce', ['get', 'ref'], '']],
+								['length', ['coalesce', ['get', 'name'], '']]
+							],
+							3
+						],
+						0,
 						'#30d158',
-						['==', ['%', ['length', ['coalesce', ['get', 'name'], 'rd']], 3], 1],
+						1,
 						'#ff9f0a',
 						'#ff3b30'
 					],
