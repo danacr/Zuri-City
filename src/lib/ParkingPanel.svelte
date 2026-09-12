@@ -317,8 +317,8 @@
 			right: 0;
 			bottom: 0;
 			width: 100%;
-			height: min(46vh, 420px);
-			max-height: 46vh;
+			height: min(42vh, 380px);
+			max-height: 42vh;
 			border-radius: 22px 22px 0 0;
 		}
 	}
