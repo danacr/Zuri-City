@@ -524,14 +524,39 @@
 		}
 	}
 
+	function imageDataForMap(image: ImageData): {
+		width: number;
+		height: number;
+		data: Uint8Array;
+	} {
+		// MapLibre 6 is picky about ImageData — pass a plain StyleImageInterface.
+		return {
+			width: image.width,
+			height: image.height,
+			data: new Uint8Array(image.data)
+		};
+	}
+
+	function addAircraftImage(
+		mapInstance: MapLibreMap,
+		id: string,
+		paint: Parameters<typeof drawAircraftIcon>[0]
+	) {
+		if (mapInstance.hasImage(id)) return;
+		const image = drawAircraftIcon(paint, 160);
+		if (!image) return;
+		try {
+			mapInstance.addImage(id, imageDataForMap(image), { pixelRatio: 2 });
+		} catch (error) {
+			console.warn('aircraft icon add failed', id, error);
+		}
+	}
+
 	function registerAircraftIcons(mapInstance: MapLibreMap, list: Flight[] = visibleFlights) {
 		if (!mapInstance.isStyleLoaded()) return;
 		const families = Object.keys(GENERIC_FAMILY_ICON_IDS) as AircraftFamily[];
 		for (const family of families) {
-			const id = GENERIC_FAMILY_ICON_IDS[family];
-			if (mapInstance.hasImage(id)) continue;
-			const image = drawAircraftIcon(genericPaint(family), 160);
-			if (image) mapInstance.addImage(id, image, { pixelRatio: 2 });
+			addAircraftImage(mapInstance, GENERIC_FAMILY_ICON_IDS[family], genericPaint(family));
 		}
 		for (const flight of list) {
 			const paint = paintFromFlight({
@@ -539,11 +564,44 @@
 				typeCode: flight.typeCode,
 				size: flight.size
 			});
-			const id = aircraftIconId(paint);
-			if (mapInstance.hasImage(id)) continue;
-			const image = drawAircraftIcon(paint, 160);
-			if (image) mapInstance.addImage(id, image, { pixelRatio: 2 });
+			addAircraftImage(mapInstance, aircraftIconId(paint), paint);
 		}
+	}
+
+	function ensureAircraftIconFromId(mapInstance: MapLibreMap, id: string) {
+		if (!id.startsWith('plane-') || mapInstance.hasImage(id)) return;
+		const parts = id.split('-');
+		// plane-{family}-{airline} — family may be wide-twin / wide-quad (two tokens).
+		let family: AircraftFamily = 'narrow';
+		let airline = 'gen';
+		if (parts[1] === 'wide' && (parts[2] === 'twin' || parts[2] === 'quad')) {
+			family = parts[2] === 'twin' ? 'wide-twin' : 'wide-quad';
+			airline = parts[3] || 'gen';
+		} else if (
+			parts[1] === 'ga' ||
+			parts[1] === 'regional' ||
+			parts[1] === 'narrow' ||
+			parts[1] === 'rotor'
+		) {
+			family = parts[1];
+			airline = parts[2] || 'gen';
+		}
+		const livery =
+			airline !== 'gen'
+				? paintFromFlight({ callsign: airline.toUpperCase() + '1' }).livery
+				: null;
+		addAircraftImage(mapInstance, id, {
+			family,
+			livery,
+			size:
+				family === 'ga'
+					? 'light'
+					: family === 'rotor'
+						? 'rotor'
+						: family.startsWith('wide')
+							? 'heavy'
+							: 'medium'
+		});
 	}
 
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
@@ -553,7 +611,13 @@
 			const id = CAR_ICON_IDS[congestion];
 			if (mapInstance.hasImage(id)) continue;
 			const sprite = drawCarIcon(congestion, 64);
-			if (sprite) mapInstance.addImage(id, sprite, { pixelRatio: 2 });
+			if (sprite) {
+				try {
+					mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
+				} catch (error) {
+					console.warn('car icon add failed', id, error);
+				}
+			}
 		}
 		if (!mapInstance.getSource('traffic-cars')) {
 			mapInstance.addSource('traffic-cars', {
@@ -784,6 +848,13 @@
 							didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
 						}
 					});
+				});
+				// MapLibre 6: prefer the resolver so missing airline sprites are generated in time.
+				instance.setMissingStyleImageResolver((id) => {
+					ensureAircraftIconFromId(instance, id);
+				});
+				instance.on('styleimagemissing', (event: { id: string }) => {
+					ensureAircraftIconFromId(instance, event.id);
 				});
 				instance.on('style.load', () => {
 					try {
