@@ -15,14 +15,15 @@
 		"prepare": "svelte-kit sync"
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@playwright/test": "^1.63.0",
 		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
 		"@tailwindcss/vite": "^4.3.3",
+		"@types/geojson": "^7946.0.16",
 		"@types/leaflet": "^1.9.22",
 		"@types/node": "^24.0.0",
-		"@eslint/js": "^10.0.1",
 		"eslint": "^10.10.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",
@@ -40,6 +41,7 @@
 	"type": "module",
 	"dependencies": {
 		"leaflet": "^1.9.4",
+		"maplibre-gl": "^6.9.0",
 		"rss-parser": "^3.13.0"
 	},
 	"engines": {

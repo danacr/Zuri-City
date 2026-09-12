@@ -1,6 +1,6 @@
 {
-	"name": "Züri City Parking",
-	"short_name": "Züri Parking",
+	"name": "Züri City",
+	"short_name": "Züri City",
 	"icons": [
 		{
 			"src": "/android-chrome-192x192.png",
@@ -13,11 +13,11 @@
 			"type": "image/png"
 		}
 	],
-	"theme_color": "#0072ce",
-	"background_color": "#f6f8fc",
+	"theme_color": "#0b1a2a",
+	"background_color": "#0b1a2a",
 	"display": "standalone",
 	"id": "/",
 	"start_url": "/",
 	"scope": "/",
-	"description": "Parking availability, capacity and directions in Zürich."
+	"description": "Walk a 3D Zürich city map of open stores, restaurants and attractions — with parking as an optional layer."
 }

@@ -1,6 +1,7 @@
-export const title = 'Parking in Zürich – Free Spaces & Garage Map | Züri Parking';
+export const title = 'Züri City – Walkable 3D Zürich Map of Places & Parking';
 export const description =
-	'Find parking in Zürich with current free spaces, total garage capacity and a nearby parking map. Check full or closed garages and get driving directions.';
+	'Explore a virtual Zürich: walk a 3D city map of open stores, restaurants and attractions, and toggle live parking when you need it.';
+
 export function structuredData(siteUrl: string) {
 	return JSON.stringify({
 		'@context': 'https://schema.org',
@@ -8,8 +9,8 @@ export function structuredData(siteUrl: string) {
 			{
 				'@type': 'WebSite',
 				'@id': `${siteUrl}#website`,
-				name: 'Züri Parking',
-				alternateName: 'Züri City Parking',
+				name: 'Züri City',
+				alternateName: ['Züri Parking', 'Züri City Parking'],
 				url: siteUrl,
 				inLanguage: 'en',
 				description
@@ -17,13 +18,13 @@ export function structuredData(siteUrl: string) {
 			{
 				'@type': 'WebApplication',
 				'@id': `${siteUrl}#app`,
-				name: 'Züri Parking',
+				name: 'Züri City',
 				url: siteUrl,
 				description,
 				applicationCategory: 'TravelApplication',
 				operatingSystem: 'Any',
 				browserRequirements:
-					'Requires an internet connection. Location mode requires HTTPS and location permission.',
+					'Requires an internet connection. Location and parking features require HTTPS and location permission when used.',
 				author: { '@type': 'Person', name: 'dan.cv', url: 'https://dan.cv' },
 				isPartOf: { '@id': `${siteUrl}#website` }
 			}

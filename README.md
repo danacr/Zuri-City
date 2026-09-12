@@ -1,34 +1,23 @@
-# Züri City Parking
+# Züri City
 
-Find parking in Zürich from your phone. [Züri City Parking](https://zuri.city/)
-is a mobile-friendly SvelteKit app powered by the
-[Parkleitsystem Zürich](https://www.pls-zh.ch/) RSS feed.
-
-The original site is a useful resource; this project makes its parking information
-easier to browse on a small screen.
+Explore a virtual Zürich in 3D. [Züri City](https://zuri.city/) is a mobile-friendly
+SvelteKit app with a walkable MapLibre city map of open stores, restaurants and
+attractions. Live parking from the
+[Parkleitsystem Zürich](https://www.pls-zh.ch/) is available as a one-tap feature
+overlay — not the main product.
 
 ## What it does
 
-- Shows available spaces and total capacity, with full, closed, and unknown garages grouped separately.
-- Lets you search by garage or street, or use your location to find nearby parking on a map.
-- Fetches fresh parking data on page load and when you tap **Refresh**.
-- Supports light and dark mode, with a toggle that remembers your preference.
-- Can be added to your home screen as a web app.
+- Puts you above Zürich in an orbital “god’s-eye” view, then lets you walk street-level with WASD / arrow keys.
+- Pins open attractions, restaurants and shops on a 3D building map (OpenFreeMap + OpenStreetMap).
+- Lets you toggle **Parking** to see live garage free spaces, search, and directions.
+- Supports light and dark mode, and can be added to your home screen as a web app.
 
 ## How it started
 
-What started as a WebAssembly experiment ended up as just another Svelte project.
-
-Fetching the [RSS feed](https://www.pls-zh.ch/plsFeed/rss) from WebAssembly ran into
-cookies and cross-origin issues, returning an unauthorized page. Fetching on the
-server solved that problem, but took away the reason to use WebAssembly in the
-first place. An early Cloudflare deployment attempt also ran into
-[this issue](https://stackoverflow.com/a/73222998).
-
-The initial implementation drew on
-[How SvelteKit makes type-safe data fetching easier and better!](https://dev.to/asheeshh/how-sveltekit-makes-type-safe-data-fetching-easier-and-better-1g7k)
-and [rss-parser](https://www.npmjs.com/package/rss-parser).
-Today, the app uses SvelteKit, TypeScript, and Leaflet, and deploys to Vercel.
+What started as a parking-focused phone browser for the PLS feed grew into a
+city-first experience. Parking remains a first-class feature, but the homepage is
+now the map of Zürich itself.
 
 ## Developing
 

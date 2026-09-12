@@ -10,6 +10,11 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 	const fetcher: typeof fetch = async (input, init) => {
 		const url = String(input);
 		expect(init?.cache).toBe('no-store');
+		if (url.includes('overpass-api.de')) {
+			return new Response('{"elements":[]}', {
+				headers: { 'content-type': 'application/json' }
+			});
+		}
 		if (url.endsWith('/plsFeed/rss')) {
 			feedRequests++;
 			const items = Array.from(
