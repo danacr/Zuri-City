@@ -163,6 +163,10 @@ function subtitleFor(tags: Record<string, string>, category: PlaceCategory): str
 		if (tags.beauty) return tags.beauty.replaceAll(';', ', ').replaceAll('_', ' ');
 		if (tags.shop === 'hairdresser' || tags.craft === 'hairdresser') return 'Hair salon';
 		if (tags.shop === 'nails') return 'Nail salon';
+		if (tags.shop === 'beauty') return 'Beauty salon';
+		if (tags.shop === 'cosmetics') return 'Cosmetics';
+		if (tags.shop === 'perfumery') return 'Perfumery';
+		if (tags.shop === 'massage') return 'Massage';
 		return (tags.shop || tags.amenity || 'Beauty').replaceAll('_', ' ');
 	}
 	if (category === 'stay') {
