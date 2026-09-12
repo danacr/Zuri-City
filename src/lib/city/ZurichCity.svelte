@@ -125,10 +125,6 @@
 		(map.getSource('quakes') as GeoJSONSource).setData(quakesToGeoJSON(visibleQuakes));
 	}
 	$: if (map && styleReady) {
-		const opacity = intelLayers.detection ? 0.95 : 0;
-		if (map.getLayer('detection-flights')) {
-			map.setPaintProperty('detection-flights', 'circle-stroke-opacity', opacity);
-		}
 		syncTrafficVisibility(map, intelLayers.traffic);
 		if (intelLayers.traffic) {
 			ensureTrafficCarsLayer(map);
@@ -386,31 +382,6 @@
 					'circle-stroke-width': 1.5,
 					'circle-stroke-color': '#fff6d6',
 					'circle-stroke-opacity': 0.9
-				}
-			});
-			mapInstance.addLayer({
-				id: 'detection-flights',
-				type: 'circle',
-				source: 'flights',
-				paint: {
-					'circle-radius': [
-						'match',
-						['get', 'size'],
-						'light',
-						14,
-						'medium',
-						18,
-						'heavy',
-						24,
-						'rotor',
-						16,
-						18
-					],
-					'circle-color': '#3dd68c',
-					'circle-opacity': 0,
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#3dd68c',
-					'circle-stroke-opacity': intelLayers.detection ? 0.95 : 0
 				}
 			});
 			mapInstance.addLayer({
@@ -744,7 +715,7 @@
 
 	function kindFromLayer(layerId: string) {
 		if (layerId.startsWith('parking')) return 'parking' as const;
-		if (layerId.startsWith('flights') || layerId === 'detection-flights') return 'flight' as const;
+		if (layerId.startsWith('flights')) return 'flight' as const;
 		if (layerId.startsWith('cameras') || layerId === 'detection-cameras') return 'camera' as const;
 		if (layerId.startsWith('quakes')) return 'quake' as const;
 		return 'place' as const;

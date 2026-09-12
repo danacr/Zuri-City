@@ -429,22 +429,21 @@ function drawEngine(
 	ctx.restore();
 }
 
+/** Thin centerline fin (top-down) — airline color without a fighter diamond. */
 function paintFin(
 	ctx: CanvasRenderingContext2D,
 	u: number,
 	p: Palette,
-	opts: { top: number; mid: number; tip: number; halfW: number }
+	opts: { root: number; tip: number; halfW: number }
 ) {
-	// Oversized fin so airline color reads at map zoom.
-	const halfW = opts.halfW * 1.55;
 	ctx.fillStyle = p.fin;
 	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.35 * u;
+	ctx.lineWidth = 1.1 * u;
 	ctx.beginPath();
-	ctx.moveTo(0, opts.top * u);
-	ctx.lineTo(halfW * u, opts.mid * u);
+	ctx.moveTo(0, opts.root * u);
+	ctx.lineTo(opts.halfW * u, (opts.root + opts.tip) * 0.45 * u);
 	ctx.lineTo(0, opts.tip * u);
-	ctx.lineTo(-halfW * u, opts.mid * u);
+	ctx.lineTo(-opts.halfW * u, (opts.root + opts.tip) * 0.45 * u);
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
@@ -455,359 +454,290 @@ function paintCheatline(
 	u: number,
 	p: Palette,
 	y0: number,
-	y1: number
+	y1: number,
+	halfW = 3.2
 ) {
 	ctx.strokeStyle = p.stripe;
-	ctx.globalAlpha = 0.95;
-	ctx.lineWidth = 2.6 * u;
+	ctx.globalAlpha = 0.9;
+	ctx.lineWidth = 2.1 * u;
 	ctx.beginPath();
-	ctx.moveTo(-3.4 * u, y0 * u);
-	ctx.lineTo(-3.4 * u, y1 * u);
-	ctx.moveTo(3.4 * u, y0 * u);
-	ctx.lineTo(3.4 * u, y1 * u);
+	ctx.moveTo(-halfW * u, y0 * u);
+	ctx.lineTo(-halfW * u, y1 * u);
+	ctx.moveTo(halfW * u, y0 * u);
+	ctx.lineTo(halfW * u, y1 * u);
 	ctx.stroke();
 	ctx.globalAlpha = 1;
 }
 
-/** Wingtip / leading-edge brand accents — readable when the fuselage is tiny. */
-function paintWingBrand(
-	ctx: CanvasRenderingContext2D,
-	u: number,
-	p: Palette,
-	span: number,
-	y: number
-) {
-	ctx.fillStyle = p.fin;
-	for (const side of [-1, 1]) {
+type AirlinerSpec = {
+	/** Half fuselage width at midsection (units). */
+	fuseHalf: number;
+	nose: number;
+	tail: number;
+	/** Wing root leading / trailing Y. */
+	wingLead: number;
+	wingTrail: number;
+	/** Half-span tip X. */
+	span: number;
+	/** Tip chord trailing offset. */
+	tipTrail: number;
+	engineX: number;
+	engineY: number;
+	engineRx: number;
+	engineRy: number;
+	htpSpan: number;
+	htpLead: number;
+	htpTrail: number;
+	finRoot: number;
+	finTip: number;
+	finHalf: number;
+	cheat0: number;
+	cheat1: number;
+	engines?: number[];
+};
+
+/**
+ * Classic top-down airliner glyph (A330-family planform): rounded nose,
+ * parallel tube, swept high-aspect wings, under-wing pods, conventional HTP.
+ * Avoids the pointed fighter / canard silhouette.
+ */
+function drawAirliner(ctx: CanvasRenderingContext2D, s: number, p: Palette, spec: AirlinerSpec) {
+	const u = s / 160;
+	const fh = spec.fuseHalf;
+	const fuselage = () => {
 		ctx.beginPath();
-		ctx.moveTo(side * (span - 2) * u, (y - 1) * u);
-		ctx.lineTo(side * (span + 4) * u, (y + 2) * u);
-		ctx.lineTo(side * (span - 1) * u, (y + 5) * u);
+		// Soft rounded nose (not a fighter tip).
+		ctx.moveTo(0, spec.nose * u);
+		ctx.bezierCurveTo(fh * 0.55 * u, (spec.nose + 6) * u, fh * u, (spec.nose + 16) * u, fh * u, (spec.nose + 28) * u);
+		ctx.lineTo(fh * u, (spec.tail - 18) * u);
+		ctx.quadraticCurveTo(fh * 0.75 * u, (spec.tail - 6) * u, 0, spec.tail * u);
+		ctx.quadraticCurveTo(-fh * 0.75 * u, (spec.tail - 6) * u, -fh * u, (spec.tail - 18) * u);
+		ctx.lineTo(-fh * u, (spec.nose + 28) * u);
+		ctx.bezierCurveTo(-fh * u, (spec.nose + 16) * u, -fh * 0.55 * u, (spec.nose + 6) * u, 0, spec.nose * u);
 		ctx.closePath();
-		ctx.fill();
+	};
+	const wing = () => {
+		const rootLead = spec.wingLead;
+		const rootTrail = spec.wingTrail;
+		const tipX = spec.span;
+		const tipLead = rootLead + 18;
+		const tipTrail = tipLead + spec.tipTrail;
+		ctx.beginPath();
+		ctx.moveTo(-fh * 0.9 * u, rootLead * u);
+		ctx.lineTo(-tipX * u, tipLead * u);
+		ctx.quadraticCurveTo(-(tipX + 1.5) * u, (tipLead + tipTrail) * 0.5 * u, -tipX * u, tipTrail * u);
+		ctx.lineTo(-fh * 0.9 * u, rootTrail * u);
+		ctx.lineTo(fh * 0.9 * u, rootTrail * u);
+		ctx.lineTo(tipX * u, tipTrail * u);
+		ctx.quadraticCurveTo((tipX + 1.5) * u, (tipLead + tipTrail) * 0.5 * u, tipX * u, tipLead * u);
+		ctx.lineTo(fh * 0.9 * u, rootLead * u);
+		ctx.closePath();
+	};
+	const htp = () => {
+		ctx.beginPath();
+		ctx.moveTo(-spec.htpSpan * u, spec.htpLead * u);
+		ctx.lineTo(0, (spec.htpLead - 3) * u);
+		ctx.lineTo(spec.htpSpan * u, spec.htpLead * u);
+		ctx.lineTo(spec.htpSpan * 0.92 * u, spec.htpTrail * u);
+		ctx.lineTo(0, (spec.htpTrail - 1) * u);
+		ctx.lineTo(-spec.htpSpan * 0.92 * u, spec.htpTrail * u);
+		ctx.closePath();
+	};
+
+	softShadow(ctx, wing, 3.6 * u, 0.22);
+	softShadow(ctx, fuselage, 2.8 * u, 0.24);
+
+	ctx.fillStyle = wingGradient(ctx, 0, spec.wingLead * u, 0, spec.wingTrail * u, p);
+	ctx.strokeStyle = p.stroke;
+	ctx.lineWidth = 1.45 * u;
+	wing();
+	ctx.fill();
+	ctx.stroke();
+
+	const engineXs = spec.engines ?? [-spec.engineX, spec.engineX];
+	for (const x of engineXs) {
+		drawEngine(ctx, x * u, spec.engineY * u, spec.engineRx * u, spec.engineRy * u, p);
 	}
+
+	fillStroke(ctx, fuselage, p.body, p.stroke, 1.55 * u);
+	paintCheatline(ctx, u, p, spec.cheat0, spec.cheat1, fh * 0.55);
+
+	// Cockpit glass — soft oval, not a pointed canopy.
+	const glass = ctx.createLinearGradient(0, (spec.nose + 4) * u, 0, (spec.nose + 18) * u);
+	glass.addColorStop(0, '#6a8aa4');
+	glass.addColorStop(1, '#2a4052');
+	ctx.fillStyle = glass;
+	ctx.beginPath();
+	ctx.ellipse(0, (spec.nose + 11) * u, fh * 0.62 * u, 7 * u, 0, 0, Math.PI * 2);
+	ctx.fill();
+
+	ctx.fillStyle = p.wing;
+	ctx.strokeStyle = p.stroke;
+	ctx.lineWidth = 1.25 * u;
+	htp();
+	ctx.fill();
+	ctx.stroke();
+
+	paintFin(ctx, u, p, {
+		root: spec.finRoot,
+		tip: spec.finTip,
+		halfW: spec.finHalf
+	});
 }
 
 function drawGa(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
 	const u = s / 160;
 	const fuselage = () => {
 		ctx.beginPath();
-		ctx.moveTo(0, -40 * u);
-		ctx.bezierCurveTo(5 * u, -30 * u, 6 * u, -8 * u, 5.5 * u, 12 * u);
-		ctx.quadraticCurveTo(4.5 * u, 26 * u, 0, 34 * u);
-		ctx.quadraticCurveTo(-4.5 * u, 26 * u, -5.5 * u, 12 * u);
-		ctx.bezierCurveTo(-6 * u, -8 * u, -5 * u, -30 * u, 0, -40 * u);
+		ctx.moveTo(0, -36 * u);
+		ctx.bezierCurveTo(4.5 * u, -28 * u, 5.5 * u, -6 * u, 5 * u, 12 * u);
+		ctx.quadraticCurveTo(4 * u, 24 * u, 0, 32 * u);
+		ctx.quadraticCurveTo(-4 * u, 24 * u, -5 * u, 12 * u);
+		ctx.bezierCurveTo(-5.5 * u, -6 * u, -4.5 * u, -28 * u, 0, -36 * u);
 		ctx.closePath();
 	};
 	const wing = () => {
 		ctx.beginPath();
-		ctx.moveTo(-38 * u, 2 * u);
-		ctx.lineTo(-7 * u, -5 * u);
-		ctx.lineTo(7 * u, -5 * u);
-		ctx.lineTo(38 * u, 2 * u);
-		ctx.lineTo(36 * u, 9 * u);
-		ctx.quadraticCurveTo(20 * u, 11 * u, 7 * u, 10 * u);
-		ctx.lineTo(-7 * u, 10 * u);
-		ctx.quadraticCurveTo(-20 * u, 11 * u, -36 * u, 9 * u);
+		ctx.moveTo(-36 * u, 4 * u);
+		ctx.lineTo(-6 * u, -2 * u);
+		ctx.lineTo(6 * u, -2 * u);
+		ctx.lineTo(36 * u, 4 * u);
+		ctx.lineTo(34 * u, 10 * u);
+		ctx.quadraticCurveTo(18 * u, 11 * u, 6 * u, 9 * u);
+		ctx.lineTo(-6 * u, 9 * u);
+		ctx.quadraticCurveTo(-18 * u, 11 * u, -34 * u, 10 * u);
 		ctx.closePath();
 	};
 	softShadow(ctx, wing, 3 * u, 0.22);
 	softShadow(ctx, fuselage, 2.5 * u, 0.25);
-	ctx.fillStyle = wingGradient(ctx, 0, -5 * u, 0, 11 * u, p);
+	ctx.fillStyle = wingGradient(ctx, 0, -2 * u, 0, 11 * u, p);
 	ctx.strokeStyle = p.stroke;
 	ctx.lineWidth = 1.4 * u;
 	wing();
 	ctx.fill();
 	ctx.stroke();
-	paintWingBrand(ctx, u, p, 38, 2);
 	fillStroke(ctx, fuselage, p.body, p.stroke, 1.5 * u);
-	const glass = ctx.createLinearGradient(0, -28 * u, 0, -10 * u);
+	const glass = ctx.createLinearGradient(0, -28 * u, 0, -12 * u);
 	glass.addColorStop(0, '#6a8aa4');
 	glass.addColorStop(1, '#2a4052');
 	ctx.fillStyle = glass;
 	ctx.beginPath();
-	ctx.moveTo(0, -28 * u);
-	ctx.quadraticCurveTo(3.4 * u, -20 * u, 3 * u, -10 * u);
-	ctx.lineTo(-3 * u, -10 * u);
-	ctx.quadraticCurveTo(-3.4 * u, -20 * u, 0, -28 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.strokeStyle = 'rgba(80,90,100,0.35)';
-	ctx.lineWidth = 1.2 * u;
-	ctx.beginPath();
-	ctx.arc(0, -40 * u, 5.5 * u, 0, Math.PI * 2);
-	ctx.stroke();
-	ctx.fillStyle = p.engineRim;
-	ctx.beginPath();
-	ctx.arc(0, -40 * u, 1.7 * u, 0, Math.PI * 2);
+	ctx.ellipse(0, -22 * u, 3.2 * u, 6 * u, 0, 0, Math.PI * 2);
 	ctx.fill();
 	ctx.fillStyle = p.wing;
 	ctx.strokeStyle = p.stroke;
 	ctx.lineWidth = 1.3 * u;
 	ctx.beginPath();
-	ctx.moveTo(-15 * u, 22 * u);
-	ctx.lineTo(0, 17 * u);
-	ctx.lineTo(15 * u, 22 * u);
-	ctx.lineTo(13 * u, 27 * u);
-	ctx.lineTo(0, 24 * u);
-	ctx.lineTo(-13 * u, 27 * u);
+	ctx.moveTo(-14 * u, 20 * u);
+	ctx.lineTo(0, 16 * u);
+	ctx.lineTo(14 * u, 20 * u);
+	ctx.lineTo(12 * u, 25 * u);
+	ctx.lineTo(0, 22 * u);
+	ctx.lineTo(-12 * u, 25 * u);
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
-	paintFin(ctx, u, p, { top: 14, mid: 28, tip: 34, halfW: 2.6 });
-	paintCheatline(ctx, u, p, -8, 14);
+	paintFin(ctx, u, p, { root: 12, tip: 32, halfW: 2.2 });
+	paintCheatline(ctx, u, p, -8, 12, 2.8);
 }
 
 function drawRegional(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
-	const u = s / 160;
-	const fuselage = () => {
-		ctx.beginPath();
-		ctx.moveTo(0, -42 * u);
-		ctx.bezierCurveTo(5.2 * u, -32 * u, 6 * u, -6 * u, 5.5 * u, 14 * u);
-		ctx.quadraticCurveTo(4.5 * u, 28 * u, 0, 36 * u);
-		ctx.quadraticCurveTo(-4.5 * u, 28 * u, -5.5 * u, 14 * u);
-		ctx.bezierCurveTo(-6 * u, -6 * u, -5.2 * u, -32 * u, 0, -42 * u);
-		ctx.closePath();
-	};
-	const wing = () => {
-		ctx.beginPath();
-		ctx.moveTo(-42 * u, 8 * u);
-		ctx.lineTo(-8 * u, -4 * u);
-		ctx.lineTo(8 * u, -4 * u);
-		ctx.lineTo(42 * u, 8 * u);
-		ctx.lineTo(40 * u, 14 * u);
-		ctx.quadraticCurveTo(20 * u, 12 * u, 8 * u, 10 * u);
-		ctx.lineTo(-8 * u, 10 * u);
-		ctx.quadraticCurveTo(-20 * u, 12 * u, -40 * u, 14 * u);
-		ctx.closePath();
-	};
-	softShadow(ctx, wing, 3.2 * u, 0.23);
-	softShadow(ctx, fuselage, 2.6 * u, 0.25);
-	ctx.fillStyle = wingGradient(ctx, 0, -4 * u, 0, 14 * u, p);
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.45 * u;
-	wing();
-	ctx.fill();
-	ctx.stroke();
-	paintWingBrand(ctx, u, p, 42, 8);
-	for (const x of [-18, 18]) drawEngine(ctx, x * u, 9 * u, 3 * u, 6.5 * u, p);
-	fillStroke(ctx, fuselage, p.body, p.stroke, 1.55 * u);
-	paintCheatline(ctx, u, p, -20, 10);
-	const glass = ctx.createLinearGradient(0, -38 * u, 0, -24 * u);
-	glass.addColorStop(0, '#6a8aa4');
-	glass.addColorStop(1, '#2a4052');
-	ctx.fillStyle = glass;
-	ctx.beginPath();
-	ctx.moveTo(0, -40 * u);
-	ctx.quadraticCurveTo(3.8 * u, -33 * u, 3.4 * u, -25 * u);
-	ctx.lineTo(-3.4 * u, -25 * u);
-	ctx.quadraticCurveTo(-3.8 * u, -33 * u, 0, -40 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.fillStyle = p.wing;
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.3 * u;
-	ctx.beginPath();
-	ctx.moveTo(-14 * u, 24 * u);
-	ctx.lineTo(0, 18 * u);
-	ctx.lineTo(14 * u, 24 * u);
-	ctx.lineTo(12 * u, 28 * u);
-	ctx.lineTo(0, 26 * u);
-	ctx.lineTo(-12 * u, 28 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.stroke();
-	paintFin(ctx, u, p, { top: 12, mid: 28, tip: 36, halfW: 2.8 });
+	drawAirliner(ctx, s, p, {
+		fuseHalf: 5.2,
+		nose: -42,
+		tail: 38,
+		wingLead: -2,
+		wingTrail: 12,
+		span: 44,
+		tipTrail: 7,
+		engineX: 18,
+		engineY: 8,
+		engineRx: 3,
+		engineRy: 6.5,
+		htpSpan: 14,
+		htpLead: 22,
+		htpTrail: 28,
+		finRoot: 14,
+		finTip: 36,
+		finHalf: 2.4,
+		cheat0: -18,
+		cheat1: 10
+	});
 }
 
 function drawNarrow(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
-	const u = s / 160;
-	const fuselage = () => {
-		ctx.beginPath();
-		ctx.moveTo(0, -46 * u);
-		ctx.bezierCurveTo(6 * u, -34 * u, 7 * u, -6 * u, 6.5 * u, 16 * u);
-		ctx.quadraticCurveTo(5.5 * u, 30 * u, 0, 40 * u);
-		ctx.quadraticCurveTo(-5.5 * u, 30 * u, -6.5 * u, 16 * u);
-		ctx.bezierCurveTo(-7 * u, -6 * u, -6 * u, -34 * u, 0, -46 * u);
-		ctx.closePath();
-	};
-	const wing = () => {
-		ctx.beginPath();
-		ctx.moveTo(-52 * u, 12 * u);
-		ctx.lineTo(-9 * u, -7 * u);
-		ctx.lineTo(9 * u, -7 * u);
-		ctx.lineTo(52 * u, 12 * u);
-		ctx.lineTo(49 * u, 18 * u);
-		ctx.quadraticCurveTo(24 * u, 16 * u, 9 * u, 12 * u);
-		ctx.lineTo(-9 * u, 12 * u);
-		ctx.quadraticCurveTo(-24 * u, 16 * u, -49 * u, 18 * u);
-		ctx.closePath();
-	};
-	softShadow(ctx, wing, 3.8 * u, 0.24);
-	softShadow(ctx, fuselage, 3 * u, 0.26);
-	ctx.fillStyle = wingGradient(ctx, 0, -7 * u, 0, 18 * u, p);
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.55 * u;
-	wing();
-	ctx.fill();
-	ctx.stroke();
-	paintWingBrand(ctx, u, p, 52, 12);
-	for (const x of [-22, 22]) drawEngine(ctx, x * u, 12 * u, 3.6 * u, 8 * u, p);
-	fillStroke(ctx, fuselage, p.body, p.stroke, 1.65 * u);
-	paintCheatline(ctx, u, p, -24, 12);
-	const glass = ctx.createLinearGradient(0, -42 * u, 0, -26 * u);
-	glass.addColorStop(0, '#6a8aa4');
-	glass.addColorStop(1, '#2a4052');
-	ctx.fillStyle = glass;
-	ctx.beginPath();
-	ctx.moveTo(0, -44 * u);
-	ctx.quadraticCurveTo(4.4 * u, -36 * u, 4 * u, -28 * u);
-	ctx.lineTo(-4 * u, -28 * u);
-	ctx.quadraticCurveTo(-4.4 * u, -36 * u, 0, -44 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.fillStyle = p.wing;
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.35 * u;
-	ctx.beginPath();
-	ctx.moveTo(-18 * u, 28 * u);
-	ctx.lineTo(0, 22 * u);
-	ctx.lineTo(18 * u, 28 * u);
-	ctx.lineTo(15 * u, 33 * u);
-	ctx.lineTo(0, 30 * u);
-	ctx.lineTo(-15 * u, 33 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.stroke();
-	paintFin(ctx, u, p, { top: 14, mid: 32, tip: 40, halfW: 3.4 });
+	// A320-family proportions — sibling of the A330 glyph.
+	drawAirliner(ctx, s, p, {
+		fuseHalf: 5.8,
+		nose: -46,
+		tail: 42,
+		wingLead: -4,
+		wingTrail: 14,
+		span: 52,
+		tipTrail: 8,
+		engineX: 22,
+		engineY: 10,
+		engineRx: 3.5,
+		engineRy: 8,
+		htpSpan: 16,
+		htpLead: 24,
+		htpTrail: 32,
+		finRoot: 16,
+		finTip: 40,
+		finHalf: 2.8,
+		cheat0: -22,
+		cheat1: 12
+	});
 }
 
 function drawWideTwin(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
-	const u = s / 160;
-	const fuselage = () => {
-		ctx.beginPath();
-		ctx.moveTo(0, -48 * u);
-		ctx.bezierCurveTo(8 * u, -34 * u, 9.5 * u, -4 * u, 9 * u, 16 * u);
-		ctx.quadraticCurveTo(7.5 * u, 32 * u, 0, 42 * u);
-		ctx.quadraticCurveTo(-7.5 * u, 32 * u, -9 * u, 16 * u);
-		ctx.bezierCurveTo(-9.5 * u, -4 * u, -8 * u, -34 * u, 0, -48 * u);
-		ctx.closePath();
-	};
-	const wing = () => {
-		ctx.beginPath();
-		ctx.moveTo(-60 * u, 14 * u);
-		ctx.lineTo(-11 * u, -9 * u);
-		ctx.lineTo(11 * u, -9 * u);
-		ctx.lineTo(60 * u, 14 * u);
-		ctx.lineTo(56 * u, 20 * u);
-		ctx.quadraticCurveTo(28 * u, 18 * u, 11 * u, 14 * u);
-		ctx.lineTo(-11 * u, 14 * u);
-		ctx.quadraticCurveTo(-28 * u, 18 * u, -56 * u, 20 * u);
-		ctx.closePath();
-	};
-	softShadow(ctx, wing, 4.2 * u, 0.26);
-	softShadow(ctx, fuselage, 3.2 * u, 0.28);
-	ctx.fillStyle = wingGradient(ctx, 0, -9 * u, 0, 20 * u, p);
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.7 * u;
-	wing();
-	ctx.fill();
-	ctx.stroke();
-	paintWingBrand(ctx, u, p, 60, 14);
-	for (const x of [-28, 28]) drawEngine(ctx, x * u, 13 * u, 4.4 * u, 9.5 * u, p);
-	fillStroke(ctx, fuselage, p.body, p.stroke, 1.75 * u);
-	paintCheatline(ctx, u, p, -26, 12);
-	const glass = ctx.createLinearGradient(0, -44 * u, 0, -28 * u);
-	glass.addColorStop(0, '#6a8aa4');
-	glass.addColorStop(1, '#2a4052');
-	ctx.fillStyle = glass;
-	ctx.beginPath();
-	ctx.moveTo(0, -46 * u);
-	ctx.quadraticCurveTo(5.6 * u, -38 * u, 5.2 * u, -30 * u);
-	ctx.lineTo(-5.2 * u, -30 * u);
-	ctx.quadraticCurveTo(-5.6 * u, -38 * u, 0, -46 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.fillStyle = p.wing;
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.4 * u;
-	ctx.beginPath();
-	ctx.moveTo(-22 * u, 28 * u);
-	ctx.lineTo(0, 20 * u);
-	ctx.lineTo(22 * u, 28 * u);
-	ctx.lineTo(18 * u, 34 * u);
-	ctx.lineTo(0, 30 * u);
-	ctx.lineTo(-18 * u, 34 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.stroke();
-	paintFin(ctx, u, p, { top: 12, mid: 32, tip: 42, halfW: 4 });
+	// Airbus A330-ish twin: longer tube, broader span, large under-wing pods.
+	drawAirliner(ctx, s, p, {
+		fuseHalf: 8.2,
+		nose: -50,
+		tail: 44,
+		wingLead: -6,
+		wingTrail: 16,
+		span: 62,
+		tipTrail: 9,
+		engineX: 26,
+		engineY: 11,
+		engineRx: 4.6,
+		engineRy: 10,
+		htpSpan: 20,
+		htpLead: 24,
+		htpTrail: 34,
+		finRoot: 14,
+		finTip: 44,
+		finHalf: 3.2,
+		cheat0: -24,
+		cheat1: 12
+	});
 }
 
 function drawWideQuad(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
-	const u = s / 160;
-	const fuselage = () => {
-		ctx.beginPath();
-		ctx.moveTo(0, -50 * u);
-		ctx.bezierCurveTo(9 * u, -36 * u, 10.5 * u, -4 * u, 10 * u, 16 * u);
-		ctx.quadraticCurveTo(8 * u, 34 * u, 0, 44 * u);
-		ctx.quadraticCurveTo(-8 * u, 34 * u, -10 * u, 16 * u);
-		ctx.bezierCurveTo(-10.5 * u, -4 * u, -9 * u, -36 * u, 0, -50 * u);
-		ctx.closePath();
-	};
-	const wing = () => {
-		ctx.beginPath();
-		ctx.moveTo(-64 * u, 16 * u);
-		ctx.lineTo(-12 * u, -10 * u);
-		ctx.lineTo(12 * u, -10 * u);
-		ctx.lineTo(64 * u, 16 * u);
-		ctx.lineTo(60 * u, 22 * u);
-		ctx.quadraticCurveTo(30 * u, 20 * u, 12 * u, 15 * u);
-		ctx.lineTo(-12 * u, 15 * u);
-		ctx.quadraticCurveTo(-30 * u, 20 * u, -60 * u, 22 * u);
-		ctx.closePath();
-	};
-	softShadow(ctx, wing, 4.5 * u, 0.27);
-	softShadow(ctx, fuselage, 3.4 * u, 0.29);
-	ctx.fillStyle = wingGradient(ctx, 0, -10 * u, 0, 22 * u, p);
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.8 * u;
-	wing();
-	ctx.fill();
-	ctx.stroke();
-	paintWingBrand(ctx, u, p, 64, 16);
-	for (const x of [-36, -20, 20, 36]) drawEngine(ctx, x * u, 14 * u, 4 * u, 9 * u, p);
-	fillStroke(ctx, fuselage, p.body, p.stroke, 1.8 * u);
-	paintCheatline(ctx, u, p, -28, 12);
-	ctx.fillStyle = p.bodyShade;
-	ctx.beginPath();
-	ctx.ellipse(0, -28 * u, 7 * u, 10 * u, 0, Math.PI, Math.PI * 2);
-	ctx.fill();
-	const glass = ctx.createLinearGradient(0, -48 * u, 0, -30 * u);
-	glass.addColorStop(0, '#6a8aa4');
-	glass.addColorStop(1, '#2a4052');
-	ctx.fillStyle = glass;
-	ctx.beginPath();
-	ctx.moveTo(0, -48 * u);
-	ctx.quadraticCurveTo(6 * u, -40 * u, 5.5 * u, -32 * u);
-	ctx.lineTo(-5.5 * u, -32 * u);
-	ctx.quadraticCurveTo(-6 * u, -40 * u, 0, -48 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.fillStyle = p.wing;
-	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.45 * u;
-	ctx.beginPath();
-	ctx.moveTo(-24 * u, 30 * u);
-	ctx.lineTo(0, 20 * u);
-	ctx.lineTo(24 * u, 30 * u);
-	ctx.lineTo(20 * u, 36 * u);
-	ctx.lineTo(0, 32 * u);
-	ctx.lineTo(-20 * u, 36 * u);
-	ctx.closePath();
-	ctx.fill();
-	ctx.stroke();
-	paintFin(ctx, u, p, { top: 12, mid: 34, tip: 44, halfW: 4.4 });
+	drawAirliner(ctx, s, p, {
+		fuseHalf: 9,
+		nose: -52,
+		tail: 46,
+		wingLead: -7,
+		wingTrail: 17,
+		span: 66,
+		tipTrail: 10,
+		engineX: 28,
+		engineY: 12,
+		engineRx: 4,
+		engineRy: 9,
+		htpSpan: 22,
+		htpLead: 26,
+		htpTrail: 36,
+		finRoot: 14,
+		finTip: 46,
+		finHalf: 3.6,
+		cheat0: -26,
+		cheat1: 12,
+		engines: [-36, -20, 20, 36]
+	});
 }
 
 function drawRotor(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
