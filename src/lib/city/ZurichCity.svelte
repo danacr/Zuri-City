@@ -709,15 +709,15 @@
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			0.28,
+			0.4,
 			14.6,
-			0.42,
+			0.58,
 			16,
-			0.7,
+			0.9,
 			17.4,
-			1.05,
+			1.25,
 			CITY_MAX_ZOOM,
-			1.2
+			1.45
 		];
 		if (!mapInstance.getLayer('traffic-cars')) {
 			mapInstance.addLayer({
@@ -731,7 +731,7 @@
 					'icon-size': carIconSize,
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
-					'icon-pitch-alignment': 'map',
+					'icon-pitch-alignment': 'viewport',
 					'icon-allow-overlap': true,
 					'icon-ignore-placement': true,
 					'symbol-z-order': 'viewport-y',
@@ -743,7 +743,7 @@
 			});
 		} else {
 			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', carIconSize);
-			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'map');
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'viewport');
 			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-anchor', 'ground');
 			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-offset', 8);
 		}
