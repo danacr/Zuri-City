@@ -577,19 +577,35 @@
 		});
 	}
 
+	/** Oversized on purpose — cars should read as filling the street surface. */
+	const CAR_ICON_SIZE = [
+		'interpolate',
+		['linear'],
+		['zoom'],
+		15,
+		1.8,
+		16,
+		2.8,
+		18,
+		4.5
+	] as const;
+
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
 		if (!mapInstance.isStyleLoaded()) return;
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
 		for (const congestion of congestions) {
 			const id = CAR_ICON_IDS[congestion];
-			if (mapInstance.hasImage(id)) continue;
 			const sprite = drawCarIcon(congestion, 64);
-			if (sprite) {
-				try {
-					mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
-				} catch (error) {
-					console.warn('car icon add failed', id, error);
+			if (!sprite) continue;
+			const image = imageDataForMap(sprite);
+			try {
+				if (mapInstance.hasImage(id)) {
+					mapInstance.updateImage(id, image);
+				} else {
+					mapInstance.addImage(id, image, { pixelRatio: 2 });
 				}
+			} catch (error) {
+				console.warn('car icon add failed', id, error);
 			}
 		}
 		if (!mapInstance.getSource('traffic-cars')) {
@@ -606,17 +622,7 @@
 				minzoom: 15,
 				layout: {
 					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
-					'icon-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						15,
-						0.95,
-						16,
-						1.4,
-						18,
-						2.2
-					],
+					'icon-size': [...CAR_ICON_SIZE],
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
 					'icon-pitch-alignment': 'map',
@@ -625,6 +631,8 @@
 					visibility: intelLayers.traffic ? 'visible' : 'none'
 				}
 			});
+		} else {
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', [...CAR_ICON_SIZE]);
 		}
 	}
 
