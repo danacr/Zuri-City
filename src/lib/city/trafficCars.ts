@@ -16,8 +16,7 @@ export type SimCar = {
 const ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary']);
 
 /**
- * Traffic-signal colors for living streets:
- * green = free flow (few, fast), amber = busy, red = jammed (many, slow).
+ * Matches street traffic-flow colors. Cars are a zoom-in accent only.
  */
 export const CONGESTION_COLOR: Record<Congestion, string> = {
 	free: '#2f9e44',

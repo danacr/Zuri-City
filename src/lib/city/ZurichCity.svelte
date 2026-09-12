@@ -66,9 +66,7 @@
 	let lastTrafficReseed = 0;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
-	$: visibleParkings = layers.parking
-		? parkings.filter((parking) => parking.coordinates !== null)
-		: [];
+	$: visibleParkings = parkings.filter((parking) => parking.coordinates !== null);
 	$: visibleFlights = intelLayers.flights ? flights : [];
 	$: visibleCameras = intelLayers.cameras ? cameras : [];
 	$: visibleQuakes = intelLayers.quakes ? quakes : [];
@@ -263,15 +261,7 @@
 				source: 'parking',
 				paint: {
 					'circle-radius': 11,
-					'circle-color': [
-						'match',
-						['get', 'tone'],
-						'green',
-						'#14775b',
-						'red',
-						'#b42332',
-						'#627189'
-					],
+					'circle-color': '#1c7ed6',
 					'circle-stroke-width': 2,
 					'circle-stroke-color': '#ffffff'
 				}
@@ -426,10 +416,10 @@
 				source: 'quakes',
 				paint: {
 					'circle-radius': ['get', 'radius'],
-					'circle-color': '#e03131',
+					'circle-color': '#e64980',
 					'circle-opacity': 0.35,
 					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ff8787'
+					'circle-stroke-color': '#f783ac'
 				}
 			});
 		}
@@ -475,20 +465,19 @@
 				id: 'traffic-cars',
 				type: 'symbol',
 				source: 'traffic-cars',
+				minzoom: 15,
 				layout: {
 					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
 					'icon-size': [
 						'interpolate',
 						['linear'],
 						['zoom'],
-						12,
-						0.28,
-						14,
-						0.48,
+						15,
+						0.22,
 						16,
-						0.72,
+						0.34,
 						18,
-						1.05
+						0.55
 					],
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
@@ -549,7 +538,7 @@
 
 		const zoom = map.getZoom();
 		trafficCars = spawnCarsFromRoadFeatures(features, {
-			maxCars: zoom >= 15.5 ? 130 : zoom >= 14 ? 100 : 70
+			maxCars: zoom >= 16 ? 40 : zoom >= 15 ? 24 : 0
 		});
 		pushCarsToMap();
 	}

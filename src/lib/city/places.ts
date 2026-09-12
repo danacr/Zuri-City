@@ -18,9 +18,9 @@ export const CATEGORY_LABEL: Record<PlaceCategory, string> = {
 };
 
 export const CATEGORY_COLOR: Record<PlaceCategory, string> = {
-	attraction: '#c45c26',
-	restaurant: '#0f7a5a',
-	shop: '#1260ce'
+	attraction: '#d9480f',
+	restaurant: '#0ca678',
+	shop: '#ae3ec9'
 };
 
 export const ZURICH_CENTER: [number, number] = [8.5417, 47.3769];

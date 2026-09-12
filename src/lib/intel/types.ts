@@ -70,7 +70,7 @@ export const INTEL_LAYER_COLOR: Record<IntelLayer, string> = {
 	flights: '#f0b429',
 	cameras: '#7c5cff',
 	traffic: '#2f9e44',
-	quakes: '#e03131',
+	quakes: '#e64980',
 	detection: '#3dd68c'
 };
 

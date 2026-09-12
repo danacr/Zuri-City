@@ -38,7 +38,7 @@
 		attraction: true,
 		restaurant: true,
 		shop: true,
-		parking: false
+		parking: true
 	};
 	let intelLayers: Record<IntelLayer, boolean> = {
 		flights: true,
@@ -64,7 +64,7 @@
 		flights: flights.length,
 		cameras: cameras.length,
 		// Live streets: simulated cars on OpenMapTiles roads — no corridor count.
-		traffic: intelLayers.traffic ? 'cars' : 0,
+		traffic: intelLayers.traffic ? 'roads' : 0,
 		quakes: quakes.length
 	};
 
@@ -118,7 +118,6 @@
 
 	function setParkingOpen(value: boolean) {
 		parkingOpen = value;
-		layers = { ...layers, parking: value };
 		if (value) layersOpen = false;
 		if (!value && selectedKind === 'parking') {
 			selected = null;
@@ -302,8 +301,8 @@
 				class="parking-toggle"
 				class:active={parkingOpen}
 				aria-pressed={parkingOpen}
-				aria-label={parkingOpen ? 'Hide parking feature' : 'Show parking feature'}
-				on:click={toggleParking}
+				aria-label={parkingOpen ? 'Close parking list' : 'Open parking list'}
+				on:click={() => setParkingOpen(!parkingOpen)}
 			>
 				<span class="p-badge">P</span>
 				<span>Parking</span>
@@ -316,8 +315,8 @@
 		<p class="eyebrow">Living city</p>
 		<h2>Zürich in motion</h2>
 		<p>
-			Green cars stream light and fast; red packs crawl in jams. Orbit the rooftops, track aircraft,
-			flip CCTV viewsheds, and drop to street level. Parking stays one tap away.
+			Streets glow green, amber, or red by traffic. Orbit the rooftops, track aircraft, flip CCTV
+			viewsheds, and drop to street level. Parking pins stay on the map in blue.
 		</p>
 		<div class="mode-row">
 			<button
@@ -397,10 +396,9 @@
 					{/each}
 					<button
 						type="button"
-						class="chip"
-						class:on={layers.parking}
-						aria-pressed={layers.parking}
-						on:click={toggleParking}
+						class="chip on"
+						aria-pressed="true"
+						on:click={() => setParkingOpen(true)}
 					>
 						<i class="parking"></i>
 						Parking
@@ -497,10 +495,9 @@
 		{/each}
 		<button
 			type="button"
-			class="layer"
-			class:on={layers.parking}
-			aria-pressed={layers.parking}
-			on:click={toggleParking}
+			class="layer on"
+			aria-pressed="true"
+			on:click={() => setParkingOpen(true)}
 		>
 			<i class="parking"></i>
 			<span>Parking</span>
@@ -849,7 +846,7 @@
 		border-radius: 50%;
 	}
 	.chip i.parking {
-		background: #1260ce;
+		background: #1c7ed6;
 		border-radius: 2px;
 	}
 	.chip span {
@@ -1047,7 +1044,7 @@
 			border-radius: 50%;
 		}
 		.layer i.parking {
-			background: #1260ce;
+			background: #1c7ed6;
 			border-radius: 3px;
 		}
 		.intel-label {

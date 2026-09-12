@@ -2,8 +2,8 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 /**
  * Aerial god’s-eye basemap for Zürich:
- * SWISSIMAGE under OpenMapTiles 3D buildings. Living traffic is simulated
- * as cars along OSM transportation centerlines (see trafficCars.ts).
+ * SWISSIMAGE under OpenMapTiles 3D buildings. Traffic is shown as congestion-colored OSM streets; cars are a zoom-in accent
+ * (see trafficCars.ts).
  */
 export function zurichAerialStyle(): StyleSpecification {
 	return {
@@ -87,9 +87,9 @@ export function zurichAerialStyle(): StyleSpecification {
 					'fill-extrusion-vertical-gradient': true
 				}
 			},
-			// Invisible road layer used to query centerlines for the car simulation.
+			// Primary traffic: congestion-colored OSM centerlines (readable from orbit).
 			{
-				id: 'traffic-roads-query',
+				id: 'traffic-case',
 				type: 'line',
 				source: 'openmaptiles',
 				'source-layer': 'transportation',
@@ -103,11 +103,93 @@ export function zurichAerialStyle(): StyleSpecification {
 					],
 					['!=', ['get', 'brunnel'], 'tunnel']
 				],
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility: 'visible'
+				},
+				paint: {
+					'line-color': '#0b1724',
+					'line-opacity': 0.45,
+					'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2.4, 13, 4.5, 15, 7.5, 17, 11]
+				}
+			},
+			{
+				id: 'traffic-flow',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				minzoom: 11,
+				filter: [
+					'all',
+					[
+						'in',
+						['get', 'class'],
+						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+					],
+					['!=', ['get', 'brunnel'], 'tunnel']
+				],
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility: 'visible'
+				},
+				paint: {
+					'line-color': [
+						'match',
+						[
+							'%',
+							[
+								'+',
+								[
+									'match',
+									['get', 'class'],
+									'motorway',
+									0,
+									'trunk',
+									1,
+									'primary',
+									2,
+									'secondary',
+									3,
+									1
+								],
+								['length', ['coalesce', ['get', 'ref'], '']],
+								['length', ['coalesce', ['get', 'name'], ['get', 'name:en'], 'rd']]
+							],
+							3
+						],
+						0,
+						'#2f9e44',
+						1,
+						'#f08c00',
+						'#e03131'
+					],
+					'line-opacity': 0.92,
+					'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.6, 13, 3.2, 15, 5.2, 17, 8]
+				}
+			},
+			// Wide invisible query layer for optional car accents (higher zooms).
+			{
+				id: 'traffic-roads-query',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				minzoom: 14,
+				filter: [
+					'all',
+					[
+						'in',
+						['get', 'class'],
+						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+					],
+					['!=', ['get', 'brunnel'], 'tunnel']
+				],
 				layout: { visibility: 'visible' },
 				paint: {
 					'line-color': '#000000',
 					'line-opacity': 0,
-					'line-width': 8
+					'line-width': 10
 				}
 			},
 			{
@@ -152,4 +234,4 @@ export function zurichAerialStyle(): StyleSpecification {
 	};
 }
 
-export const TRAFFIC_STYLE_LAYERS = ['traffic-roads-query', 'traffic-cars'] as const;
+export const TRAFFIC_STYLE_LAYERS = ['traffic-case', 'traffic-flow', 'traffic-roads-query', 'traffic-cars'] as const;

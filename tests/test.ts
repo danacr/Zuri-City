@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('city map is the home experience and parking is a toggleable feature', async ({ page }) => {
+test('city map is the home experience and parking list opens from the header', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 800 });
 	const errors: string[] = [];
 	page.on('pageerror', (error) => errors.push(error.message));
@@ -8,14 +8,12 @@ test('city map is the home experience and parking is a toggleable feature', asyn
 	await expect(page.getByRole('heading', { name: 'Züri City', exact: true })).toBeVisible();
 	await expect(page.getByRole('application', { name: 'Walkable 3D map of Zürich' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Walk' })).toBeVisible();
-	const parkingToggle = page.getByRole('banner').getByRole('button', { name: /parking feature/i });
-	await expect(parkingToggle).toHaveAttribute('aria-pressed', 'false');
+	const parkingList = page.getByRole('banner').getByRole('button', { name: /parking list/i });
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
-	await parkingToggle.click();
-	await expect(parkingToggle).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
-	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible();
+	await parkingList.click();
+	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible({ timeout: 10000 });
 	await expect(page.getByRole('region', { name: 'Parking garages', exact: true })).toBeVisible();
-	await parkingToggle.click();
+	await parkingList.click();
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);
 	expect(errors).toEqual([]);
 });
@@ -49,7 +47,7 @@ test('parking panel search and refresh stay available after opening the feature'
 }, testInfo) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/');
-	await page.getByRole('banner').getByRole('button', { name: /parking feature/i }).click();
+	await page.getByRole('banner').getByRole('button', { name: /parking list/i }).click();
 	const panel = page.getByRole('region', { name: 'Parking feature' });
 	await expect(panel).toBeVisible({ timeout: 10000 });
 	const cards = panel.getByRole('article');
@@ -135,7 +133,7 @@ test('follows phone appearance for the parking feature sheet', async ({ page }, 
 	await page.setViewportSize({ width: 320, height: 740 });
 	await page.emulateMedia({ colorScheme: 'dark' });
 	await page.goto('/');
-	await page.getByRole('banner').getByRole('button', { name: /parking feature/i }).click();
+	await page.getByRole('banner').getByRole('button', { name: /parking list/i }).click();
 	await expect(page.getByRole('article').first()).toHaveCSS('background-color', 'rgb(21, 34, 53)');
 	await page.screenshot({ path: testInfo.outputPath('mobile-dark-city.png') });
 	await page.getByRole('button', { name: 'Switch to light mode' }).click();
@@ -183,7 +181,7 @@ test('home brand resets parking overlay and returns to orbit', async ({ page }) 
 	await page.setViewportSize({ width: 1280, height: 800 });
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Walk' }).click();
-	await page.getByRole('banner').getByRole('button', { name: /parking feature/i }).click();
+	await page.getByRole('banner').getByRole('button', { name: /parking list/i }).click();
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toBeVisible();
 	await page.getByRole('link', { name: 'Züri City home' }).click();
 	await expect(page.getByRole('region', { name: 'Parking feature' })).toHaveCount(0);

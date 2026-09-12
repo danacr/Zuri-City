@@ -8,14 +8,12 @@ legacy Codex-specific notes.
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
 a god’s-eye / walkable **3D map of Zürich**. The foundation of the experience is
 the **living city** — SWISSIMAGE aerial basemap, extruded OSM buildings, and
-**small simulated cars** driving along OpenMapTiles road centerlines. Density and
-speed vary with modeled congestion (**green** = free/few/fast, **amber** = busy,
-**red** = jam/many/slow). Parking from the
-[Parkleitsystem Zürich](https://www.pls-zh.ch/) is a **toggle overlay**, not the
-main product.
+**congestion-colored streets** on OpenMapTiles centerlines (**green** / **amber** / **red**),
+with small cars as a zoom-in accent only. Parking from the
+[Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map in **blue**
+(list panel optional).
 
-Do not reintroduce colored traffic polylines as the primary traffic UX. Cars are
-the traffic layer. Do not require Google Photorealistic 3D Tiles or Cesium keys
+Colored street lines are the primary traffic UX; cars are secondary decoration. Do not require Google Photorealistic 3D Tiles or Cesium keys
 for the default experience.
 
 ## Stack
@@ -75,8 +73,8 @@ If you see `ERR_SSL_PROTOCOL_ERROR`, stop any old HTTP server and restart with
 | Live intel (ADS-B, CCTV, quakes) | `src/lib/intel/*`, `src/lib/server/intel.ts` |
 | Page shell / HUD | `src/routes/+page.svelte` |
 
-Intel layer **Live streets** (`traffic`) toggles the car simulation. Invisible
-layer `traffic-roads-query` exists only so the map can query road geometry.
+Intel layer **Live streets** (`traffic`) toggles colored road lines (and optional cars).
+`traffic-roads-query` supports the car accent.
 
 ## Parking data
 
@@ -126,9 +124,9 @@ Branch names: `cursor/<short-description>-abf9`.
 
 ## Agent preferences
 
-- Keep the **living streets / car simulation** as the map foundation.
+- Keep **colored traffic streets** as the readable traffic signal; cars stay optional accents.
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
-- Preserve parking as an optional feature layer.
+- Parking stays always-visible in blue (not a map-layer toggle).
 - Match existing MapLibre patterns; avoid reintroducing Leaflet for the city view.
 - Prefer small, focused diffs; update this file when product foundations change.
