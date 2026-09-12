@@ -978,6 +978,7 @@ export function placeToFeature(placeItem: Place) {
 			id: placeItem.id,
 			name: placeItem.name,
 			category: placeItem.category,
+			icon: `place-${placeItem.category}`,
 			subtitle: placeItem.subtitle,
 			openHint: placeItem.openHint,
 			isOpen: placeItem.isOpen === null ? 'unknown' : placeItem.isOpen ? 'yes' : 'no'

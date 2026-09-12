@@ -9,6 +9,7 @@
 	import ParkingPanel from '$lib/ParkingPanel.svelte';
 	import ContactViewer from '$lib/intel/ContactViewer.svelte';
 	import { CATEGORY_LABEL, CATEGORY_COLOR, PLACE_CATEGORIES, ZURICH_CENTER, haversineMeters, type Place, type PlaceCategory } from '$lib/city/places';
+	import { placeIconDataUrl } from '$lib/city/placeIcons';
 	import type { Parking } from '$lib/parking';
 	import {
 		INTEL_LAYER_COLOR,
@@ -53,6 +54,7 @@
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 	const placeKeys: PlaceCategory[] = PLACE_CATEGORIES;
+	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
 	const intelKeys: IntelLayer[] = ['flights', 'cameras', 'traffic', 'quakes', 'detection'];
 
 	$: placeOrigin = (position || ZURICH_CENTER) as [number, number];
@@ -95,6 +97,10 @@
 	}
 
 	onMount(() => {
+		categoryIcons = Object.fromEntries(
+			PLACE_CATEGORIES.map((key) => [key, placeIconDataUrl(key, 64)])
+		) as Record<PlaceCategory, string>;
+
 		void refreshIntel().then(() => tryRevealFlights());
 		pollTimer = setInterval(() => {
 			void refreshIntel();
@@ -405,9 +411,11 @@
 							aria-pressed={layers[key]}
 							on:click={() => togglePlaceLayer(key)}
 						>
-							<i
-								style:background={CATEGORY_COLOR[key]}
-							></i>
+							{#if categoryIcons[key]}
+								<img class="cat-icon" src={categoryIcons[key]} alt="" width="14" height="14" />
+							{:else}
+								<i style:background={CATEGORY_COLOR[key]}></i>
+							{/if}
 							{CATEGORY_LABEL[key]}
 							<span>{counts[key]}</span>
 						</button>
@@ -519,9 +527,11 @@
 				aria-pressed={layers[key]}
 				on:click={() => togglePlaceLayer(key)}
 			>
-				<i
-					style:background={CATEGORY_COLOR[key]}
-				></i>
+				{#if categoryIcons[key]}
+					<img class="cat-icon" src={categoryIcons[key]} alt="" width="16" height="16" />
+				{:else}
+					<i style:background={CATEGORY_COLOR[key]}></i>
+				{/if}
 				<span>{CATEGORY_LABEL[key]}</span>
 				<strong>{counts[key]}</strong>
 			</button>
@@ -856,6 +866,13 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 	}
+	.cat-icon {
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		flex: 0 0 auto;
+		display: block;
+	}
 	.chip i {
 		width: 7px;
 		height: 7px;
@@ -1098,6 +1115,11 @@
 			opacity: 1;
 			background: var(--accent-soft);
 			color: var(--accent);
+		}
+		.layer .cat-icon {
+			width: 16px;
+			height: 16px;
+			border-radius: 50%;
 		}
 		.layer i {
 			width: 8px;

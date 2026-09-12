@@ -48,6 +48,10 @@
 		type Congestion,
 		type SimCar
 	} from '$lib/city/trafficCars';
+	import {
+		PLACE_ICON_IDS,
+		drawPlaceIcon,
+	} from '$lib/city/placeIcons';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
@@ -87,6 +91,7 @@
 	let lastTrafficTs = 0;
 	let lastTrafficReseed = 0;
 	let carIconsReady = false;
+	let placeIconsReady = false;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
 	$: visibleParkings = parkings.filter((parking) => parking.coordinates !== null);
@@ -257,39 +262,72 @@
 	}
 
 	function ensureLayers(mapInstance: MapLibreMap) {
+		ensurePlaceIcons(mapInstance);
 		if (!mapInstance.getSource('places')) {
 			mapInstance.addSource('places', { type: 'geojson', data: placesToGeoJSON(visiblePlaces) });
+		}
+		// Migrate legacy circle dots → category symbol icons.
+		if (mapInstance.getLayer('places-core')) {
+			const core = mapInstance.getLayer('places-core');
+			if (core && (core as { type?: string }).type === 'circle') {
+				mapInstance.removeLayer('places-core');
+			}
+		}
+		if (!mapInstance.getLayer('places-glow')) {
 			mapInstance.addLayer({
 				id: 'places-glow',
 				type: 'circle',
 				source: 'places',
 				paint: {
-					'circle-radius': 14,
+					'circle-radius': 16,
 					'circle-color': categoryColorExpression() as any,
-					'circle-opacity': 0.22,
-					'circle-blur': 0.6
+					'circle-opacity': 0.18,
+					'circle-blur': 0.7
 				}
 			});
+		}
+		if (!mapInstance.getLayer('places-core')) {
 			mapInstance.addLayer({
 				id: 'places-core',
-				type: 'circle',
+				type: 'symbol',
 				source: 'places',
+				layout: {
+					'icon-image': [
+						'coalesce',
+						['get', 'icon'],
+						'place-sights'
+					],
+					'icon-size': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						CITY_MIN_ZOOM,
+						0.55,
+						15,
+						0.72,
+						CITY_MAX_ZOOM,
+						0.95
+					],
+					'icon-allow-overlap': true,
+					'icon-ignore-placement': true,
+					'symbol-placement': 'point',
+					'symbol-height-anchor': 'ground',
+					'symbol-height-offset': 6
+				},
 				paint: {
-					'circle-radius': 6.5,
-					'circle-color': categoryColorExpression() as any,
-					'circle-opacity': [
+					'icon-opacity': [
 						'match',
 						['get', 'isOpen'],
 						'yes',
 						1,
 						'no',
 						0.45,
-						0.75
-					],
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ffffff'
+						0.8
+					]
 				}
 			});
+		}
+		if (!mapInstance.getLayer('places-label')) {
 			mapInstance.addLayer({
 				id: 'places-label',
 				type: 'symbol',
@@ -297,7 +335,7 @@
 				layout: {
 					'text-field': ['get', 'name'],
 					'text-size': 11,
-					'text-offset': [0, 1.35],
+					'text-offset': [0, 1.7],
 					'text-font': ['Noto Sans Regular'],
 					'text-max-width': 10
 				},
@@ -622,6 +660,25 @@
 		});
 	}
 
+
+	function ensurePlaceIcons(mapInstance: MapLibreMap) {
+		if (placeIconsReady) return;
+		for (const category of Object.keys(PLACE_ICON_IDS) as PlaceCategory[]) {
+			const id = PLACE_ICON_IDS[category];
+			const sprite = drawPlaceIcon(category, 128);
+			if (!sprite) continue;
+			try {
+				if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
+				mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
+			} catch (error) {
+				console.warn('place icon add failed', id, error);
+			}
+		}
+		placeIconsReady = (Object.keys(PLACE_ICON_IDS) as PlaceCategory[]).every((c) =>
+			mapInstance.hasImage(PLACE_ICON_IDS[c])
+		);
+	}
+
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
 		if (!mapInstance.getLayer('traffic-case') && !mapInstance.isStyleLoaded()) return;
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
@@ -921,6 +978,7 @@
 						mountSwissOverlay(instance, maplibregl);
 					})();
 					carIconsReady = false;
+					placeIconsReady = false;
 					styleReady = true;
 					ensureLayers(instance);
 				});
