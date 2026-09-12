@@ -2,14 +2,15 @@ import type { Feature, FeatureCollection, Position } from 'geojson';
 
 export type Congestion = 'free' | 'slow' | 'jam';
 
-export type SimCar = {
+/** A short glowing streak that slides along a road centerline. */
+export type TrafficTracer = {
 	id: string;
 	line: Position[];
 	distanceM: number;
 	progressM: number;
 	speedMps: number;
+	lengthM: number;
 	congestion: Congestion;
-	bearing: number;
 	color: string;
 };
 
@@ -17,34 +18,31 @@ const ROAD_CLASSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tert
 
 /** Matches street traffic-flow colors. */
 export const CONGESTION_COLOR: Record<Congestion, string> = {
-	free: '#2f9e44',
-	slow: '#f08c00',
-	jam: '#e03131'
-};
-
-export const CAR_ICON_IDS: Record<Congestion, string> = {
-	free: 'traffic-car-free',
-	slow: 'traffic-car-slow',
-	jam: 'traffic-car-jam'
+	free: '#3dd68c',
+	slow: '#ffb020',
+	jam: '#ff5c5c'
 };
 
 const SPEED_MPS: Record<Congestion, [number, number]> = {
-	free: [12, 17],
-	slow: [3.5, 6.5],
-	jam: [0.55, 1.6]
+	free: [14, 22],
+	slow: [5, 9],
+	jam: [1.2, 2.8]
 };
 
-/**
- * Spacing along a road. Kept generous so the fleet spreads across many
- * corridors instead of stacking on a few jam segments.
- */
+/** Streak length along the road (meters). */
+const STREAK_M: Record<Congestion, number> = {
+	free: 48,
+	slow: 36,
+	jam: 28
+};
+
+/** Spacing between tracers on one segment. */
 const SPACING_M: Record<Congestion, number> = {
-	free: 180,
+	free: 160,
 	slow: 110,
-	jam: 70
+	jam: 75
 };
 
-/** Cap per segment — jam roads must not monopolize the global budget. */
 const MAX_PER_ROAD: Record<Congestion, number> = {
 	free: 2,
 	slow: 3,
@@ -121,6 +119,29 @@ export function pointAlongLine(
 	return { position: b, bearing: bearingDeg(a, b) };
 }
 
+/** Sample a short polyline along `line` centered on progressM. */
+export function streakAlongLine(
+	line: Position[],
+	progressM: number,
+	lengthM: number,
+	samples = 6
+): Position[] {
+	const total = lineLengthM(line);
+	const half = lengthM / 2;
+	const start = Math.max(0, progressM - half);
+	const end = Math.min(total, progressM + half);
+	if (end <= start + 1) {
+		const { position } = pointAlongLine(line, progressM);
+		return [position, position];
+	}
+	const coords: Position[] = [];
+	for (let i = 0; i <= samples; i++) {
+		const d = start + ((end - start) * i) / samples;
+		coords.push(pointAlongLine(line, d).position);
+	}
+	return coords;
+}
+
 function bearingDeg(a: Position, b: Position): number {
 	const toRad = Math.PI / 180;
 	const φ1 = a[1] * toRad;
@@ -185,7 +206,7 @@ function collectSegments(features: Feature[]): RoadSegment[] {
 	return segments;
 }
 
-/** Stable spatial sort so the budget spreads across the viewport, not tile order. */
+/** Stable spatial sort so the budget spreads across the viewport. */
 function spreadSegments(segments: RoadSegment[]): RoadSegment[] {
 	return [...segments].sort((a, b) => {
 		const aLon = a.line[0]?.[0] ?? 0;
@@ -199,48 +220,45 @@ function spreadSegments(segments: RoadSegment[]): RoadSegment[] {
 	});
 }
 
-function makeCar(segment: RoadSegment, slot: number, slots: number): SimCar {
+function makeTracer(segment: RoadSegment, slot: number, slots: number): TrafficTracer {
 	const seed = segment.roadIndex * 97 + slot * 13 + segment.distanceM;
 	const progressM =
 		(segment.distanceM * ((slot + rand(seed)) / Math.max(1, slots))) % segment.distanceM;
-	const { bearing } = pointAlongLine(segment.line, progressM);
 	return {
-		id: `car-${segment.roadIndex}-${slot}-${Math.floor(seed)}`,
+		id: `trace-${segment.roadIndex}-${slot}-${Math.floor(seed)}`,
 		line: segment.line,
 		distanceM: segment.distanceM,
 		progressM,
 		speedMps: pickSpeed(segment.congestion, seed + 3),
+		lengthM: STREAK_M[segment.congestion],
 		congestion: segment.congestion,
-		bearing,
 		color: segment.color
 	};
 }
 
 /**
- * Build a car fleet from vector-tile road features currently loaded.
- * Two-pass: one car per road first (coverage), then fill remaining slots by spacing.
+ * Build moving traffic streaks from vector-tile road features.
+ * Two-pass: one streak per road first (coverage), then densify by spacing.
  */
-export function spawnCarsFromRoadFeatures(
+export function spawnTracersFromRoadFeatures(
 	features: Feature[],
-	options: { maxCars?: number } = {}
-): SimCar[] {
-	const maxCars = options.maxCars ?? 110;
+	options: { maxTracers?: number } = {}
+): TrafficTracer[] {
+	const maxTracers = options.maxTracers ?? 160;
 	const segments = spreadSegments(collectSegments(features));
-	if (segments.length === 0 || maxCars <= 0) return [];
+	if (segments.length === 0 || maxTracers <= 0) return [];
 
-	const cars: SimCar[] = [];
+	const tracers: TrafficTracer[] = [];
 	const placed = new Map<string, number>();
 
-	// Pass 1 — cover as many distinct roads as possible.
 	for (const segment of segments) {
-		if (cars.length >= maxCars) break;
-		cars.push(makeCar(segment, 0, 1));
+		if (tracers.length >= maxTracers) break;
+		tracers.push(makeTracer(segment, 0, 1));
 		placed.set(segment.key, 1);
 	}
 
-	// Pass 2 — densify longer / jammer roads without starving coverage.
 	for (const segment of segments) {
-		if (cars.length >= maxCars) break;
+		if (tracers.length >= maxTracers) break;
 		const already = placed.get(segment.key) ?? 0;
 		const target = Math.max(
 			1,
@@ -250,141 +268,53 @@ export function spawnCarsFromRoadFeatures(
 			)
 		);
 		for (let slot = already; slot < target; slot++) {
-			if (cars.length >= maxCars) break;
-			cars.push(makeCar(segment, slot, target));
+			if (tracers.length >= maxTracers) break;
+			tracers.push(makeTracer(segment, slot, target));
 			placed.set(segment.key, slot + 1);
 		}
 	}
 
-	return cars;
+	return tracers;
 }
 
-export function advanceCars(cars: SimCar[], dtSec: number): SimCar[] {
-	return cars.map((car) => {
-		let progressM = car.progressM + car.speedMps * dtSec;
-		if (progressM > car.distanceM) progressM = progressM % car.distanceM;
-		const { bearing } = pointAlongLine(car.line, progressM);
-		return { ...car, progressM, bearing };
+export function advanceTracers(tracers: TrafficTracer[], dtSec: number): TrafficTracer[] {
+	return tracers.map((tracer) => {
+		let progressM = tracer.progressM + tracer.speedMps * dtSec;
+		if (progressM > tracer.distanceM) progressM = progressM % tracer.distanceM;
+		return { ...tracer, progressM };
 	});
 }
 
-export function carsToGeoJSON(cars: SimCar[]): FeatureCollection {
+/** Short LineStrings sliding along roads — no icons / models. */
+export function tracersToGeoJSON(tracers: TrafficTracer[]): FeatureCollection {
 	return {
 		type: 'FeatureCollection',
-		features: cars.map((car) => {
-			const { position, bearing } = pointAlongLine(car.line, car.progressM);
-			return {
-				type: 'Feature',
-				id: car.id,
-				properties: {
-					id: car.id,
-					bearing,
-					color: car.color,
-					congestion: car.congestion,
-					icon: CAR_ICON_IDS[car.congestion]
-				},
-				geometry: {
-					type: 'Point',
-					coordinates: position
-				}
-			};
-		})
+		features: tracers.map((tracer) => ({
+			type: 'Feature' as const,
+			id: tracer.id,
+			properties: {
+				id: tracer.id,
+				color: tracer.color,
+				congestion: tracer.congestion
+			},
+			geometry: {
+				type: 'LineString' as const,
+				coordinates: streakAlongLine(tracer.line, tracer.progressM, tracer.lengthM)
+			}
+		}))
 	};
-}
-
-function shade(hex: string, amount: number): string {
-	const n = hex.replace('#', '');
-	const num = parseInt(n.length === 3 ? n.split('').map((c) => c + c).join('') : n, 16);
-	const r = Math.min(255, Math.max(0, ((num >> 16) & 255) + amount));
-	const g = Math.min(255, Math.max(0, ((num >> 8) & 255) + amount));
-	const b = Math.min(255, Math.max(0, (num & 255) + amount));
-	return `rgb(${r},${g},${b})`;
-}
-
-/** Top-down car (nose up), colored by congestion. */
-export function drawCarIcon(congestion: Congestion = 'free', pixelSize = 128): ImageData | null {
-	const canvas = document.createElement('canvas');
-	canvas.width = pixelSize;
-	canvas.height = pixelSize;
-	const ctx = canvas.getContext('2d');
-	if (!ctx) return null;
-	const u = pixelSize / 64;
-	const body = CONGESTION_COLOR[congestion];
-	const roof = shade(body, 42);
-	const side = shade(body, -38);
-	ctx.clearRect(0, 0, pixelSize, pixelSize);
-	ctx.translate(pixelSize / 2, pixelSize / 2);
-
-	ctx.fillStyle = 'rgba(10, 14, 20, 0.28)';
-	ctx.beginPath();
-	ctx.ellipse(1.5 * u, 2 * u, 11 * u, 16 * u, 0, 0, Math.PI * 2);
-	ctx.fill();
-
-	ctx.fillStyle = side;
-	roundRect(ctx, -6 * u, -15 * u, 14 * u, 30 * u, 3.2 * u);
-	ctx.fill();
-
-	ctx.fillStyle = body;
-	ctx.strokeStyle = '#12161d';
-	ctx.lineWidth = 1.4 * u;
-	roundRect(ctx, -8 * u, -16 * u, 14 * u, 30 * u, 3.5 * u);
-	ctx.fill();
-	ctx.stroke();
-
-	ctx.fillStyle = roof;
-	roundRect(ctx, -5.5 * u, -5 * u, 10 * u, 11 * u, 2.2 * u);
-	ctx.fill();
-	ctx.stroke();
-
-	ctx.fillStyle = 'rgba(210, 230, 245, 0.75)';
-	roundRect(ctx, -4.5 * u, -13.5 * u, 8 * u, 5 * u, 1.6 * u);
-	ctx.fill();
-	ctx.fillStyle = 'rgba(170, 195, 215, 0.55)';
-	roundRect(ctx, -4.5 * u, 6.5 * u, 8 * u, 4 * u, 1.4 * u);
-	ctx.fill();
-
-	ctx.fillStyle = 'rgba(255,255,255,0.28)';
-	roundRect(ctx, -7 * u, -15 * u, 3.2 * u, 28 * u, 1.5 * u);
-	ctx.fill();
-
-	ctx.fillStyle = '#1a1f28';
-	for (const [x, y] of [
-		[-9.2, -8],
-		[7.2, -8],
-		[-9.2, 7],
-		[7.2, 7]
-	] as const) {
-		roundRect(ctx, x * u, y * u, 2.6 * u, 7 * u, 1 * u);
-		ctx.fill();
-	}
-
-	ctx.fillStyle = '#fff6c8';
-	ctx.beginPath();
-	ctx.arc(-3.2 * u, -15.2 * u, 1.3 * u, 0, Math.PI * 2);
-	ctx.arc(1.6 * u, -15.2 * u, 1.3 * u, 0, Math.PI * 2);
-	ctx.fill();
-
-	return ctx.getImageData(0, 0, pixelSize, pixelSize);
-}
-
-function roundRect(
-	ctx: CanvasRenderingContext2D,
-	x: number,
-	y: number,
-	w: number,
-	h: number,
-	r: number
-) {
-	ctx.beginPath();
-	ctx.moveTo(x + r, y);
-	ctx.arcTo(x + w, y, x + w, y + h, r);
-	ctx.arcTo(x + w, y + h, x, y + h, r);
-	ctx.arcTo(x, y + h, x, y, r);
-	ctx.arcTo(x, y, x + w, y, r);
-	ctx.closePath();
 }
 
 export function isRoadFeature(feature: Feature): boolean {
 	const props = feature.properties ?? {};
 	return ROAD_CLASSES.has(String(props.class ?? '')) && props.brunnel !== 'tunnel';
 }
+
+/** Back-compat aliases while ZurichCity migrates to tracer names. */
+export type SimCar = TrafficTracer;
+export const spawnCarsFromRoadFeatures = (
+	features: Feature[],
+	options: { maxCars?: number; maxTracers?: number } = {}
+) => spawnTracersFromRoadFeatures(features, { maxTracers: options.maxTracers ?? options.maxCars });
+export const advanceCars = advanceTracers;
+export const carsToGeoJSON = tracersToGeoJSON;

@@ -15,8 +15,8 @@ export const WALK_CAMERA = {
 	pitch: 72
 } as const;
 
-/** Fleet size for the viewport — spread across roads; denser than before so streets are not empty. */
-export const TRAFFIC_CAR_COUNT = 160;
+/** How many moving traffic streaks to seed across the viewport. */
+export const TRAFFIC_TRACER_COUNT = 160;
 
 export const SWISSIMAGE_TILES =
 	'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg';

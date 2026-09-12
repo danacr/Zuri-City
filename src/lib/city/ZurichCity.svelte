@@ -34,19 +34,16 @@
 		CITY_MAX_ZOOM,
 		CITY_MIN_ZOOM,
 		ORBIT_CAMERA,
-		TRAFFIC_CAR_COUNT,
+		TRAFFIC_TRACER_COUNT,
 		WALK_CAMERA
 	} from '$lib/map/swissSources';
 	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
 	import { SWISS_BUILDINGS_LAYER_ID, createSwissBuildingsLayer } from '$lib/map/swissBuildingsLayer';
 	import {
-		advanceCars,
-		CAR_ICON_IDS,
-		carsToGeoJSON,
-		drawCarIcon,
-		spawnCarsFromRoadFeatures,
-		type Congestion,
-		type SimCar
+		advanceTracers,
+		spawnTracersFromRoadFeatures,
+		tracersToGeoJSON,
+		type TrafficTracer
 	} from '$lib/city/trafficCars';
 	import {
 		PLACE_ICON_IDS,
@@ -85,12 +82,12 @@
 	let keys = new Set<string>();
 	let raf = 0;
 	let walkBearing = -20;
-	let trafficCars: SimCar[] = [];
+	let trafficTracers: TrafficTracer[] = [];
 	let terrainHandle: TerrainHandle | undefined;
 	let trafficRaf = 0;
 	let lastTrafficTs = 0;
 	let lastTrafficReseed = 0;
-	let carIconsReady = false;
+	
 	let placeIconsReady = false;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
@@ -157,7 +154,7 @@
 	$: if (map && styleReady) {
 		syncTrafficVisibility(map, intelLayers.traffic);
 		if (intelLayers.traffic) {
-			ensureTrafficCarsLayer(map);
+			ensureTrafficTracersLayer(map);
 			startTrafficLoop();
 		} else {
 			stopTrafficLoop();
@@ -571,11 +568,11 @@
 			});
 		}
 
-		// Living streets: fake cars on OSM centerlines (foundation of the city view).
-		ensureTrafficCarsLayer(mapInstance);
+		// Living streets: glowing streaks sliding on OSM centerlines.
+		ensureTrafficTracersLayer(mapInstance);
 		syncTrafficVisibility(mapInstance, intelLayers.traffic);
 		if (intelLayers.traffic) {
-			reseedTrafficCars(true);
+			reseedTrafficTracers(true);
 			startTrafficLoop();
 		}
 	}
@@ -679,80 +676,89 @@
 		);
 	}
 
-	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
+	function ensureTrafficTracersLayer(mapInstance: MapLibreMap) {
 		if (!mapInstance.getLayer('traffic-case') && !mapInstance.isStyleLoaded()) return;
-		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
-		if (!carIconsReady) {
-			for (const congestion of congestions) {
-				const id = CAR_ICON_IDS[congestion];
-				// 128px master + pixelRatio 2 → crisp when zoomed to street scale.
-				const sprite = drawCarIcon(congestion, 128);
-				if (!sprite) continue;
-				try {
-					if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
-					mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
-				} catch (error) {
-					console.warn('car icon add failed', id, error);
-				}
-			}
-			carIconsReady = congestions.every((c) => mapInstance.hasImage(CAR_ICON_IDS[c]));
-		}
-		if (!mapInstance.getSource('traffic-cars')) {
-			mapInstance.addSource('traffic-cars', {
+		if (!mapInstance.getSource('traffic-tracers')) {
+			mapInstance.addSource('traffic-tracers', {
 				type: 'geojson',
 				data: { type: 'FeatureCollection', features: [] }
 			});
 		}
-		// Scale with zoom: tiny accents at orbit, road-sized when you zoom in.
-		const carIconSize: ExpressionSpecification = [
+		const visibility = intelLayers.traffic ? 'visible' : 'none';
+		const widthCore: ExpressionSpecification = [
 			'interpolate',
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			0.55,
-			14.6,
-			0.8,
-			16,
-			1.1,
-			17.4,
-			1.45,
+			1.6,
+			15,
+			2.4,
 			CITY_MAX_ZOOM,
-			1.65
+			3.4
 		];
-		if (!mapInstance.getLayer('traffic-cars')) {
+		const widthGlow: ExpressionSpecification = [
+			'interpolate',
+			['linear'],
+			['zoom'],
+			CITY_MIN_ZOOM,
+			4.5,
+			15,
+			7,
+			CITY_MAX_ZOOM,
+			10
+		];
+		if (!mapInstance.getLayer('traffic-tracers-glow')) {
 			mapInstance.addLayer({
-				id: 'traffic-cars',
-				type: 'symbol',
-				source: 'traffic-cars',
+				id: 'traffic-tracers-glow',
+				type: 'line',
+				source: 'traffic-tracers',
 				minzoom: CITY_MIN_ZOOM,
 				maxzoom: CITY_MAX_ZOOM + 1,
 				layout: {
-					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
-					'icon-size': carIconSize,
-					'icon-rotate': ['get', 'bearing'],
-					'icon-rotation-alignment': 'map',
-					'icon-pitch-alignment': 'viewport',
-					'icon-allow-overlap': true,
-					'icon-ignore-placement': true,
-					'symbol-z-order': 'viewport-y',
-					// Lift above the road so terrain / 3D buildings don't swallow the icons.
-					'symbol-height-anchor': 'ground',
-					'symbol-height-offset': 8,
-					visibility: intelLayers.traffic ? 'visible' : 'none'
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility
+				},
+				paint: {
+					'line-color': ['coalesce', ['get', 'color'], '#3dd68c'],
+					'line-width': widthGlow,
+					'line-opacity': 0.28,
+					'line-blur': 1.1
+				}
+			});
+		}
+		if (!mapInstance.getLayer('traffic-tracers')) {
+			mapInstance.addLayer({
+				id: 'traffic-tracers',
+				type: 'line',
+				source: 'traffic-tracers',
+				minzoom: CITY_MIN_ZOOM,
+				maxzoom: CITY_MAX_ZOOM + 1,
+				layout: {
+					'line-cap': 'round',
+					'line-join': 'round',
+					visibility
+				},
+				paint: {
+					'line-color': ['coalesce', ['get', 'color'], '#3dd68c'],
+					'line-width': widthCore,
+					'line-opacity': 0.92
 				}
 			});
 		} else {
-			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', carIconSize);
-			mapInstance.setLayoutProperty('traffic-cars', 'icon-pitch-alignment', 'viewport');
-			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-anchor', 'ground');
-			mapInstance.setLayoutProperty('traffic-cars', 'symbol-height-offset', 8);
+			mapInstance.setPaintProperty('traffic-tracers', 'line-width', widthCore);
+			if (mapInstance.getLayer('traffic-tracers-glow')) {
+				mapInstance.setPaintProperty('traffic-tracers-glow', 'line-width', widthGlow);
+			}
 		}
-		// Keep cars above roads, labels, and swiss buildings when those remount.
-		if (mapInstance.getLayer('traffic-cars')) {
-			try {
-				mapInstance.moveLayer('traffic-cars');
-			} catch {
-				/* style mid-reload */
+		// Keep streaks above roads / buildings when those remount.
+		for (const id of ['traffic-tracers-glow', 'traffic-tracers'] as const) {
+			if (mapInstance.getLayer(id)) {
+				try {
+					mapInstance.moveLayer(id);
+				} catch {
+					/* style mid-reload */
+				}
 			}
 		}
 	}
@@ -766,9 +772,9 @@
 		}
 	}
 
-	function pushCarsToMap() {
-		if (!map?.getSource('traffic-cars')) return;
-		(map.getSource('traffic-cars') as GeoJSONSource).setData(carsToGeoJSON(trafficCars));
+	function pushTracersToMap() {
+		if (!map?.getSource('traffic-tracers')) return;
+		(map.getSource('traffic-tracers') as GeoJSONSource).setData(tracersToGeoJSON(trafficTracers));
 	}
 
 	const ROAD_QUERY_LAYERS = ['traffic-roads-query', 'traffic-flow', 'traffic-case'] as const;
@@ -826,46 +832,39 @@
 		return sourced;
 	}
 
-	function reseedTrafficCars(force = false) {
+	function reseedTrafficTracers(force = false) {
 		if (!map || !intelLayers.traffic) return;
-		ensureTrafficCarsLayer(map);
-		if (!map.getSource('traffic-cars')) return;
+		ensureTrafficTracersLayer(map);
+		if (!map.getSource('traffic-tracers')) return;
 		const now = performance.now();
 		if (!force && now - lastTrafficReseed < 2600) return;
 		lastTrafficReseed = now;
 
 		const features = queryRoadFeatures();
-		const next = spawnCarsFromRoadFeatures(features, {
-			maxCars: TRAFFIC_CAR_COUNT
+		const next = spawnTracersFromRoadFeatures(features, {
+			maxTracers: TRAFFIC_TRACER_COUNT
 		});
 		// Keep the previous fleet if tiles are still empty — avoid wiping cars mid-drive.
-		if (next.length === 0 && trafficCars.length > 0) return;
-		trafficCars = next;
-		pushCarsToMap();
-		if (typeof window !== 'undefined') {
-			(window as unknown as { __zurichTrafficDebug?: unknown }).__zurichTrafficDebug = {
-				count: trafficCars.length,
-				features: features.length,
-				sample: trafficCars.slice(0, 3).map((c) => ({ id: c.id, congestion: c.congestion }))
-			};
-		}
+		if (next.length === 0 && trafficTracers.length > 0) return;
+		trafficTracers = next;
+		pushTracersToMap();
 	}
 
 	function startTrafficLoop() {
 		if (trafficRaf || typeof requestAnimationFrame !== 'function') return;
 		lastTrafficTs = performance.now();
-		if (trafficCars.length === 0) reseedTrafficCars(true);
+		if (trafficTracers.length === 0) reseedTrafficTracers(true);
 		const tick = (ts: number) => {
 			trafficRaf = 0;
 			if (!map || !intelLayers.traffic || disposed) return;
 			const dt = Math.min(0.05, Math.max(0.012, (ts - lastTrafficTs) / 1000));
 			lastTrafficTs = ts;
-			if (trafficCars.length === 0) {
+			if (trafficTracers.length === 0) {
 				// Tiles often arrive after first paint — keep trying until the fleet appears.
-				reseedTrafficCars(false);
+				reseedTrafficTracers(false);
 			} else {
-				trafficCars = advanceCars(trafficCars, dt);
-				pushCarsToMap();
+				trafficTracers = advanceTracers(trafficTracers, dt);
+				pushTracersToMap();
 			}
 			trafficRaf = requestAnimationFrame(tick);
 		};
@@ -877,9 +876,9 @@
 			cancelAnimationFrame(trafficRaf);
 			trafficRaf = 0;
 		}
-		trafficCars = [];
-		if (map?.getSource('traffic-cars')) {
-			(map.getSource('traffic-cars') as GeoJSONSource).setData({
+		trafficTracers = [];
+		if (map?.getSource('traffic-tracers')) {
+			(map.getSource('traffic-tracers') as GeoJSONSource).setData({
 				type: 'FeatureCollection',
 				features: []
 			});
@@ -1010,13 +1009,12 @@
 						terrainHandle = await attachSwissTerrain(instance, maplibregl);
 						mountSwissOverlay(instance, maplibregl);
 					})();
-					carIconsReady = false;
 					placeIconsReady = false;
 					styleReady = true;
 					ensureLayers(instance);
 				});
 				const onViewportSettle = () => {
-					if (intelLayers.traffic) reseedTrafficCars(false);
+					if (intelLayers.traffic) reseedTrafficTracers(false);
 				};
 				instance.on('moveend', onViewportSettle);
 				instance.on('zoomend', onViewportSettle);

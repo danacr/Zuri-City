@@ -210,7 +210,7 @@ export function createSwissBuildingsLayer(
 			renderer.resetState();
 			renderer.render(scene, camera);
 			tiles?.update();
-			// Drop the depth buffer so later MapLibre symbols (traffic cars, POIs)
+			// Drop the depth buffer so later MapLibre symbols (traffic streaks, POIs)
 			// are not occluded by building meshes at street level.
 			_gl.clear(_gl.DEPTH_BUFFER_BIT);
 			map?.triggerRepaint();

@@ -225,5 +225,6 @@ export const TRAFFIC_STYLE_LAYERS = [
 	'traffic-case',
 	'traffic-flow',
 	'traffic-roads-query',
-	'traffic-cars'
+	'traffic-tracers-glow',
+	'traffic-tracers'
 ] as const;
