@@ -272,10 +272,11 @@ export function createSwissBuildingsLayer(
 		onAdd(mapInstance, gl) {
 			map = mapInstance;
 			disposed = false;
-			camera = new THREE.Camera();
+			// Match the official MapLibre + 3d-tiles-renderer example (PerspectiveCamera).
+			camera = new THREE.PerspectiveCamera();
 			tilesCamera = new THREE.PerspectiveCamera();
 			scene = new THREE.Scene();
-			scene.add(new THREE.AmbientLight(0xffffff, 2.2));
+			scene.add(new THREE.AmbientLight(0xffffff, 3));
 			const sun = new THREE.DirectionalLight(0xfff2e0, 1.4);
 			sun.position.set(40, 60, 20);
 			scene.add(sun);
@@ -324,7 +325,12 @@ export function createSwissBuildingsLayer(
 			camera.projectionMatrix.fromArray(mainMatrix as unknown as number[]);
 			camera.projectionMatrix.multiply(localTransform);
 
-			const P = new THREE.Matrix4().fromArray(mainMatrix as unknown as number[]);
+			// Tiles camera uses MapLibre's view projectionMatrix (not mainMatrix) — same as
+			// https://maplibre.org/maplibre-gl-js/docs/examples/add-3d-tiles-using-threejs/
+			const projection =
+				(args as { projectionMatrix?: number[] | Float32Array }).projectionMatrix ??
+				mainMatrix;
+			const P = new THREE.Matrix4().fromArray(projection as unknown as number[]);
 			const invP = P.clone().invert();
 			const V = new THREE.Matrix4().multiplyMatrices(invP, camera.projectionMatrix);
 			tilesCamera.projectionMatrix.copy(P);
@@ -332,9 +338,9 @@ export function createSwissBuildingsLayer(
 			tilesCamera.matrixWorld.copy(V).invert();
 			tilesCamera.matrixAutoUpdate = false;
 
-			tiles?.update();
 			renderer.resetState();
 			renderer.render(scene, camera);
+			tiles?.update();
 			// Drop the depth buffer so later MapLibre symbols (traffic streaks, POIs)
 			// are not occluded by building meshes at street level.
 			gl.clear(gl.DEPTH_BUFFER_BIT);

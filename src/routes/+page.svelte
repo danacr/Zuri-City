@@ -216,9 +216,7 @@
 			selected = null;
 			selectedKind = null;
 		}
-		if (key === 'flights' && intelLayers.flights && flights.length) {
-			queueMicrotask(() => city?.fitFlights?.(flights));
-		}
+		// Enabling Aircraft only toggles markers — use “Find aircraft” to reframe.
 	}
 
 	function onSelect(

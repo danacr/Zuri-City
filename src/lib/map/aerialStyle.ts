@@ -40,40 +40,36 @@ export function zurichAerialStyle(): StyleSpecification {
 			/**
 			 * Always-on extruded OSM footprints so the city reads as 3D even when
 			 * the swisstopo mesh layer fails to attach (WebGL context races).
+			 * Heights stay solid from minzoom — do not fade to 0 at CITY_MIN_ZOOM,
+			 * or orbit/min-zoom views look like a flat stretched aerial.
 			 */
 			{
 				id: 'osm-buildings-3d',
 				type: 'fill-extrusion',
 				source: 'openmaptiles',
 				'source-layer': 'building',
-				minzoom: 12,
+				minzoom: 13,
 				maxzoom: CITY_MAX_ZOOM + 1,
+				filter: ['!=', ['get', 'hide_3d'], true],
 				paint: {
 					'fill-extrusion-color': [
 						'interpolate',
 						['linear'],
-						['coalesce', ['get', 'render_height'], ['get', 'height'], 12],
+						['coalesce', ['get', 'render_height'], ['get', 'height'], 16],
 						0,
-						'#efe6d6',
-						20,
-						'#d9cfc0',
-						45,
-						'#c2b7a6',
+						'#e8dcc8',
+						18,
+						'#d4c4a8',
+						40,
+						'#b9a88c',
 						80,
-						'#a89e8f'
+						'#8f7f68'
 					],
 					'fill-extrusion-height': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						12,
-						0,
-						13,
-						['*', ['coalesce', ['get', 'render_height'], ['get', 'height'], 12], 0.7],
-						14.5,
-						['coalesce', ['get', 'render_height'], ['get', 'height'], 14],
-						16,
-						['coalesce', ['get', 'render_height'], ['get', 'height'], 14]
+						'coalesce',
+						['get', 'render_height'],
+						['get', 'height'],
+						16
 					],
 					'fill-extrusion-base': [
 						'coalesce',
@@ -81,7 +77,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'min_height'],
 						0
 					],
-					'fill-extrusion-opacity': 0.92,
+					'fill-extrusion-opacity': 0.88,
 					'fill-extrusion-vertical-gradient': true
 				}
 			},

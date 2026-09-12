@@ -111,19 +111,9 @@
 			}))
 		});
 	}
-	let didAutoRevealFlights = false;
-
 	$: if (map?.getSource('flights')) {
 		registerAircraftIcons(map, visibleFlights);
 		(map.getSource('flights') as GeoJSONSource).setData(flightsToGeoJSON(visibleFlights));
-	}
-	$: if (map && styleReady && intelLayers.flights && visibleFlights.length && !didAutoRevealFlights) {
-		// Default city zoom almost never includes airborne ADS-B contacts — frame them once.
-		const snapshot = visibleFlights;
-		setTimeout(() => {
-			if (didAutoRevealFlights || !map) return;
-			didAutoRevealFlights = revealFlightsIfNeeded(snapshot);
-		}, 600);
 	}
 	$: if (map?.getSource('cameras')) {
 		(map.getSource('cameras') as GeoJSONSource).setData(camerasToGeoJSON(visibleCameras));
@@ -844,11 +834,6 @@
 					// Let the first frame paint on the dark canvas before lifting the splash.
 					requestAnimationFrame(() => {
 						dispatch('ready');
-						requestAnimationFrame(() => {
-							if (!didAutoRevealFlights && intelLayers.flights && visibleFlights.length) {
-								didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
-							}
-						});
 					});
 				});
 				// MapLibre 6: prefer the resolver so missing airline sprites are generated in time.
@@ -968,10 +953,9 @@
 		return air.length ? air : list;
 	}
 
-	/** Zoom out to show live ADS-B contacts — most sit outside the city bowl. */
+	/** Zoom out to show live ADS-B contacts — most sit outside the city bowl. Explicit UX only. */
 	export function fitFlights(list: Flight[] = flights) {
 		if (!map || list.length === 0) return;
-		didAutoRevealFlights = true;
 		const targets = airborneFlights(list);
 		const lons = targets.map((f) => f.lon);
 		const lats = targets.map((f) => f.lat);
@@ -980,22 +964,13 @@
 				[Math.min(...lons), Math.min(...lats)],
 				[Math.max(...lons), Math.max(...lats)]
 			],
-			{ padding: 80, maxZoom: 11.2, duration: 1400, pitch: 48, essential: true }
+			{ padding: 80, maxZoom: 12.8, duration: 1400, pitch: 48, essential: true }
 		);
 	}
 
-	/** If no contacts are in the current viewport, frame airborne traffic once. */
-	export function revealFlightsIfNeeded(list: Flight[] = flights) {
-		if (!map || !styleReady || list.length === 0 || !intelLayers.flights) return false;
-		const bounds = map.getBounds();
-		const inView = list.some(
-			(f) =>
-				!f.onGround &&
-				bounds.contains([f.lon, f.lat])
-		);
-		if (inView) return false;
-		fitFlights(list);
-		return true;
+	/** Kept for callers that used to auto-frame aircraft — no longer moves the camera. */
+	export function revealFlightsIfNeeded(_list: Flight[] = flights) {
+		return false;
 	}
 </script>
 
