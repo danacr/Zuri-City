@@ -37,6 +37,54 @@ export function zurichAerialStyle(): StyleSpecification {
 					'raster-contrast': 0.08
 				}
 			},
+			/**
+			 * Always-on extruded OSM footprints so the city reads as 3D even when
+			 * the swisstopo mesh layer fails to attach (WebGL context races).
+			 */
+			{
+				id: 'osm-buildings-3d',
+				type: 'fill-extrusion',
+				source: 'openmaptiles',
+				'source-layer': 'building',
+				minzoom: 12,
+				maxzoom: CITY_MAX_ZOOM + 1,
+				paint: {
+					'fill-extrusion-color': [
+						'interpolate',
+						['linear'],
+						['coalesce', ['get', 'render_height'], ['get', 'height'], 12],
+						0,
+						'#efe6d6',
+						20,
+						'#d9cfc0',
+						45,
+						'#c2b7a6',
+						80,
+						'#a89e8f'
+					],
+					'fill-extrusion-height': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						0,
+						13,
+						['*', ['coalesce', ['get', 'render_height'], ['get', 'height'], 12], 0.7],
+						14.5,
+						['coalesce', ['get', 'render_height'], ['get', 'height'], 14],
+						16,
+						['coalesce', ['get', 'render_height'], ['get', 'height'], 14]
+					],
+					'fill-extrusion-base': [
+						'coalesce',
+						['get', 'render_min_height'],
+						['get', 'min_height'],
+						0
+					],
+					'fill-extrusion-opacity': 0.92,
+					'fill-extrusion-vertical-gradient': true
+				}
+			},
 			{
 				id: 'traffic-case',
 				type: 'line',

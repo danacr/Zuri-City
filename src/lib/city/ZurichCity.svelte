@@ -813,7 +813,13 @@
 					maxPitch: 80,
 					attributionControl: false,
 					hash: false,
-					canvasContextAttributes: { antialias: true }
+					canvasContextAttributes: {
+						antialias: true,
+						alpha: true,
+						powerPreference: 'high-performance',
+						preserveDrawingBuffer: false,
+						failIfMajorPerformanceCaveat: false
+					}
 				});
 				map = instance;
 				instance.addControl(

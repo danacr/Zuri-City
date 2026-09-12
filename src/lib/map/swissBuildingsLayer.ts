@@ -129,10 +129,12 @@ function createSharedRenderer(
 			}
 		};
 		try {
+			// Prefer context-only — Three derives the canvas from the shared GL context.
 			return new THREE.WebGLRenderer({
 				canvas,
 				context: gl,
-				antialias: true
+				antialias: true,
+				alpha: true
 			});
 		} finally {
 			proto.getContextAttributes = original;
@@ -142,7 +144,8 @@ function createSharedRenderer(
 	return new THREE.WebGLRenderer({
 		canvas,
 		context: gl,
-		antialias: true
+		antialias: true,
+		alpha: true
 	});
 }
 
