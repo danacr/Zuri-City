@@ -7,6 +7,12 @@ export default defineConfig(({ command, mode }) => {
 	const https = command === 'serve' && mode !== 'test' ? localHttps() : undefined;
 	return {
 		plugins: [tailwindcss(), sveltekit()],
+		ssr: {
+			noExternal: ['maplibre-gl']
+		},
+		optimizeDeps: {
+			include: ['maplibre-gl']
+		},
 		server: {
 			https,
 			// Keep local HTTPS on HTTP/1.1 for consistent browser and test behavior.

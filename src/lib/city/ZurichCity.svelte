@@ -315,6 +315,9 @@
 			try {
 				const maplibregl = await import('maplibre-gl');
 				await import('maplibre-gl/dist/maplibre-gl.css');
+				const workerUrl = (await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'))
+					.default;
+				maplibregl.setWorkerUrl(workerUrl);
 				if (disposed) return;
 				const instance = new maplibregl.Map({
 					container,
