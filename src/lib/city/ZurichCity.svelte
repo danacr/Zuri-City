@@ -108,10 +108,11 @@
 	}
 	$: if (map && styleReady && intelLayers.flights && visibleFlights.length && !didAutoRevealFlights) {
 		// Default city zoom almost never includes airborne ADS-B contacts — frame them once.
-		queueMicrotask(() => {
+		const snapshot = visibleFlights;
+		setTimeout(() => {
 			if (didAutoRevealFlights || !map) return;
-			didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
-		});
+			didAutoRevealFlights = revealFlightsIfNeeded(snapshot);
+		}, 600);
 	}
 	$: if (map?.getSource('cameras')) {
 		(map.getSource('cameras') as GeoJSONSource).setData(camerasToGeoJSON(visibleCameras));
