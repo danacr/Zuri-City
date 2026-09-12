@@ -709,15 +709,15 @@
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			0.4,
+			0.55,
 			14.6,
-			0.58,
+			0.8,
 			16,
-			0.9,
+			1.1,
 			17.4,
-			1.25,
+			1.45,
 			CITY_MAX_ZOOM,
-			1.45
+			1.65
 		];
 		if (!mapInstance.getLayer('traffic-cars')) {
 			mapInstance.addLayer({
@@ -773,35 +773,57 @@
 
 	const ROAD_QUERY_LAYERS = ['traffic-roads-query', 'traffic-flow', 'traffic-case'] as const;
 
+	function featureHasLine(feature: GeoJSON.Feature): boolean {
+		const g = feature.geometry;
+		if (!g) return false;
+		if (g.type === 'LineString') return g.coordinates.length >= 2;
+		if (g.type === 'MultiLineString') return g.coordinates.some((line) => line.length >= 2);
+		return false;
+	}
+
 	function queryRoadFeatures(): GeoJSON.Feature[] {
 		if (!map) return [];
+		const fromSource = (): GeoJSON.Feature[] => {
+			const m = map;
+			if (!m) return [];
+			try {
+				return (
+					m.querySourceFeatures('openmaptiles', {
+						sourceLayer: 'transportation',
+						filter: [
+							'all',
+							['==', ['geometry-type'], 'LineString'],
+							[
+								'in',
+								['get', 'class'],
+								['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+							]
+						]
+					}) as GeoJSON.Feature[]
+				).filter(featureHasLine);
+			} catch {
+				return [];
+			}
+		};
+
+		// Prefer source geometries — rendered features sometimes omit coordinates.
+		const sourced = fromSource();
+		if (sourced.length >= 6) return sourced;
+
 		const liveLayers = ROAD_QUERY_LAYERS.filter((id) => map?.getLayer(id));
 		if (liveLayers.length) {
 			try {
-				const rendered = map.queryRenderedFeatures({
-					layers: [...liveLayers]
-				}) as GeoJSON.Feature[];
-				if (rendered.length >= 6) return rendered;
+				const rendered = (
+					map.queryRenderedFeatures({
+						layers: [...liveLayers]
+					}) as GeoJSON.Feature[]
+				).filter(featureHasLine);
+				if (rendered.length) return rendered;
 			} catch {
-				/* fall through to source query */
+				/* ignore */
 			}
 		}
-		try {
-			return map.querySourceFeatures('openmaptiles', {
-				sourceLayer: 'transportation',
-				filter: [
-					'all',
-					['==', ['geometry-type'], 'LineString'],
-					[
-						'in',
-						['get', 'class'],
-						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-					]
-				]
-			}) as GeoJSON.Feature[];
-		} catch {
-			return [];
-		}
+		return sourced;
 	}
 
 	function reseedTrafficCars(force = false) {
@@ -820,6 +842,13 @@
 		if (next.length === 0 && trafficCars.length > 0) return;
 		trafficCars = next;
 		pushCarsToMap();
+		if (typeof window !== 'undefined') {
+			(window as unknown as { __zurichTrafficDebug?: unknown }).__zurichTrafficDebug = {
+				count: trafficCars.length,
+				features: features.length,
+				sample: trafficCars.slice(0, 3).map((c) => ({ id: c.id, congestion: c.congestion }))
+			};
+		}
 	}
 
 	function startTrafficLoop() {
