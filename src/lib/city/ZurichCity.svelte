@@ -26,6 +26,15 @@
 	} from '$lib/intel/aircraftIcons';
 	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
 	import {
+		CITY_MAX_ZOOM,
+		CITY_MIN_ZOOM,
+		ORBIT_CAMERA,
+		TRAFFIC_CAR_COUNT,
+		WALK_CAMERA
+	} from '$lib/map/swissSources';
+	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
+	import { SWISS_BUILDINGS_LAYER_ID, createSwissBuildingsLayer } from '$lib/map/swissBuildingsLayer';
+	import {
 		advanceCars,
 		CAR_ICON_IDS,
 		carsToGeoJSON,
@@ -68,6 +77,7 @@
 	let raf = 0;
 	let walkBearing = -20;
 	let trafficCars: SimCar[] = [];
+	let terrainHandle: TerrainHandle | undefined;
 	let trafficRaf = 0;
 	let lastTrafficTs = 0;
 	let lastTrafficReseed = 0;
@@ -145,8 +155,18 @@
 		if (!map) return;
 		const camera =
 			next === 'walk'
-				? { zoom: 17.4, pitch: 72, bearing: walkBearing, center: map.getCenter() }
-				: { zoom: 14.6, pitch: 58, bearing: -18, center: ZURICH_CENTER };
+				? {
+						zoom: WALK_CAMERA.zoom,
+						pitch: WALK_CAMERA.pitch,
+						bearing: walkBearing,
+						center: map.getCenter()
+				  }
+				: {
+						zoom: ORBIT_CAMERA.zoom,
+						pitch: ORBIT_CAMERA.pitch,
+						bearing: ORBIT_CAMERA.bearing,
+						center: ZURICH_CENTER
+				  };
 		if (animate) map.easeTo({ ...camera, duration: 1400 });
 		else map.jumpTo(camera);
 	}
@@ -176,7 +196,7 @@
 		if (flight) {
 			map.easeTo({
 				center: [flight.lon, flight.lat],
-				zoom: 12.5,
+				zoom: Math.max(CITY_MIN_ZOOM, 12.5),
 				pitch: 55,
 				bearing: flight.heading ?? map.getBearing(),
 				duration: 1200
@@ -596,18 +616,19 @@
 				id: 'traffic-cars',
 				type: 'symbol',
 				source: 'traffic-cars',
-				minzoom: 15,
+				minzoom: CITY_MIN_ZOOM,
+				maxzoom: CITY_MAX_ZOOM + 1,
 				layout: {
 					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
 					'icon-size': [
 						'interpolate',
 						['linear'],
 						['zoom'],
+						CITY_MIN_ZOOM,
+						0.2,
 						15,
-						0.22,
-						16,
-						0.34,
-						18,
+						0.3,
+						CITY_MAX_ZOOM,
 						0.55
 					],
 					'icon-rotate': ['get', 'bearing'],
@@ -667,9 +688,8 @@
 			}
 		}
 
-		const zoom = map.getZoom();
 		trafficCars = spawnCarsFromRoadFeatures(features, {
-			maxCars: zoom >= 16 ? 40 : zoom >= 15 ? 24 : 0
+			maxCars: TRAFFIC_CAR_COUNT
 		});
 		pushCarsToMap();
 	}
@@ -779,12 +799,15 @@
 					container,
 					style: zurichAerialStyle(),
 					center: ZURICH_CENTER,
-					zoom: 14.8,
-					pitch: 58,
-					bearing: -18,
+					zoom: ORBIT_CAMERA.zoom,
+					pitch: ORBIT_CAMERA.pitch,
+					bearing: ORBIT_CAMERA.bearing,
+					minZoom: CITY_MIN_ZOOM,
+					maxZoom: CITY_MAX_ZOOM,
 					maxPitch: 80,
 					attributionControl: false,
-					hash: false
+					hash: false,
+					canvasContextAttributes: { antialias: true }
 				});
 				map = instance;
 				instance.addControl(
@@ -796,13 +819,12 @@
 					'bottom-right'
 				);
 				instance.on('load', () => {
-					try {
-						if (instance.getSource('terrain')) {
-							instance.setTerrain({ source: 'terrain', exaggeration: 1.1 });
+					void (async () => {
+						terrainHandle = await attachSwissTerrain(instance, maplibregl);
+						if (!instance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
+							instance.addLayer(createSwissBuildingsLayer(maplibregl), 'traffic-case');
 						}
-					} catch {
-						/* Terrain is optional — aerial + buildings still work. */
-					}
+					})();
 					styleReady = true;
 					ensureLayers(instance);
 					lastAppliedMode = mode;
@@ -825,13 +847,13 @@
 					ensureAircraftIconFromId(instance, event.id);
 				});
 				instance.on('style.load', () => {
-					try {
-						if (instance.getSource('terrain')) {
-							instance.setTerrain({ source: 'terrain', exaggeration: 1.1 });
+					void (async () => {
+						terrainHandle?.unregister?.();
+						terrainHandle = await attachSwissTerrain(instance, maplibregl);
+						if (!instance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
+							instance.addLayer(createSwissBuildingsLayer(maplibregl), 'traffic-case');
 						}
-					} catch {
-						/* ignore */
-					}
+					})();
 					styleReady = true;
 					ensureLayers(instance);
 				});
@@ -902,6 +924,8 @@
 		stopTrafficLoop();
 		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
 		userMarker?.remove();
+		terrainHandle?.unregister?.();
+		terrainHandle = undefined;
 		map?.remove();
 		map = undefined;
 	});

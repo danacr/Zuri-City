@@ -7,22 +7,28 @@ legacy Codex-specific notes.
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
 a god’s-eye / walkable **3D map of Zürich**. The foundation of the experience is
-the **living city** — SWISSIMAGE aerial basemap, extruded OSM buildings, and
-**congestion-colored streets** on OpenMapTiles centerlines (**green** / **amber** / **red**),
-with small cars as a zoom-in accent only. Parking from the
+the **living city** — SWISSIMAGE aerial basemap, **swisstopo swissBUILDINGS3D**
+meshes (continuous LOD), **swisstopo terrain**, and **congestion-colored streets**
+on OpenMapTiles centerlines (**green** / **amber** / **red**), with cars present
+across the city zoom range. Parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map in **blue**
 (list panel optional).
 
-Colored street lines are the primary traffic UX; cars are secondary decoration. Do not require Google Photorealistic 3D Tiles or Cesium keys
-for the default experience.
+Zoom only changes camera distance — not which city systems are visible. Colored
+street lines are the primary traffic UX; cars are secondary decoration. Prefer
+free swisstopo / OSM sources; do not require Google Photorealistic 3D Tiles or
+Cesium ion keys for the default experience.
 
 ## Stack
 
 - **Runtime:** Node.js **24.x** (see `.nvmrc`, `.node-version`, `package.json`)
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
 - **Map:** MapLibre GL (not Leaflet). Style builder: `src/lib/map/aerialStyle.ts`
+- **Continuous swisstopo:** `src/lib/map/swissSources.ts`, `swissTerrain.ts`,
+  `swissBuildingsLayer.ts` (3D Tiles + quantized-mesh; Terrarium DEM fallback)
+- **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only)
 - **Living traffic:** `src/lib/city/trafficCars.ts` + GeoJSON symbol layer in
-  `src/lib/city/ZurichCity.svelte`
+  `src/lib/city/ZurichCity.svelte` (always-on inside city zoom; no zoom spawn gates)
 - **Aircraft icons:** `src/lib/intel/aircraftIcons.ts` — ICAO type → airframe family,
   callsign → airline livery; MapLibre sprites registered per flight
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
@@ -127,7 +133,10 @@ Branch names: `cursor/<short-description>-abf9`.
 
 ## Agent preferences
 
-- Keep **colored traffic streets** as the readable traffic signal; cars stay optional accents.
+- Keep **one continuous city** across zoom: no layer pop-in / building-height morph /
+  car spawn gates inside the city zoom contract.
+- Keep **colored traffic streets** as the readable traffic signal; cars stay accents
+  that remain present (density by viewport, not zoom buckets).
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
 - Parking stays always-visible in blue (not a map-layer toggle).

@@ -8,10 +8,19 @@ export default defineConfig(({ command, mode }) => {
 	return {
 		plugins: [tailwindcss(), sveltekit()],
 		ssr: {
-			noExternal: ['maplibre-gl']
+			noExternal: ['maplibre-gl', 'three', '3d-tiles-renderer', 'maplibre-gl-3dtiles-terrain']
 		},
 		optimizeDeps: {
-			include: ['maplibre-gl']
+			include: [
+				'maplibre-gl',
+				'three',
+				'three/addons/loaders/DRACOLoader.js',
+				'3d-tiles-renderer',
+				'3d-tiles-renderer/three',
+				'3d-tiles-renderer/three/plugins',
+				'maplibre-gl-3dtiles-terrain',
+				'@here/quantized-mesh-decoder'
+			]
 		},
 		server: {
 			https,

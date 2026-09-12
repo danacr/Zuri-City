@@ -1,34 +1,24 @@
 import type { StyleSpecification } from 'maplibre-gl';
+import { CITY_MAX_ZOOM, CITY_MIN_ZOOM, SWISSIMAGE_TILES } from './swissSources';
 
 /**
- * Aerial god’s-eye basemap for Zürich:
- * SWISSIMAGE under OpenMapTiles 3D buildings. Traffic is shown as congestion-colored OSM streets; cars are a zoom-in accent
- * (see trafficCars.ts).
+ * Continuous swisstopo aerial style for Zürich.
+ * Buildings and terrain are attached at runtime (3D Tiles + quantized-mesh).
+ * Traffic/labels stay present across the city zoom range — zoom only scales stroke width.
  */
 export function zurichAerialStyle(): StyleSpecification {
 	return {
 		version: 8,
-		name: 'zuri-aerial-3d',
+		name: 'zuri-swiss-continuous',
 		glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
 		sources: {
 			aerial: {
 				type: 'raster',
-				tiles: [
-					// Official SWISSIMAGE XYZ (Web Mercator) — CORS enabled.
-					'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg'
-				],
+				tiles: [SWISSIMAGE_TILES],
 				tileSize: 256,
 				minzoom: 0,
 				maxzoom: 19,
 				attribution: '© swisstopo — SWISSIMAGE'
-			},
-			terrain: {
-				type: 'raster-dem',
-				tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-				encoding: 'terrarium',
-				tileSize: 256,
-				maxzoom: 15,
-				attribution: 'Mapzen / AWS Terrain Tiles'
 			},
 			openmaptiles: {
 				type: 'vector',
@@ -41,59 +31,19 @@ export function zurichAerialStyle(): StyleSpecification {
 				id: 'satellite',
 				type: 'raster',
 				source: 'aerial',
-				paint: { 'raster-opacity': 1, 'raster-saturation': -0.02, 'raster-contrast': 0.08 }
-			},
-			{
-				id: 'zurich-3d-buildings',
-				type: 'fill-extrusion',
-				source: 'openmaptiles',
-				'source-layer': 'building',
-				minzoom: 13,
-				filter: ['!=', ['get', 'hide_3d'], true],
 				paint: {
-					'fill-extrusion-color': [
-						'interpolate',
-						['linear'],
-						['coalesce', ['get', 'render_height'], 12],
-						0,
-						'#c4b6a6',
-						18,
-						'#b09a86',
-						40,
-						'#9a8776',
-						80,
-						'#7d6d60',
-						140,
-						'#5c524a'
-					],
-					'fill-extrusion-height': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						13,
-						0,
-						14,
-						['*', ['coalesce', ['get', 'render_height'], 10], 0.4],
-						15,
-						['coalesce', ['get', 'render_height'], 12]
-					],
-					'fill-extrusion-base': [
-						'case',
-						['has', 'render_min_height'],
-						['get', 'render_min_height'],
-						0
-					],
-					'fill-extrusion-opacity': 0.78,
-					'fill-extrusion-vertical-gradient': true
+					'raster-opacity': 1,
+					'raster-saturation': -0.02,
+					'raster-contrast': 0.08
 				}
 			},
-			// Primary traffic: congestion-colored OSM centerlines (readable from orbit).
 			{
 				id: 'traffic-case',
 				type: 'line',
 				source: 'openmaptiles',
 				'source-layer': 'transportation',
-				minzoom: 11,
+				minzoom: CITY_MIN_ZOOM,
+				maxzoom: CITY_MAX_ZOOM + 1,
 				filter: [
 					'all',
 					[
@@ -111,7 +61,17 @@ export function zurichAerialStyle(): StyleSpecification {
 				paint: {
 					'line-color': '#0b1724',
 					'line-opacity': 0.45,
-					'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2.4, 13, 4.5, 15, 7.5, 17, 11]
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						CITY_MIN_ZOOM,
+						2.8,
+						15,
+						6.5,
+						CITY_MAX_ZOOM,
+						11
+					]
 				}
 			},
 			{
@@ -119,7 +79,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				type: 'line',
 				source: 'openmaptiles',
 				'source-layer': 'transportation',
-				minzoom: 11,
+				minzoom: CITY_MIN_ZOOM,
+				maxzoom: CITY_MAX_ZOOM + 1,
 				filter: [
 					'all',
 					[
@@ -166,16 +127,26 @@ export function zurichAerialStyle(): StyleSpecification {
 						'#e03131'
 					],
 					'line-opacity': 0.92,
-					'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.6, 13, 3.2, 15, 5.2, 17, 8]
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						CITY_MIN_ZOOM,
+						1.8,
+						15,
+						4.8,
+						CITY_MAX_ZOOM,
+						8
+					]
 				}
 			},
-			// Wide invisible query layer for optional car accents (higher zooms).
 			{
 				id: 'traffic-roads-query',
 				type: 'line',
 				source: 'openmaptiles',
 				'source-layer': 'transportation',
-				minzoom: 14,
+				minzoom: CITY_MIN_ZOOM,
+				maxzoom: CITY_MAX_ZOOM + 1,
 				filter: [
 					'all',
 					[
@@ -189,7 +160,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				paint: {
 					'line-color': '#000000',
 					'line-opacity': 0,
-					'line-width': 10
+					'line-width': 12
 				}
 			},
 			{
@@ -197,12 +168,20 @@ export function zurichAerialStyle(): StyleSpecification {
 				type: 'symbol',
 				source: 'openmaptiles',
 				'source-layer': 'place',
-				minzoom: 11,
+				minzoom: CITY_MIN_ZOOM,
 				filter: ['in', ['get', 'class'], ['literal', ['suburb', 'neighbourhood', 'quarter']]],
 				layout: {
 					'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
 					'text-font': ['Noto Sans Regular'],
-					'text-size': 12,
+					'text-size': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						CITY_MIN_ZOOM,
+						11,
+						CITY_MAX_ZOOM,
+						14
+					],
 					'text-padding': 8
 				},
 				paint: {
@@ -216,12 +195,20 @@ export function zurichAerialStyle(): StyleSpecification {
 				type: 'symbol',
 				source: 'openmaptiles',
 				'source-layer': 'transportation_name',
-				minzoom: 14,
+				minzoom: CITY_MIN_ZOOM,
 				layout: {
 					'symbol-placement': 'line',
 					'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
 					'text-font': ['Noto Sans Regular'],
-					'text-size': 11,
+					'text-size': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						CITY_MIN_ZOOM,
+						10,
+						CITY_MAX_ZOOM,
+						12
+					],
 					'text-max-angle': 30
 				},
 				paint: {
@@ -234,4 +221,9 @@ export function zurichAerialStyle(): StyleSpecification {
 	};
 }
 
-export const TRAFFIC_STYLE_LAYERS = ['traffic-case', 'traffic-flow', 'traffic-roads-query', 'traffic-cars'] as const;
+export const TRAFFIC_STYLE_LAYERS = [
+	'traffic-case',
+	'traffic-flow',
+	'traffic-roads-query',
+	'traffic-cars'
+] as const;
