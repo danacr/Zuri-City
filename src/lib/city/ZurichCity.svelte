@@ -16,9 +16,15 @@
 		quakesToGeoJSON
 	} from '$lib/intel/geo';
 	import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
-	import { drawAircraftIcon, FLIGHT_ICON_IDS } from '$lib/intel/aircraftIcons';
+	import {
+		aircraftIconId,
+		drawAircraftIcon,
+		GENERIC_FAMILY_ICON_IDS,
+		genericPaint,
+		paintFromFlight,
+		type AircraftFamily
+	} from '$lib/intel/aircraftIcons';
 	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
-	import type { FlightSize } from '$lib/intel/types';
 	import {
 		advanceCars,
 		CAR_ICON_IDS,
@@ -95,6 +101,7 @@
 		});
 	}
 	$: if (map?.getSource('flights')) {
+		registerAircraftIcons(map, visibleFlights);
 		(map.getSource('flights') as GeoJSONSource).setData(flightsToGeoJSON(visibleFlights));
 	}
 	$: if (map?.getSource('cameras')) {
@@ -372,18 +379,22 @@
 				type: 'symbol',
 				source: 'flights',
 				layout: {
-					'icon-image': ['coalesce', ['get', 'icon'], 'plane-medium'],
+					'icon-image': ['coalesce', ['get', 'icon'], 'plane-narrow-gen'],
 					'icon-size': [
 						'match',
-						['get', 'size'],
-						'light',
-						0.55,
-						'medium',
-						0.72,
-						'heavy',
-						0.95,
+						['get', 'family'],
+						'ga',
+						0.52,
+						'regional',
+						0.68,
+						'narrow',
+						0.74,
+						'wide-twin',
+						0.92,
+						'wide-quad',
+						1.02,
 						'rotor',
-						0.62,
+						0.6,
 						0.72
 					],
 					'icon-rotate': ['coalesce', ['get', 'heading'], 0],
@@ -392,7 +403,7 @@
 					'icon-ignore-placement': true,
 					'text-field': ['get', 'callsign'],
 					'text-size': 11,
-					'text-offset': [0, 1.7],
+					'text-offset': [0, 1.85],
 					'text-font': ['Noto Sans Bold'],
 					'text-allow-overlap': true,
 					'text-ignore-placement': true
@@ -433,15 +444,25 @@
 		}
 	}
 
-	function registerAircraftIcons(mapInstance: MapLibreMap) {
-		const sizes = Object.keys(FLIGHT_ICON_IDS) as FlightSize[];
-		for (const size of sizes) {
-			const id = FLIGHT_ICON_IDS[size];
+	function registerAircraftIcons(mapInstance: MapLibreMap, list: Flight[] = visibleFlights) {
+		if (!mapInstance.isStyleLoaded()) return;
+		const families = Object.keys(GENERIC_FAMILY_ICON_IDS) as AircraftFamily[];
+		for (const family of families) {
+			const id = GENERIC_FAMILY_ICON_IDS[family];
 			if (mapInstance.hasImage(id)) continue;
-			const image = drawAircraftIcon(size, 96);
-			if (image) {
-				mapInstance.addImage(id, image, { pixelRatio: 2 });
-			}
+			const image = drawAircraftIcon(genericPaint(family), 160);
+			if (image) mapInstance.addImage(id, image, { pixelRatio: 2 });
+		}
+		for (const flight of list) {
+			const paint = paintFromFlight({
+				callsign: flight.callsign,
+				typeCode: flight.typeCode,
+				size: flight.size
+			});
+			const id = aircraftIconId(paint);
+			if (mapInstance.hasImage(id)) continue;
+			const image = drawAircraftIcon(paint, 160);
+			if (image) mapInstance.addImage(id, image, { pixelRatio: 2 });
 		}
 	}
 

@@ -23,7 +23,10 @@ for the default experience.
 - **Map:** MapLibre GL (not Leaflet). Style builder: `src/lib/map/aerialStyle.ts`
 - **Living traffic:** `src/lib/city/trafficCars.ts` + GeoJSON symbol layer in
   `src/lib/city/ZurichCity.svelte`
+- **Aircraft icons:** `src/lib/intel/aircraftIcons.ts` — ICAO type → airframe family,
+  callsign → airline livery; MapLibre sprites registered per flight
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
+  Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
 A scoped `cookie` override may exist for a SvelteKit transitive security fix —
 remove it when upstream ships a fixed version.

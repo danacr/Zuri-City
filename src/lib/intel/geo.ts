@@ -1,30 +1,40 @@
+import { aircraftIconId, paintFromFlight } from './aircraftIcons';
 import type { Camera, Flight, Quake } from './types';
 
 export function flightsToGeoJSON(flights: Flight[]) {
 	return {
 		type: 'FeatureCollection' as const,
-		features: flights.map((flight) => ({
-			type: 'Feature' as const,
-			id: flight.id,
-			properties: {
-				id: flight.id,
-				kind: 'flight',
+		features: flights.map((flight) => {
+			const paint = paintFromFlight({
 				callsign: flight.callsign,
-				name: flight.callsign,
-				label: flight.callsign,
-				heading: flight.heading ?? 0,
-				altitude: flight.altitudeFt,
-				speed: flight.speedKts,
-				onGround: flight.onGround,
-				size: flight.size,
 				typeCode: flight.typeCode,
-				icon: `plane-${flight.size}`
-			},
-			geometry: {
-				type: 'Point' as const,
-				coordinates: [flight.lon, flight.lat]
-			}
-		}))
+				size: flight.size
+			});
+			return {
+				type: 'Feature' as const,
+				id: flight.id,
+				properties: {
+					id: flight.id,
+					kind: 'flight',
+					callsign: flight.callsign,
+					name: flight.callsign,
+					label: flight.callsign,
+					heading: flight.heading ?? 0,
+					altitude: flight.altitudeFt,
+					speed: flight.speedKts,
+					onGround: flight.onGround,
+					size: flight.size,
+					typeCode: flight.typeCode,
+					airline: paint.livery?.code ?? null,
+					family: paint.family,
+					icon: aircraftIconId(paint)
+				},
+				geometry: {
+					type: 'Point' as const,
+					coordinates: [flight.lon, flight.lat]
+				}
+			};
+		})
 	};
 }
 
