@@ -843,12 +843,14 @@
 					ensureLayers(instance);
 					lastAppliedMode = mode;
 					applyMode(mode, false);
-					dispatch('ready');
-					// After the city camera is set, frame airborne traffic if none are in view.
+					// Let the first frame paint on the dark canvas before lifting the splash.
 					requestAnimationFrame(() => {
-						if (!didAutoRevealFlights && intelLayers.flights && visibleFlights.length) {
-							didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
-						}
+						dispatch('ready');
+						requestAnimationFrame(() => {
+							if (!didAutoRevealFlights && intelLayers.flights && visibleFlights.length) {
+								didAutoRevealFlights = revealFlightsIfNeeded(visibleFlights);
+							}
+						});
 					});
 				});
 				// MapLibre 6: prefer the resolver so missing airline sprites are generated in time.
@@ -1018,6 +1020,11 @@
 		inset: 0;
 		width: 100%;
 		height: 100%;
+		background: #07131f;
+	}
+	.city-map :global(.maplibregl-canvas-container),
+	.city-map :global(.maplibregl-canvas) {
+		background: #07131f;
 	}
 	.map-error {
 		position: absolute;

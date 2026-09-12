@@ -3,7 +3,7 @@
 	import { fade } from 'svelte/transition';
 
 	/** Keep splash visible at least this long so it feels intentional. */
-	export let minMs = 900;
+	export let minMs = 1200;
 	/** Hard cap so a stalled map never traps the user. */
 	export let maxMs = 14000;
 	export let ready = false;
