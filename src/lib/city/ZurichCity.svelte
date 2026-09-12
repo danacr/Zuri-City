@@ -244,10 +244,68 @@
 		});
 	}
 
+	/** Re-push GeoJSON so MapLibre finishes loading overlays (first paint often races). */
+	function refreshOverlaySources(mapInstance: MapLibreMap = map!) {
+		if (!mapInstance) return;
+		const placesSource = mapInstance.getSource('places') as GeoJSONSource | undefined;
+		placesSource?.setData(placesToGeoJSON(visiblePlaces));
+		const parkingSource = mapInstance.getSource('parking') as GeoJSONSource | undefined;
+		if (parkingSource) {
+			parkingSource.setData({
+				type: 'FeatureCollection',
+				features: visibleParkings.map((parking) => {
+					const state = availability(parking);
+					const label =
+						state === 'Closed'
+							? 'Closed'
+							: state === 'Full'
+								? `Full · ${spotCount(parking)}`
+								: spotCount(parking);
+					return {
+						type: 'Feature' as const,
+						id: parking.id || parking.name,
+						properties: {
+							id: parking.id || parking.name,
+							name: parking.name,
+							label,
+							state,
+							tone: parkingTone(parking)
+						},
+						geometry: {
+							type: 'Point' as const,
+							coordinates: [parking.coordinates![1], parking.coordinates![0]]
+						}
+					};
+				})
+			});
+		}
+		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
+		if (flightsSource) {
+			registerAircraftIcons(mapInstance, visibleFlights);
+			flightsSource.setData(flightsToGeoJSON(visibleFlights));
+		}
+		const camerasSource = mapInstance.getSource('cameras') as GeoJSONSource | undefined;
+		camerasSource?.setData(camerasToGeoJSON(visibleCameras));
+		const viewshedsSource = mapInstance.getSource('viewsheds') as GeoJSONSource | undefined;
+		viewshedsSource?.setData(
+			cameraViewshedsGeoJSON(intelLayers.detection ? visibleCameras : [])
+		);
+		const quakesSource = mapInstance.getSource('quakes') as GeoJSONSource | undefined;
+		quakesSource?.setData(quakesToGeoJSON(visibleQuakes));
+		mapInstance.triggerRepaint();
+	}
+
 	function ensureLayers(mapInstance: MapLibreMap) {
 		ensurePlaceIcons(mapInstance);
 		if (!mapInstance.getSource('places')) {
-			mapInstance.addSource('places', { type: 'geojson', data: placesToGeoJSON(visiblePlaces) });
+			mapInstance.addSource('places', {
+				type: 'geojson',
+				data: placesToGeoJSON(visiblePlaces),
+				// Promote id for faster feature state; keep data local so first paint is sync.
+				maxzoom: 18
+			});
+		} else {
+			(mapInstance.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
 		}
 		// Migrate legacy circle dots → category symbol icons.
 		if (mapInstance.getLayer('places-core')) {
@@ -294,8 +352,9 @@
 					'icon-allow-overlap': true,
 					'icon-ignore-placement': true,
 					'symbol-placement': 'point',
-					'symbol-height-anchor': 'ground',
-					'symbol-height-offset': 6
+					// Avoid ground-anchoring until terrain settles — it can hide markers on first paint.
+					'icon-pitch-alignment': 'viewport',
+					'icon-rotation-alignment': 'viewport'
 				},
 				paint: {
 					'icon-opacity': [
@@ -845,16 +904,24 @@
 					'bottom-right'
 				);
 				instance.on('load', () => {
+					styleReady = true;
+					ensureLayers(instance);
+					lastAppliedMode = mode;
+					applyMode(mode, false);
+					// Push overlay data again on idle so markers aren't blank until a layer click.
+					instance.once('idle', () => {
+						refreshOverlaySources(instance);
+						ensurePlaceIcons(instance);
+						instance.triggerRepaint();
+					});
 					void (async () => {
 						if (!terrainHandle) {
 							terrainHandle = await attachSwissTerrain(instance, maplibregl);
 						}
 						mountSwissOverlay(instance, maplibregl);
+						refreshOverlaySources(instance);
+						instance.triggerRepaint();
 					})();
-					styleReady = true;
-					ensureLayers(instance);
-					lastAppliedMode = mode;
-					applyMode(mode, false);
 					// Let the first frame paint on the dark canvas before lifting the splash.
 					requestAnimationFrame(() => {
 						dispatch('ready');
@@ -868,14 +935,16 @@
 					ensureAircraftIconFromId(instance, event.id);
 				});
 				instance.on('style.load', () => {
+					placeIconsReady = false;
+					styleReady = true;
+					ensureLayers(instance);
+					instance.once('idle', () => refreshOverlaySources(instance));
 					void (async () => {
 						terrainHandle?.unregister?.();
 						terrainHandle = await attachSwissTerrain(instance, maplibregl);
 						mountSwissOverlay(instance, maplibregl);
+						refreshOverlaySources(instance);
 					})();
-					placeIconsReady = false;
-					styleReady = true;
-					ensureLayers(instance);
 				});
 				for (const layer of [
 					'places-core',

@@ -40,8 +40,8 @@
 	export let data: PageData;
 
 	let mode: 'orbit' | 'walk' = 'orbit';
-	/** Mobile sheet starts open so overlays are discoverable without hunting. */
-	let layersOpen = true;
+	/** Mobile starts map-first; open the sheet from the Layers control when needed. */
+	let layersOpen = false;
 	let selected: Place | Parking | Flight | Camera | null = null;
 	let selectedKind: 'place' | 'parking' | 'flight' | 'camera' | null = null;
 	let city: ZurichCity;
@@ -187,6 +187,10 @@
 
 	function onCityReady() {
 		mapReady = true;
+		// Guarantee every place category is on so the map is never an empty orbit.
+		layers = setAllPlaceLayers(true);
+		showParking = true;
+		intelLayers = { ...createDefaultIntelLayers(), ...intelLayers, traffic: true };
 		tryRevealFlights();
 	}
 
@@ -521,10 +525,14 @@
 				</div>
 			{:else}
 				<div class="layer-summary" aria-label="Layer summary">
-					<span>{activePlaceCount} places · {activeFeedCount} feeds</span>
+					<span
+						>{activePlaceCount}/{PLACE_CATEGORIES.length} place types on · {activeFeedCount} feeds</span
+					>
 					<button type="button" on:click={showAllPlaces}>All</button>
 					<button type="button" on:click={hideAllPlaces}>None</button>
-					<button type="button" class="open-layers" on:click={() => (layersOpen = true)}>Layers</button>
+					<button type="button" class="open-layers" on:click={() => (layersOpen = true)}
+						>Layers</button
+					>
 				</div>
 			{/if}
 			<div class="dock-modes">
