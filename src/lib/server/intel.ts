@@ -111,7 +111,7 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 		'Traffic flow is a labeled simulation along published Zürich corridors until a TomTom key is configured.',
 		'CCTV stills are live ASTRA Mobcam JPEGs (proxied + validated). Map pins are approximate corridor placements.',
 		'Aircraft are live ADS-B (adsb.lol). Tap “Find aircraft” or enable Aircraft — most contacts are outside the city bowl.',
-		'Basemap is swisstopo Swissimage aerial with solid 3D building masses (keyless). Photoreal street façades need a 3D-tiles key.'
+		'Basemap is satellite/aerial imagery with solid 3D building masses (keyless). Photoreal street façades need a commercial 3D-tiles key.'
 	].filter(Boolean);
 
 	return {

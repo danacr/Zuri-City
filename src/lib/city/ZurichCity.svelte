@@ -557,16 +557,24 @@
 					'bottom-right'
 				);
 				instance.on('load', () => {
-					if (instance.getSource('terrain')) {
-						instance.setTerrain({ source: 'terrain', exaggeration: 1.15 });
+					try {
+						if (instance.getSource('terrain')) {
+							instance.setTerrain({ source: 'terrain', exaggeration: 1.1 });
+						}
+					} catch {
+						/* Terrain is optional — aerial + buildings still work. */
 					}
 					ensureLayers(instance);
 					applyMode(mode, false);
 					dispatch('ready');
 				});
 				instance.on('style.load', () => {
-					if (instance.getSource('terrain')) {
-						instance.setTerrain({ source: 'terrain', exaggeration: 1.15 });
+					try {
+						if (instance.getSource('terrain')) {
+							instance.setTerrain({ source: 'terrain', exaggeration: 1.1 });
+						}
+					} catch {
+						/* ignore */
 					}
 					ensureLayers(instance);
 				});

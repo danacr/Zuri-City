@@ -2,7 +2,7 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 /**
  * Aerial / satellite god’s-eye basemap for Zürich:
- * swisstopo Swissimage under solid OpenMapTiles 3D building masses.
+ * satellite/aerial imagery under solid OpenMapTiles 3D building masses.
  * (True street-view façade meshes need a commercial 3D-tiles key; this is the
  * best keyless photoreal ground + volumetric city read.)
  */
@@ -12,14 +12,16 @@ export function zurichAerialStyle(): StyleSpecification {
 		name: 'zuri-aerial-3d',
 		glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
 		sources: {
-			swissimage: {
+			aerial: {
 				type: 'raster',
 				tiles: [
-					'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg'
+					// Esri World Imagery — CORS-friendly satellite/aerial (XYZ z/y/x).
+					'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 				],
 				tileSize: 256,
 				maxzoom: 19,
-				attribution: '© swisstopo'
+				attribution:
+					'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
 			},
 			terrain: {
 				type: 'raster-dem',
@@ -39,8 +41,8 @@ export function zurichAerialStyle(): StyleSpecification {
 			{
 				id: 'satellite',
 				type: 'raster',
-				source: 'swissimage',
-				paint: { 'raster-opacity': 1, 'raster-saturation': -0.05, 'raster-contrast': 0.08 }
+				source: 'aerial',
+				paint: { 'raster-opacity': 1, 'raster-saturation': -0.02, 'raster-contrast': 0.06 }
 			},
 			{
 				id: 'road-case',
@@ -56,7 +58,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				],
 				paint: {
 					'line-color': '#0b1724',
-					'line-opacity': 0.35,
+					'line-opacity': 0.22,
 					'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.6, 16, 4, 18, 8]
 				},
 				layout: { 'line-cap': 'round', 'line-join': 'round' }
@@ -75,7 +77,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				],
 				paint: {
 					'line-color': '#f4f0e6',
-					'line-opacity': 0.55,
+					'line-opacity': 0.28,
 					'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.3, 16, 2.2, 18, 5]
 				},
 				layout: { 'line-cap': 'round', 'line-join': 'round' }
@@ -120,7 +122,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'render_min_height'],
 						0
 					],
-					'fill-extrusion-opacity': 0.96,
+					'fill-extrusion-opacity': 0.82,
 					'fill-extrusion-vertical-gradient': true
 				}
 			},
