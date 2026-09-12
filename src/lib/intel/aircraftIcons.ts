@@ -28,8 +28,9 @@ export function sizeFromCategory(category: string | null | undefined): FlightSiz
 	const code = category.trim().toUpperCase();
 	if (code === 'A7' || code.startsWith('B') || code === 'C0') return 'rotor';
 	if (code === 'A1' || code === 'A0') return 'light';
-	if (code === 'A2' || code === 'A6') return 'medium';
-	if (code === 'A3' || code === 'A4' || code === 'A5') return 'heavy';
+	// A3 = ADS-B "large" (narrowbodies); A4/A5 = high-vortex / heavy.
+	if (code === 'A2' || code === 'A3' || code === 'A6') return 'medium';
+	if (code === 'A4' || code === 'A5') return 'heavy';
 	return null;
 }
 
@@ -44,6 +45,8 @@ export function familyFromTypeCode(typeCode: string | null | undefined): Aircraf
 	if (/^(A3[3-5]|A359|A35K|B76|B77|B78|B789|B78X|MD11)/.test(t)) return 'wide-twin';
 	if (/^(E17|E19|E29|E75|E190|E195|CRJ|AT7|AT75|AT76|DH8|DHC)/.test(t)) return 'regional';
 	if (/^(A31|A32|A20|A21|A19|B73|B38|B39|B3M|BCS)/.test(t)) return 'narrow';
+	// Gliders / motorgliders / ultralights — not airliners.
+	if (/^(GLID|GLID|PARA|BALL|ULAC|GYRO|DISC|G10|G10|AS2|AS26|BR23)/.test(t)) return 'ga';
 	if (/^(C1|C2|PA|SR2|SR3|DA4|DA6|P28|BE3|BE36|M20|E55|E50|PC12|TBM|GLF|LJ|C25|C56|C68)/.test(t)) {
 		return 'ga';
 	}
@@ -101,45 +104,46 @@ function sizeFromKinematics(
 
 /** ICAO airline codes common around Zürich / Europe / long-haul. */
 const AIRLINES: Record<string, Omit<AirlineLivery, 'code'>> = {
-	SWR: { name: 'Swiss', fin: '#e30613', stripe: '#e30613', bodyTint: '#ffffff' },
-	DLH: { name: 'Lufthansa', fin: '#05164d', stripe: '#ffcc00', bodyTint: '#f4f6f8' },
-	AFR: { name: 'Air France', fin: '#002157', stripe: '#e1000f', bodyTint: '#ffffff' },
-	BAW: { name: 'British Airways', fin: '#075aaa', stripe: '#eb1c24', bodyTint: '#ffffff' },
-	EZY: { name: 'easyJet', fin: '#ff6600', stripe: '#ff6600', bodyTint: '#ffffff' },
-	EJU: { name: 'easyJet Europe', fin: '#ff6600', stripe: '#ff6600', bodyTint: '#ffffff' },
-	EZS: { name: 'easyJet Switzerland', fin: '#ff6600', stripe: '#ff6600', bodyTint: '#ffffff' },
-	RYR: { name: 'Ryanair', fin: '#073590', stripe: '#f1c233', bodyTint: '#ffffff' },
-	KLM: { name: 'KLM', fin: '#00a1e4', stripe: '#00a1e4', bodyTint: '#ffffff' },
-	UAE: { name: 'Emirates', fin: '#d71a21', stripe: '#d71a21', bodyTint: '#ffffff' },
-	QTR: { name: 'Qatar', fin: '#5c0a2c', stripe: '#8a1538', bodyTint: '#f7f3ea' },
-	ETD: { name: 'Etihad', fin: '#bd8b2e', stripe: '#1c1c1c', bodyTint: '#f5f5f0' },
-	THY: { name: 'Turkish', fin: '#c8102e', stripe: '#c8102e', bodyTint: '#ffffff' },
-	AUA: { name: 'Austrian', fin: '#e4002b', stripe: '#e4002b', bodyTint: '#ffffff' },
-	OAW: { name: 'Helvetic', fin: '#e30613', stripe: '#e30613', bodyTint: '#ffffff' },
-	EWG: { name: 'Eurowings', fin: '#7c1a78', stripe: '#e30613', bodyTint: '#ffffff' },
-	CFG: { name: 'Condor', fin: '#ffcc00', stripe: '#1d1d1b', bodyTint: '#ffffff' },
-	VLG: { name: 'Vueling', fin: '#ffcc00', stripe: '#5c068c', bodyTint: '#ffffff' },
-	IBE: { name: 'Iberia', fin: '#d7192d', stripe: '#d7192d', bodyTint: '#ffffff' },
-	TAP: { name: 'TAP', fin: '#006600', stripe: '#cc0000', bodyTint: '#ffffff' },
-	SAS: { name: 'SAS', fin: '#003366', stripe: '#003366', bodyTint: '#ffffff' },
-	FIN: { name: 'Finnair', fin: '#0b1560', stripe: '#0b1560', bodyTint: '#ffffff' },
-	LOT: { name: 'LOT', fin: '#003366', stripe: '#d21034', bodyTint: '#ffffff' },
-	WZZ: { name: 'Wizz', fin: '#c6007e', stripe: '#c6007e', bodyTint: '#ffffff' },
-	BEL: { name: 'Brussels', fin: '#003d79', stripe: '#003d79', bodyTint: '#ffffff' },
-	AZA: { name: 'ITA', fin: '#006643', stripe: '#009246', bodyTint: '#ffffff' },
-	UAL: { name: 'United', fin: '#002244', stripe: '#3399cc', bodyTint: '#ffffff' },
-	AAL: { name: 'American', fin: '#0078d2', stripe: '#c60c30', bodyTint: '#ffffff' },
-	DAL: { name: 'Delta', fin: '#003366', stripe: '#c8102e', bodyTint: '#ffffff' },
-	ACA: { name: 'Air Canada', fin: '#f01428', stripe: '#f01428', bodyTint: '#ffffff' },
-	SIA: { name: 'Singapore', fin: '#1d4886', stripe: '#1d4886', bodyTint: '#f4f0e6' },
-	CPA: { name: 'Cathay', fin: '#006564', stripe: '#006564', bodyTint: '#ffffff' },
-	QFA: { name: 'Qantas', fin: '#e0001b', stripe: '#e0001b', bodyTint: '#ffffff' },
-	JAL: { name: 'JAL', fin: '#e60012', stripe: '#e60012', bodyTint: '#ffffff' },
-	ANA: { name: 'ANA', fin: '#003366', stripe: '#003366', bodyTint: '#ffffff' },
-	ETH: { name: 'Ethiopian', fin: '#00843d', stripe: '#fcd116', bodyTint: '#ffffff' },
-	PGT: { name: 'Pegasus', fin: '#f7a800', stripe: '#1d1d1b', bodyTint: '#ffffff' },
-	SXS: { name: 'SunExpress', fin: '#f7a800', stripe: '#003366', bodyTint: '#ffffff' },
-	TOM: { name: 'TUI Airways', fin: '#1e3a8a', stripe: '#1e3a8a', bodyTint: '#ffffff' }
+	// bodyTint is tuned for map-scale readability (brand reads at ~40px), not photoreal white.
+	SWR: { name: 'Swiss', fin: '#e30613', stripe: '#e30613', bodyTint: '#f7f7f7' },
+	DLH: { name: 'Lufthansa', fin: '#05164d', stripe: '#ffcc00', bodyTint: '#f0f2f5' },
+	AFR: { name: 'Air France', fin: '#002157', stripe: '#e1000f', bodyTint: '#f4f7fb' },
+	BAW: { name: 'British Airways', fin: '#075aaa', stripe: '#eb1c24', bodyTint: '#f5f8fc' },
+	EZY: { name: 'easyJet', fin: '#ff6600', stripe: '#ff6600', bodyTint: '#ff7a1a' },
+	EJU: { name: 'easyJet Europe', fin: '#ff6600', stripe: '#ff6600', bodyTint: '#ff7a1a' },
+	EZS: { name: 'easyJet Switzerland', fin: '#ff6600', stripe: '#ff6600', bodyTint: '#ff7a1a' },
+	RYR: { name: 'Ryanair', fin: '#073590', stripe: '#f1c233', bodyTint: '#0a4da3' },
+	KLM: { name: 'KLM', fin: '#00a1e4', stripe: '#00a1e4', bodyTint: '#e6f6fc' },
+	UAE: { name: 'Emirates', fin: '#d71a21', stripe: '#d71a21', bodyTint: '#f7f0e8' },
+	QTR: { name: 'Qatar', fin: '#5c0a2c', stripe: '#8a1538', bodyTint: '#f3ebe0' },
+	ETD: { name: 'Etihad', fin: '#bd8b2e', stripe: '#1c1c1c', bodyTint: '#f2efe6' },
+	THY: { name: 'Turkish', fin: '#c8102e', stripe: '#c8102e', bodyTint: '#f7f7f7' },
+	AUA: { name: 'Austrian', fin: '#e4002b', stripe: '#e4002b', bodyTint: '#f7f7f7' },
+	OAW: { name: 'Helvetic', fin: '#e30613', stripe: '#e30613', bodyTint: '#f7f7f7' },
+	EWG: { name: 'Eurowings', fin: '#7c1a78', stripe: '#e30613', bodyTint: '#f4eef6' },
+	CFG: { name: 'Condor', fin: '#ffcc00', stripe: '#1d1d1b', bodyTint: '#ffe566' },
+	VLG: { name: 'Vueling', fin: '#ffcc00', stripe: '#5c068c', bodyTint: '#ffe566' },
+	IBE: { name: 'Iberia', fin: '#d7192d', stripe: '#d7192d', bodyTint: '#f7f7f7' },
+	TAP: { name: 'TAP', fin: '#006600', stripe: '#cc0000', bodyTint: '#eef6ee' },
+	SAS: { name: 'SAS', fin: '#003366', stripe: '#003366', bodyTint: '#e8eef5' },
+	FIN: { name: 'Finnair', fin: '#0b1560', stripe: '#0b1560', bodyTint: '#e8ecf5' },
+	LOT: { name: 'LOT', fin: '#003366', stripe: '#d21034', bodyTint: '#eef2f7' },
+	WZZ: { name: 'Wizz', fin: '#c6007e', stripe: '#c6007e', bodyTint: '#f7e6f1' },
+	BEL: { name: 'Brussels', fin: '#003d79', stripe: '#003d79', bodyTint: '#e8eef6' },
+	AZA: { name: 'ITA', fin: '#006643', stripe: '#009246', bodyTint: '#e8f5ee' },
+	UAL: { name: 'United', fin: '#002244', stripe: '#3399cc', bodyTint: '#e8f0f7' },
+	AAL: { name: 'American', fin: '#0078d2', stripe: '#c60c30', bodyTint: '#f5f7fa' },
+	DAL: { name: 'Delta', fin: '#003366', stripe: '#c8102e', bodyTint: '#f0f3f7' },
+	ACA: { name: 'Air Canada', fin: '#f01428', stripe: '#f01428', bodyTint: '#f7f7f7' },
+	SIA: { name: 'Singapore', fin: '#1d4886', stripe: '#1d4886', bodyTint: '#f0ebe0' },
+	CPA: { name: 'Cathay', fin: '#006564', stripe: '#006564', bodyTint: '#e8f4f3' },
+	QFA: { name: 'Qantas', fin: '#e0001b', stripe: '#e0001b', bodyTint: '#f7f7f7' },
+	JAL: { name: 'JAL', fin: '#e60012', stripe: '#e60012', bodyTint: '#f7f7f7' },
+	ANA: { name: 'ANA', fin: '#003366', stripe: '#003366', bodyTint: '#e8eef5' },
+	ETH: { name: 'Ethiopian', fin: '#00843d', stripe: '#fcd116', bodyTint: '#eef6ee' },
+	PGT: { name: 'Pegasus', fin: '#f7a800', stripe: '#1d1d1b', bodyTint: '#ffe08a' },
+	SXS: { name: 'SunExpress', fin: '#f7a800', stripe: '#003366', bodyTint: '#ffe08a' },
+	TOM: { name: 'TUI Airways', fin: '#1e3a8a', stripe: '#1e3a8a', bodyTint: '#e8eef8' }
 };
 
 /** Common IATA → ICAO for callsigns that use the ticket code. */
@@ -431,14 +435,16 @@ function paintFin(
 	p: Palette,
 	opts: { top: number; mid: number; tip: number; halfW: number }
 ) {
+	// Oversized fin so airline color reads at map zoom.
+	const halfW = opts.halfW * 1.55;
 	ctx.fillStyle = p.fin;
 	ctx.strokeStyle = p.stroke;
-	ctx.lineWidth = 1.3 * u;
+	ctx.lineWidth = 1.35 * u;
 	ctx.beginPath();
 	ctx.moveTo(0, opts.top * u);
-	ctx.lineTo(opts.halfW * u, opts.mid * u);
+	ctx.lineTo(halfW * u, opts.mid * u);
 	ctx.lineTo(0, opts.tip * u);
-	ctx.lineTo(-opts.halfW * u, opts.mid * u);
+	ctx.lineTo(-halfW * u, opts.mid * u);
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
@@ -452,15 +458,34 @@ function paintCheatline(
 	y1: number
 ) {
 	ctx.strokeStyle = p.stripe;
-	ctx.globalAlpha = 0.85;
-	ctx.lineWidth = 1.4 * u;
+	ctx.globalAlpha = 0.95;
+	ctx.lineWidth = 2.6 * u;
 	ctx.beginPath();
-	ctx.moveTo(-3.2 * u, y0 * u);
-	ctx.lineTo(-3.2 * u, y1 * u);
-	ctx.moveTo(3.2 * u, y0 * u);
-	ctx.lineTo(3.2 * u, y1 * u);
+	ctx.moveTo(-3.4 * u, y0 * u);
+	ctx.lineTo(-3.4 * u, y1 * u);
+	ctx.moveTo(3.4 * u, y0 * u);
+	ctx.lineTo(3.4 * u, y1 * u);
 	ctx.stroke();
 	ctx.globalAlpha = 1;
+}
+
+/** Wingtip / leading-edge brand accents — readable when the fuselage is tiny. */
+function paintWingBrand(
+	ctx: CanvasRenderingContext2D,
+	u: number,
+	p: Palette,
+	span: number,
+	y: number
+) {
+	ctx.fillStyle = p.fin;
+	for (const side of [-1, 1]) {
+		ctx.beginPath();
+		ctx.moveTo(side * (span - 2) * u, (y - 1) * u);
+		ctx.lineTo(side * (span + 4) * u, (y + 2) * u);
+		ctx.lineTo(side * (span - 1) * u, (y + 5) * u);
+		ctx.closePath();
+		ctx.fill();
+	}
 }
 
 function drawGa(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
@@ -494,6 +519,7 @@ function drawGa(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
 	wing();
 	ctx.fill();
 	ctx.stroke();
+	paintWingBrand(ctx, u, p, 38, 2);
 	fillStroke(ctx, fuselage, p.body, p.stroke, 1.5 * u);
 	const glass = ctx.createLinearGradient(0, -28 * u, 0, -10 * u);
 	glass.addColorStop(0, '#6a8aa4');
@@ -563,6 +589,7 @@ function drawRegional(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
 	wing();
 	ctx.fill();
 	ctx.stroke();
+	paintWingBrand(ctx, u, p, 42, 8);
 	for (const x of [-18, 18]) drawEngine(ctx, x * u, 9 * u, 3 * u, 6.5 * u, p);
 	fillStroke(ctx, fuselage, p.body, p.stroke, 1.55 * u);
 	paintCheatline(ctx, u, p, -20, 10);
@@ -624,6 +651,7 @@ function drawNarrow(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
 	wing();
 	ctx.fill();
 	ctx.stroke();
+	paintWingBrand(ctx, u, p, 52, 12);
 	for (const x of [-22, 22]) drawEngine(ctx, x * u, 12 * u, 3.6 * u, 8 * u, p);
 	fillStroke(ctx, fuselage, p.body, p.stroke, 1.65 * u);
 	paintCheatline(ctx, u, p, -24, 12);
@@ -685,6 +713,7 @@ function drawWideTwin(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
 	wing();
 	ctx.fill();
 	ctx.stroke();
+	paintWingBrand(ctx, u, p, 60, 14);
 	for (const x of [-28, 28]) drawEngine(ctx, x * u, 13 * u, 4.4 * u, 9.5 * u, p);
 	fillStroke(ctx, fuselage, p.body, p.stroke, 1.75 * u);
 	paintCheatline(ctx, u, p, -26, 12);
@@ -746,6 +775,7 @@ function drawWideQuad(ctx: CanvasRenderingContext2D, s: number, p: Palette) {
 	wing();
 	ctx.fill();
 	ctx.stroke();
+	paintWingBrand(ctx, u, p, 64, 16);
 	for (const x of [-36, -20, 20, 36]) drawEngine(ctx, x * u, 14 * u, 4 * u, 9 * u, p);
 	fillStroke(ctx, fuselage, p.body, p.stroke, 1.8 * u);
 	paintCheatline(ctx, u, p, -28, 12);
