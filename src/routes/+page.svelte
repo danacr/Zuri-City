@@ -7,16 +7,28 @@
 	import InstallApp from '$lib/InstallApp.svelte';
 	import ZurichCity from '$lib/city/ZurichCity.svelte';
 	import ZurichBootSplash from '$lib/city/ZurichBootSplash.svelte';
-	import ParkingPanel from '$lib/ParkingPanel.svelte';
+	import LayersPanel from '$lib/city/LayersPanel.svelte';
 	import ContactViewer from '$lib/intel/ContactViewer.svelte';
-	import { CATEGORY_LABEL, CATEGORY_COLOR, PLACE_CATEGORIES, ZURICH_CENTER, haversineMeters, type Place, type PlaceCategory } from '$lib/city/places';
-	import { placeIconDataUrl } from '$lib/city/placeIcons';
-	import type { Parking } from '$lib/parking';
 	import {
-		INTEL_LAYER_COLOR,
-		INTEL_LAYER_LABEL,
+		CATEGORY_LABEL,
+		PLACE_CATEGORIES,
+		ZURICH_CENTER,
+		haversineMeters,
+		type Place,
+		type PlaceCategory
+	} from '$lib/city/places';
+	import {
+		createDefaultIntelLayers,
+		createDefaultPlaceLayers,
+		INTEL_LAYER_IDS,
+		PARKING_LAYER,
+		setAllPlaceLayers,
+		type LayerCounts
+	} from '$lib/city/layerRegistry';
+	import { placeIconDataUrl } from '$lib/city/placeIcons';
+	import { availability, spotCount, type Parking } from '$lib/parking';
+	import {
 		SENSOR_LOOKS,
-		TRAFFIC_LEGEND,
 		type Camera,
 		type Flight,
 		type IntelLayer,
@@ -28,8 +40,8 @@
 	export let data: PageData;
 
 	let mode: 'orbit' | 'walk' = 'orbit';
-	let parkingOpen = false;
-	let layersOpen = false;
+	/** Mobile sheet starts open so overlays are discoverable without hunting. */
+	let layersOpen = true;
 	let selected: Place | Parking | Flight | Camera | null = null;
 	let selectedKind: 'place' | 'parking' | 'flight' | 'camera' | null = null;
 	let city: ZurichCity;
@@ -37,17 +49,10 @@
 	let locating = false;
 	let locationError = '';
 	let request = 0;
-	let layers: Record<PlaceCategory, boolean> = Object.fromEntries(
-		PLACE_CATEGORIES.map((key) => [key, true])
-	) as Record<PlaceCategory, boolean>;
+	let layers: Record<PlaceCategory, boolean> = createDefaultPlaceLayers();
 	let openNowOnly = false;
-	let intelLayers: Record<IntelLayer, boolean> = {
-		flights: true,
-		cameras: true,
-		traffic: true,
-		quakes: false,
-		detection: true
-	};
+	let showParking = PARKING_LAYER.defaultVisible;
+	let intelLayers: Record<IntelLayer, boolean> = createDefaultIntelLayers();
 	let sensorLook: SensorLook = 'normal';
 	/** Local copies so the shell can paint before streamed `hydrateCity` resolves. */
 	let places: Place[] = data.places;
@@ -61,9 +66,10 @@
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let hydrateGen = 0;
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
-	const placeKeys: PlaceCategory[] = PLACE_CATEGORIES;
 	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
-	const intelKeys: IntelLayer[] = ['flights', 'cameras', 'traffic', 'quakes', 'detection'];
+	const intelKeys: IntelLayer[] = INTEL_LAYER_IDS;
+	let footerEl: HTMLElement | undefined;
+	let mapStageEl: HTMLElement | undefined;
 
 	$: {
 		places = data.places;
@@ -114,7 +120,10 @@
 		// Live streets: simulated cars on OpenMapTiles roads — no corridor count.
 		traffic: intelLayers.traffic ? 'roads' : 0,
 		quakes: quakes.length
-	};
+	} satisfies LayerCounts;
+	$: activePlaceCount = PLACE_CATEGORIES.filter((key) => layers[key]).length;
+	$: activeFeedCount =
+		(showParking ? 1 : 0) + intelKeys.filter((key) => intelLayers[key]).length;
 
 	function formatDistance(place: Place): string {
 		const meters = haversineMeters(placeOrigin, [place.lon, place.lat]);
@@ -187,19 +196,9 @@
 		event.preventDefault();
 		selected = null;
 		selectedKind = null;
-		setParkingOpen(false);
 		layersOpen = false;
 		mode = 'orbit';
 		queueMicrotask(() => city?.flyHome());
-	}
-
-	function setParkingOpen(value: boolean) {
-		parkingOpen = value;
-		if (value) layersOpen = false;
-		if (!value && selectedKind === 'parking') {
-			selected = null;
-			selectedKind = null;
-		}
 	}
 
 	function togglePlaceLayer(key: PlaceCategory) {
@@ -219,15 +218,35 @@
 		// Enabling Aircraft only toggles markers — use “Find aircraft” to reframe.
 	}
 
+	function toggleParkingLayer() {
+		showParking = !showParking;
+		if (!showParking && selectedKind === 'parking') {
+			selected = null;
+			selectedKind = null;
+		}
+	}
+
+	function showAllPlaces() {
+		layers = setAllPlaceLayers(true);
+	}
+
+	function hideAllPlaces() {
+		layers = setAllPlaceLayers(false);
+	}
+
+	function scrollToAbout() {
+		footerEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
 	function onSelect(
 		event: CustomEvent<{ id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' }>
 	) {
 		const { id, kind } = event.detail;
 		if (kind === 'parking') {
+			if (!showParking) return;
 			const parking = parkings.find((item) => (item.id || item.name) === id) || null;
 			selected = parking;
 			selectedKind = parking ? 'parking' : null;
-			if (parking) setParkingOpen(true);
 			return;
 		}
 		if (kind === 'flight') {
@@ -247,12 +266,6 @@
 		const place = places.find((item) => item.id === id) || null;
 		selected = place;
 		selectedKind = place ? 'place' : null;
-	}
-
-	function focusParking(parking: Parking) {
-		selected = parking;
-		selectedKind = 'parking';
-		if (parking.coordinates) city?.flyTo(parking.coordinates[1], parking.coordinates[0]);
 	}
 
 	function locate() {
@@ -310,6 +323,43 @@
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	});
+
+	/** Two-finger vertical drag on the map stage scrolls the page (leaves pinch to MapLibre). */
+	onMount(() => {
+		const stage = mapStageEl;
+		if (!stage) return;
+		let lastY = 0;
+		let active = false;
+		const onStart = (event: TouchEvent) => {
+			if (event.touches.length !== 2) {
+				active = false;
+				return;
+			}
+			active = true;
+			lastY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+		};
+		const onMove = (event: TouchEvent) => {
+			if (!active || event.touches.length !== 2) return;
+			const y = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+			const dy = lastY - y;
+			lastY = y;
+			if (Math.abs(dy) < 0.5) return;
+			window.scrollBy({ top: dy, left: 0, behavior: 'auto' });
+		};
+		const onEnd = () => {
+			active = false;
+		};
+		stage.addEventListener('touchstart', onStart, { passive: true });
+		stage.addEventListener('touchmove', onMove, { passive: true });
+		stage.addEventListener('touchend', onEnd, { passive: true });
+		stage.addEventListener('touchcancel', onEnd, { passive: true });
+		return () => {
+			stage.removeEventListener('touchstart', onStart);
+			stage.removeEventListener('touchmove', onMove);
+			stage.removeEventListener('touchend', onEnd);
+			stage.removeEventListener('touchcancel', onEnd);
+		};
+	});
 </script>
 
 <svelte:head>
@@ -333,332 +383,271 @@
 </svelte:head>
 
 <div class="shell" data-sensor={sensorLook}>
-	<ZurichBootSplash ready={mapReady} failed={mapFailed} />
-	<div class="sensor-veil" aria-hidden="true"></div>
-	<ZurichCity
-		bind:this={city}
-		places={visibleMapPlaces}
-		parkings={parkings}
-		{layers}
-		{intelLayers}
-		{flights}
-		{cameras}
-		{quakes}
-		{mode}
-		selectedId={selectedKind === 'place'
-			? placeOf(selected)?.id || null
-			: selectedKind === 'parking'
-				? parkingOf(selected)?.id || parkingOf(selected)?.name || null
-				: selectedKind === 'flight'
-					? flightOf(selected)?.id || null
-					: selectedKind === 'camera'
-						? cameraOf(selected)?.id || null
-						: null}
-		userPosition={position}
-		on:select={onSelect}
-		on:ready={onCityReady}
-		on:error={() => {
-			mapFailed = true;
-		}}
-	/>
+	<div class="map-stage" bind:this={mapStageEl}>
+		<ZurichBootSplash ready={mapReady} failed={mapFailed} />
+		<div class="sensor-veil" aria-hidden="true"></div>
+		<ZurichCity
+			bind:this={city}
+			places={visibleMapPlaces}
+			parkings={parkings}
+			{layers}
+			{showParking}
+			{intelLayers}
+			{flights}
+			{cameras}
+			{quakes}
+			{mode}
+			selectedId={selectedKind === 'place'
+				? placeOf(selected)?.id || null
+				: selectedKind === 'parking'
+					? parkingOf(selected)?.id || parkingOf(selected)?.name || null
+					: selectedKind === 'flight'
+						? flightOf(selected)?.id || null
+						: selectedKind === 'camera'
+							? cameraOf(selected)?.id || null
+							: null}
+			userPosition={position}
+			on:select={onSelect}
+			on:ready={onCityReady}
+			on:error={() => {
+				mapFailed = true;
+			}}
+		/>
 
-	<header class="topbar">
-		<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
-			<img src="/favicon.svg" alt="" width="32" height="32" />
-			<div>
-				<p class="brand-kicker">Interactive city</p>
-				<h1>Züri City</h1>
-			</div>
-		</a>
-	</header>
+		<header class="topbar">
+			<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
+				<img src="/favicon.svg" alt="" width="32" height="32" />
+				<div>
+					<p class="brand-kicker">Interactive city</p>
+					<h1>Züri City</h1>
+				</div>
+			</a>
+			<button type="button" class="about-btn" on:click={scrollToAbout} aria-label="About and credits">
+				About
+				<span aria-hidden="true">↓</span>
+			</button>
+		</header>
 
-	<!-- Desktop left briefing -->
-	<aside class="desk-hud" aria-label="City briefing">
-		<p class="eyebrow">Map</p>
-		<h2>Interactive city</h2>
-		<p>
-			Green / amber / red streets show traffic. Toggle places and live feeds below. Parking stays on the map in blue.
-		</p>
-		<div class="mode-row">
-			<button
-				type="button"
-				class:active={mode === 'orbit'}
-				aria-pressed={mode === 'orbit'}
-				on:click={() => (mode = 'orbit')}>Orbit</button
-			>
-			<button
-				type="button"
-				class:active={mode === 'walk'}
-				aria-pressed={mode === 'walk'}
-				on:click={() => (mode = 'walk')}>Walk</button
-			>
-			<button type="button" on:click={locate} disabled={locating}
-				>{locating ? 'Locating…' : 'Locate'}</button
-			>
-		</div>
-		{#if mode === 'walk'}
-			<p class="hint">Move with WASD or arrows · Q/E turn · Shift hurry</p>
-		{/if}
-		{#if locationError}
-			<p class="notice error" role="alert">{locationError}</p>
-		{/if}
-		{#if placesError || intelNotes[0]}
-			<p class="notice" role="status">{placesError || intelNotes[0]}</p>
-		{/if}
-		<div class="sensor-row" aria-label="Sensor looks">
-			{#each SENSOR_LOOKS as look (look.id)}
+		<!-- Desktop left briefing -->
+		<aside class="desk-hud" aria-label="City briefing">
+			<p class="eyebrow">Map</p>
+			<h2>Interactive city</h2>
+			<p>
+				Green / amber / red streets show traffic. Toggle places and live feeds in the layers panel.
+				Parking shows free / capacity on the map.
+			</p>
+			<div class="mode-row">
 				<button
 					type="button"
-					class:active={sensorLook === look.id}
-					aria-pressed={sensorLook === look.id}
-					on:click={() => (sensorLook = look.id)}>{look.label}</button
+					class:active={mode === 'orbit'}
+					aria-pressed={mode === 'orbit'}
+					on:click={() => (mode = 'orbit')}>Orbit</button
 				>
-			{/each}
-		</div>
-		<button type="button" class="find-aircraft" on:click={findAircraft}>
-			Find aircraft · {counts.flights}
-		</button>
-	</aside>
-
-	<!-- Mobile-first bottom dock: map stays full-bleed; sheet stacks above controls -->
-	{#if locationError}
-		<p class="mobile-alert" role="alert">{locationError}</p>
-	{/if}
-	{#if !parkingOpen}
-	<div class="dock" aria-label="Map controls">
-		{#if layersOpen}
-			<div id="layer-sheet" class="layer-sheet" role="region" aria-label="Map layers">
-				<div class="sheet-head">
-					<p class="sheet-title">Layers</p>
-					<button type="button" class="sheet-close" aria-label="Close layers" on:click={() => (layersOpen = false)}
-						>Done</button
-					>
-				</div>
-				<p class="sheet-title">Places</p>
-				<div class="chip-row">
-					{#each placeKeys as key (key)}
-						<button
-							type="button"
-							class="chip"
-							class:on={layers[key]}
-							aria-pressed={layers[key]}
-							on:click={() => togglePlaceLayer(key)}
-						>
-							{#if categoryIcons[key]}
-								<img class="cat-icon" src={categoryIcons[key]} alt="" width="18" height="18" />
-							{:else}
-								<i style:background={CATEGORY_COLOR[key]}></i>
-							{/if}
-							{CATEGORY_LABEL[key]}
-							<span>{counts[key]}</span>
-						</button>
-					{/each}
-					<button
-						type="button"
-						class="chip"
-						class:on={openNowOnly}
-						aria-pressed={openNowOnly}
-						on:click={() => (openNowOnly = !openNowOnly)}
-					>
-						<i style:background="#12b886"></i>
-						Open now
-						<span>{counts.openNow}</span>
-					</button>
-					<button
-						type="button"
-						class="chip on"
-						aria-pressed="true"
-						aria-label="Open parking list"
-						on:click={() => setParkingOpen(true)}
-					>
-						<i class="parking"></i>
-						Parking list
-						<span>{counts.parking}</span>
-					</button>
-				</div>
-				<p class="sheet-title">Live feeds</p>
-				<div class="chip-row">
-					{#each intelKeys as key (key)}
-						<button
-							type="button"
-							class="chip"
-							class:on={intelLayers[key]}
-							aria-pressed={intelLayers[key]}
-							on:click={() => toggleIntelLayer(key)}
-						>
-							<i style:background={INTEL_LAYER_COLOR[key]}></i>
-							{INTEL_LAYER_LABEL[key]}
-							{#if key !== 'detection'}
-								<span>{counts[key] ?? ''}</span>
-							{/if}
-						</button>
-					{/each}
-				</div>
-				{#if intelLayers.traffic}
-					<div class="traffic-legend" aria-label="Traffic colors">
-						{#each TRAFFIC_LEGEND as item (item.label)}
-							<span><i style:background={item.color}></i>{item.label}</span>
-						{/each}
-					</div>
-				{/if}
-				<button type="button" class="sheet-action" on:click={findAircraft}>
-					Find aircraft · {counts.flights}
-				</button>
-				<p class="sheet-title">View mode</p>
-				<div class="chip-row sensors">
-					{#each SENSOR_LOOKS as look (look.id)}
-						<button
-							type="button"
-							class="chip"
-							class:on={sensorLook === look.id}
-							aria-pressed={sensorLook === look.id}
-							on:click={() => (sensorLook = look.id)}>{look.label}</button
-						>
-					{/each}
-				</div>
+				<button
+					type="button"
+					class:active={mode === 'walk'}
+					aria-pressed={mode === 'walk'}
+					on:click={() => (mode = 'walk')}>Walk</button
+				>
+				<button type="button" on:click={locate} disabled={locating}
+					>{locating ? 'Locating…' : 'Locate'}</button
+				>
 			</div>
-		{/if}
-		<div class="dock-modes">
-			<button
-				type="button"
-				class:active={mode === 'orbit'}
-				aria-pressed={mode === 'orbit'}
-				on:click={() => (mode = 'orbit')}>Orbit</button
-			>
-			<button
-				type="button"
-				class:active={mode === 'walk'}
-				aria-pressed={mode === 'walk'}
-				on:click={() => (mode = 'walk')}>Walk</button
-			>
-			<button type="button" on:click={locate} disabled={locating} aria-label="Locate me"
-				>{locating ? '…' : 'Locate'}</button
-			>
-			<button
-				type="button"
-				class:active={layersOpen}
-				aria-pressed={layersOpen}
-				aria-expanded={layersOpen}
-				aria-controls="layer-sheet"
-				on:click={() => {
-					layersOpen = !layersOpen;
-					if (layersOpen) setParkingOpen(false);
-				}}>Layers</button
-			>
-		</div>
-	</div>
-	{/if}
-
-	<!-- Desktop layer rail -->
-	<aside class="desk-layers" aria-label="Desktop map layers">
-		<p class="eyebrow">Layers</p>
-		{#each placeKeys as key (key)}
-			<button
-				type="button"
-				class="layer"
-				class:on={layers[key]}
-				aria-pressed={layers[key]}
-				on:click={() => togglePlaceLayer(key)}
-			>
-				{#if categoryIcons[key]}
-					<img class="cat-icon" src={categoryIcons[key]} alt="" width="18" height="18" />
-				{:else}
-					<i style:background={CATEGORY_COLOR[key]}></i>
-				{/if}
-				<span>{CATEGORY_LABEL[key]}</span>
-				<strong>{counts[key]}</strong>
-			</button>
-		{/each}
-		<button
-			type="button"
-			class="layer"
-			class:on={openNowOnly}
-			aria-pressed={openNowOnly}
-			on:click={() => (openNowOnly = !openNowOnly)}
-		>
-			<i style:background="#12b886"></i>
-			<span>Open now</span>
-			<strong>{counts.openNow}</strong>
-		</button>
-		<button
-			type="button"
-			class="layer on"
-			aria-pressed="true"
-			aria-label="Open parking list"
-			on:click={() => setParkingOpen(true)}
-		>
-			<i class="parking"></i>
-			<span>Parking list</span>
-			<strong>{counts.parking}</strong>
-		</button>
-		<p class="eyebrow intel-label">Live feeds</p>
-		{#each intelKeys as key (key)}
-			<button
-				type="button"
-				class="layer"
-				class:on={intelLayers[key]}
-				aria-pressed={intelLayers[key]}
-				on:click={() => toggleIntelLayer(key)}
-			>
-				<i style:background={INTEL_LAYER_COLOR[key]}></i>
-				<span>{INTEL_LAYER_LABEL[key]}</span>
-				<strong>{key === 'detection' ? '' : counts[key]}</strong>
-			</button>
-		{/each}
-		{#if intelLayers.traffic}
-			<div class="traffic-legend desk" aria-label="Traffic colors">
-				{#each TRAFFIC_LEGEND as item (item.label)}
-					<span><i style:background={item.color}></i>{item.label}</span>
+			{#if mode === 'walk'}
+				<p class="hint">Move with WASD or arrows · Q/E turn · Shift hurry</p>
+			{/if}
+			{#if locationError}
+				<p class="notice error" role="alert">{locationError}</p>
+			{/if}
+			{#if placesError || intelNotes[0]}
+				<p class="notice" role="status">{placesError || intelNotes[0]}</p>
+			{/if}
+			{#if parkingError}
+				<p class="notice" role="status">{parkingError}</p>
+			{/if}
+			<div class="sensor-row" aria-label="Sensor looks">
+				{#each SENSOR_LOOKS as look (look.id)}
+					<button
+						type="button"
+						class:active={sensorLook === look.id}
+						aria-pressed={sensorLook === look.id}
+						on:click={() => (sensorLook = look.id)}>{look.label}</button
+					>
 				{/each}
 			</div>
+			<button type="button" class="find-aircraft" on:click={findAircraft}>
+				Find aircraft · {counts.flights}
+			</button>
+		</aside>
+
+		{#if locationError}
+			<p class="mobile-alert" role="alert">{locationError}</p>
 		{/if}
-	</aside>
 
-	{#if selected && selectedKind === 'place'}
-		{@const place = placeOf(selected)}
-		{#if place}
-			<article class="inspect" aria-label={place.name}>
-				<button type="button" class="close" aria-label="Close place" on:click={() => (selected = null)}
-					>×</button
+		<div class="dock" aria-label="Map controls">
+			{#if layersOpen}
+				<div id="layer-sheet" class="layer-sheet">
+					<LayersPanel
+						placeLayers={layers}
+						{intelLayers}
+						{showParking}
+						{openNowOnly}
+						{counts}
+						{categoryIcons}
+						dismissible
+						onDismiss={() => (layersOpen = false)}
+						onTogglePlace={togglePlaceLayer}
+						onToggleIntel={toggleIntelLayer}
+						onToggleParking={toggleParkingLayer}
+						onToggleOpenNow={() => (openNowOnly = !openNowOnly)}
+						onShowAllPlaces={showAllPlaces}
+						onHideAllPlaces={hideAllPlaces}
+						onFindAircraft={findAircraft}
+						flightCount={counts.flights}
+					>
+						<p class="sheet-title">View mode</p>
+						<div class="sensor-chip-row" role="group" aria-label="Sensor looks">
+							{#each SENSOR_LOOKS as look (look.id)}
+								<button
+									type="button"
+									class="sensor-chip"
+									class:on={sensorLook === look.id}
+									aria-pressed={sensorLook === look.id}
+									on:click={() => (sensorLook = look.id)}>{look.label}</button
+								>
+							{/each}
+						</div>
+					</LayersPanel>
+				</div>
+			{:else}
+				<div class="layer-summary" aria-label="Layer summary">
+					<span>{activePlaceCount} places · {activeFeedCount} feeds</span>
+					<button type="button" on:click={showAllPlaces}>All</button>
+					<button type="button" on:click={hideAllPlaces}>None</button>
+					<button type="button" class="open-layers" on:click={() => (layersOpen = true)}>Layers</button>
+				</div>
+			{/if}
+			<div class="dock-modes">
+				<button
+					type="button"
+					class:active={mode === 'orbit'}
+					aria-pressed={mode === 'orbit'}
+					on:click={() => (mode = 'orbit')}>Orbit</button
 				>
-				<p class="eyebrow">{CATEGORY_LABEL[place.category]}</p>
-				<h3>{place.name}</h3>
-				<p>{place.subtitle}</p>
-				<p class="open-hint" class:open={place.isOpen === true} class:closed={place.isOpen === false}>{place.openHint}</p>
-				<p class="distance">{formatDistance(place)}</p>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -->
-				<a
-					href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`}
-					>Open in OSM ↗</a
+				<button
+					type="button"
+					class:active={mode === 'walk'}
+					aria-pressed={mode === 'walk'}
+					on:click={() => (mode = 'walk')}>Walk</button
 				>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			</article>
+				<button type="button" on:click={locate} disabled={locating} aria-label="Locate me"
+					>{locating ? '…' : 'Locate'}</button
+				>
+				<button
+					type="button"
+					class:active={layersOpen}
+					aria-pressed={layersOpen}
+					aria-expanded={layersOpen}
+					aria-controls="layer-sheet"
+					on:click={() => {
+						layersOpen = !layersOpen;
+					}}>Layers</button
+				>
+			</div>
+		</div>
+
+		<!-- Desktop layer rail -->
+		<aside class="desk-layers" aria-label="Desktop map layers">
+			<LayersPanel
+				placeLayers={layers}
+				{intelLayers}
+				{showParking}
+				{openNowOnly}
+				{counts}
+				{categoryIcons}
+				onTogglePlace={togglePlaceLayer}
+				onToggleIntel={toggleIntelLayer}
+				onToggleParking={toggleParkingLayer}
+				onToggleOpenNow={() => (openNowOnly = !openNowOnly)}
+				onShowAllPlaces={showAllPlaces}
+				onHideAllPlaces={hideAllPlaces}
+			/>
+		</aside>
+
+		{#if selected && selectedKind === 'place'}
+			{@const place = placeOf(selected)}
+			{#if place}
+				<article class="inspect" aria-label={place.name}>
+					<button type="button" class="close" aria-label="Close place" on:click={() => (selected = null)}
+						>×</button
+					>
+					<p class="eyebrow">{CATEGORY_LABEL[place.category]}</p>
+					<h3>{place.name}</h3>
+					<p>{place.subtitle}</p>
+					<p class="open-hint" class:open={place.isOpen === true} class:closed={place.isOpen === false}>{place.openHint}</p>
+					<p class="distance">{formatDistance(place)}</p>
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`}
+						>Open in OSM ↗</a
+					>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</article>
+			{/if}
 		{/if}
-	{/if}
 
-	<ContactViewer
-		camera={cameraOf(selected)}
-		flight={flightOf(selected)}
-		onClose={() => {
-			selected = null;
-			selectedKind = null;
-		}}
-	/>
+		{#if selected && selectedKind === 'parking'}
+			{@const parking = parkingOf(selected)}
+			{#if parking}
+				{@const state = availability(parking)}
+				<article class="inspect parking-inspect" aria-label={parking.name}>
+					<button
+						type="button"
+						class="close"
+						aria-label="Close parking"
+						on:click={() => {
+							selected = null;
+							selectedKind = null;
+						}}>×</button
+					>
+					<p class="eyebrow">Parking</p>
+					<h3>{parking.name.replace(/^Parkhaus\s+/, '')}</h3>
+					{#if parking.address}
+						<p>{parking.address}</p>
+					{/if}
+					<p
+						class="open-hint"
+						class:open={state === 'Open'}
+						class:closed={state === 'Closed' || state === 'Full'}
+					>
+						{state} · {spotCount(parking)} free
+					</p>
+					{#if refreshedAt}
+						<p class="distance">Updated {new Date(refreshedAt).toLocaleTimeString()}</p>
+					{/if}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<div class="inspect-actions">
+						{#if parking.link}
+							<a href={parking.link}>Garage details ↗</a>
+						{/if}
+						<a href={parking.directions}>Directions ↗</a>
+					</div>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</article>
+			{/if}
+		{/if}
 
-	<ParkingPanel
-		open={parkingOpen}
-		parkings={parkings}
-		refreshedAt={refreshedAt}
-		error={parkingError}
-		{position}
-		{locating}
-		{locationError}
-		onLocate={locate}
-		onSelect={focusParking}
-		onClose={() => setParkingOpen(false)}
-	/>
+		<ContactViewer
+			camera={cameraOf(selected)}
+			flight={flightOf(selected)}
+			onClose={() => {
+				selected = null;
+				selectedKind = null;
+			}}
+		/>
+	</div>
 
-	<footer class="credits">
+	<footer class="credits" id="about" bind:this={footerEl}>
 		<span>SWISSIMAGE · OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich</span>
 		<span class="dot">·</span>
 		<InstallApp />
@@ -670,12 +659,20 @@
 <style>
 	.shell {
 		position: relative;
-		height: 100dvh;
-		height: 100svh;
-		overflow: hidden;
+		min-height: 100dvh;
+		min-height: 100svh;
+		overflow-x: hidden;
+		overflow-y: auto;
 		background: #07131f;
 		color: var(--text);
 		font-family: 'Quicksand', 'Avenir Next', 'Segoe UI', sans-serif;
+	}
+	.map-stage {
+		position: relative;
+		height: 100dvh;
+		height: 100svh;
+		overflow: hidden;
+		isolation: isolate;
 	}
 	.sensor-veil {
 		pointer-events: none;
@@ -755,6 +752,20 @@
 		letter-spacing: -0.04em;
 		line-height: 1;
 	}
+	.about-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		min-height: 36px;
+		padding: 0 12px;
+		border-radius: 999px;
+		border: 1px solid #ffffff28;
+		background: color-mix(in srgb, #0b1a2a 82%, transparent);
+		color: #e8f0fa;
+		font-size: 12px;
+		font-weight: 750;
+		backdrop-filter: blur(10px);
+	}
 
 	/* Desktop briefing — hidden on mobile */
 	.desk-hud,
@@ -784,12 +795,12 @@
 		z-index: 28;
 		left: 10px;
 		right: 10px;
-		bottom: calc(40px + env(safe-area-inset-bottom));
+		bottom: calc(12px + env(safe-area-inset-bottom));
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-end;
 		gap: 8px;
-		max-height: min(42vh, 340px);
+		max-height: min(58vh, 460px);
 		pointer-events: none;
 	}
 	.dock > * {
@@ -814,6 +825,7 @@
 		color: #f4f7fb;
 		font-weight: 750;
 		font-size: 12px;
+		border: none;
 	}
 	.dock-modes button.active {
 		background: #1260ce;
@@ -822,9 +834,9 @@
 	.layer-sheet {
 		flex: 1 1 auto;
 		min-height: 0;
-		max-height: min(32vh, 280px);
+		max-height: min(42vh, 360px);
 		overflow: auto;
-		padding: 8px 10px 10px;
+		padding: 10px 10px 12px;
 		border-radius: 14px;
 		background: color-mix(in srgb, var(--surface) 94%, transparent);
 		border: 1px solid var(--border);
@@ -832,35 +844,37 @@
 		box-shadow: 0 16px 40px #07152655;
 		-webkit-overflow-scrolling: touch;
 	}
-	.sheet-head {
+	.layer-summary {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		margin-bottom: 2px;
+		gap: 6px;
+		padding: 8px 10px;
+		border-radius: 14px;
+		background: color-mix(in srgb, #0b1a2a 88%, transparent);
+		border: 1px solid #ffffff28;
+		backdrop-filter: blur(14px);
+		color: #d7e4f2;
+		font-size: 11px;
+		font-weight: 700;
 	}
-	.sheet-head .sheet-title {
-		margin: 0;
+	.layer-summary span {
+		flex: 1 1 auto;
+		min-width: 0;
+		opacity: 0.9;
 	}
-	.sheet-action {
-		display: block;
-		width: 100%;
-		min-height: 40px;
-		margin: 8px 0 4px;
-		border-radius: 12px;
-		background: #f0b429;
-		color: #1a1303;
-		font-weight: 800;
-		font-size: 12px;
-	}
-	.sheet-close {
-		min-height: 32px;
+	.layer-summary button {
+		min-height: 30px;
 		padding: 0 10px;
 		border-radius: 999px;
+		border: none;
+		background: #ffffff14;
+		color: #f4f7fb;
+		font-size: 11px;
+		font-weight: 750;
+	}
+	.layer-summary .open-layers {
 		background: var(--accent-soft);
 		color: var(--accent);
-		font-size: 12px;
-		font-weight: 750;
 	}
 	.sheet-title {
 		font-size: 10px;
@@ -868,58 +882,28 @@
 		text-transform: uppercase;
 		font-weight: 750;
 		color: var(--muted);
-		margin: 6px 0 4px;
+		margin: 10px 0 4px;
 	}
-	.chip-row {
+	.sensor-chip-row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 5px;
-		overflow-x: auto;
-		padding-bottom: 2px;
-		scrollbar-width: none;
 	}
-	.chip-row::-webkit-scrollbar {
-		display: none;
-	}
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		flex: 0 0 auto;
+	.sensor-chip {
 		min-height: 30px;
-		padding: 0 8px;
+		padding: 0 10px;
 		border-radius: 999px;
+		border: none;
 		background: var(--surface-muted);
 		color: var(--text);
 		font-size: 11px;
 		font-weight: 700;
 		opacity: 0.55;
 	}
-	.chip.on {
+	.sensor-chip.on {
 		opacity: 1;
 		background: var(--accent-soft);
 		color: var(--accent);
-	}
-	.cat-icon {
-		width: 18px;
-		height: 18px;
-		border-radius: 50%;
-		flex: 0 0 auto;
-		display: block;
-		object-fit: cover;
-	}
-	.chip i {
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-		flex: 0 0 auto;
-	}
-	.chip i.parking {
-		background: #1c7ed6;
-		border-radius: 2px;
-	}
-	.chip span {
-		font-variant-numeric: tabular-nums;
-		opacity: 0.8;
 	}
 
 	.inspect {
@@ -968,6 +952,12 @@
 		font-size: 13px;
 		text-decoration: none;
 	}
+	.inspect-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin-top: 4px;
+	}
 	.close {
 		position: absolute;
 		top: 6px;
@@ -976,6 +966,8 @@
 		height: 40px;
 		font-size: 22px;
 		color: var(--muted);
+		border: none;
+		background: transparent;
 	}
 	.eyebrow {
 		font-size: 10px;
@@ -985,20 +977,18 @@
 		color: var(--muted);
 	}
 	.credits {
-		position: absolute;
+		position: relative;
 		z-index: 24;
-		left: 0;
-		right: 0;
-		bottom: 0;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: center;
 		gap: 6px;
-		padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
-		font-size: 9px;
+		padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
+		font-size: 11px;
 		color: #c9d8e8;
-		background: #07131ef2;
+		background: linear-gradient(180deg, #0a1828, #07131f);
+		border-top: 1px solid #1c2f44;
 	}
 	.credits a {
 		color: #9dceff;
@@ -1023,36 +1013,6 @@
 		margin-top: 8px;
 		font-size: 11px;
 		color: var(--muted);
-	}
-
-
-	.traffic-legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 12px;
-		align-items: center;
-		margin: 6px 0 2px;
-		padding: 6px 8px;
-		border-radius: 10px;
-		background: color-mix(in srgb, var(--surface-muted) 85%, transparent);
-		font-size: 10px;
-		font-weight: 700;
-		color: var(--muted);
-	}
-	.traffic-legend span {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-	}
-	.traffic-legend i {
-		width: 8px;
-		height: 8px;
-		border-radius: 999px;
-		flex: 0 0 auto;
-	}
-	.traffic-legend.desk {
-		margin-top: 4px;
-		padding: 5px 8px;
 	}
 
 	@media (min-width: 860px) {
@@ -1094,11 +1054,10 @@
 			top: calc(268px + env(safe-area-inset-top));
 			max-height: calc(100dvh - 300px);
 			overflow: auto;
-			gap: 4px;
+			align-content: start;
 		}
 		.mode-row,
-		.find-aircraft,
-		.sheet-action {
+		.find-aircraft {
 			margin-top: 10px;
 			min-height: 40px;
 			width: 100%;
@@ -1107,20 +1066,23 @@
 			color: #1a1303;
 			font-weight: 800;
 			font-size: 12px;
+			border: none;
 		}
-		.sheet-action {
-			margin-top: 8px;
-			margin-bottom: 4px;
+		.mode-row {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 6px;
+			background: transparent;
+			padding: 0;
 		}
-	.sensor-row {
+		.sensor-row {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 8px;
 			margin-top: 10px;
 		}
 		.mode-row button,
-		.sensor-row button,
-		.layer {
+		.sensor-row button {
 			min-height: 40px;
 			padding: 0 12px;
 			border-radius: 12px;
@@ -1128,52 +1090,18 @@
 			color: var(--text);
 			font-weight: 700;
 			font-size: 12px;
+			border: none;
 		}
 		.mode-row button.active,
 		.sensor-row button.active {
 			background: var(--accent-button, #1260ce);
 			color: #fff;
 		}
-		.layer {
-			display: grid;
-			grid-template-columns: 8px 1fr auto;
-			align-items: center;
-			gap: 8px;
-			width: 100%;
-			min-height: 32px;
-			padding: 0 10px;
-			text-align: left;
-			opacity: 0.55;
-		}
-		.layer.on {
-			opacity: 1;
-			background: var(--accent-soft);
-			color: var(--accent);
-		}
-		.layer .cat-icon {
-			width: 18px;
-			height: 18px;
-			border-radius: 50%;
-			object-fit: cover;
-		}
-		.layer i {
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-		}
-		.layer i.parking {
-			background: #1c7ed6;
-			border-radius: 3px;
-		}
-		.intel-label {
-			margin-top: 8px;
-		}
 		.inspect {
 			left: auto;
 			right: 16px;
 			width: min(320px, calc(100vw - 32px));
-			bottom: calc(56px + env(safe-area-inset-bottom));
+			bottom: calc(24px + env(safe-area-inset-bottom));
 		}
 	}
-
 </style>

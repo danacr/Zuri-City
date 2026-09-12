@@ -37,22 +37,17 @@
 		WALK_CAMERA
 	} from '$lib/map/swissSources';
 	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
-	import { SWISS_BUILDINGS_LAYER_ID, createSwissBuildingsLayer } from '$lib/map/swissBuildingsLayer';
 	import {
 		PLACE_ICON_IDS,
 		drawPlaceIcon,
 	} from '$lib/city/placeIcons';
+	import { createDefaultIntelLayers, PARKING_LAYER } from '$lib/city/layerRegistry';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
 	export let layers: Record<PlaceCategory, boolean>;
-	export let intelLayers: Record<IntelLayer, boolean> = {
-		flights: true,
-		cameras: true,
-		traffic: true,
-		quakes: false,
-		detection: true
-	};
+	export let showParking = PARKING_LAYER.defaultVisible;
+	export let intelLayers: Record<IntelLayer, boolean> = createDefaultIntelLayers();
 	export let flights: Flight[] = [];
 	export let cameras: Camera[] = [];
 	export let quakes: Quake[] = [];
@@ -83,7 +78,9 @@
 	let placeIconsReady = false;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
-	$: visibleParkings = parkings.filter((parking) => parking.coordinates !== null);
+	$: visibleParkings = showParking
+		? parkings.filter((parking) => parking.coordinates !== null)
+		: [];
 	$: visibleFlights = intelLayers.flights ? flights : [];
 	$: visibleCameras = intelLayers.cameras ? cameras : [];
 	$: visibleQuakes = intelLayers.quakes ? quakes : [];
@@ -94,22 +91,37 @@
 	$: if (map?.getSource('parking')) {
 		(map.getSource('parking') as GeoJSONSource).setData({
 			type: 'FeatureCollection',
-			features: visibleParkings.map((parking) => ({
-				type: 'Feature' as const,
-				id: parking.id || parking.name,
-				properties: {
+			features: visibleParkings.map((parking) => {
+				const state = availability(parking);
+				const label =
+					state === 'Closed'
+						? 'Closed'
+						: state === 'Full'
+							? `Full · ${spotCount(parking)}`
+							: spotCount(parking);
+				return {
+					type: 'Feature' as const,
 					id: parking.id || parking.name,
-					name: parking.name,
-					label: spotCount(parking),
-					state: availability(parking),
-					tone: parkingTone(parking)
-				},
-				geometry: {
-					type: 'Point' as const,
-					coordinates: [parking.coordinates![1], parking.coordinates![0]]
-				}
-			}))
+					properties: {
+						id: parking.id || parking.name,
+						name: parking.name,
+						label,
+						state,
+						tone: parkingTone(parking)
+					},
+					geometry: {
+						type: 'Point' as const,
+						coordinates: [parking.coordinates![1], parking.coordinates![0]]
+					}
+				};
+			})
 		});
+	}
+	$: if (map && styleReady) {
+		const visibility = showParking ? 'visible' : 'none';
+		for (const id of ['parking-pill', 'parking-label'] as const) {
+			if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
+		}
 	}
 	$: if (map?.getSource('flights')) {
 		registerAircraftIcons(map, visibleFlights);
@@ -146,37 +158,13 @@
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
 
-	let swissOverlayMounting = false;
-
-	function mountSwissOverlay(mapInstance: MapLibreMap, maplibregl: typeof import('maplibre-gl')) {
-		if (swissOverlayMounting) return;
-		if (mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) return;
-		swissOverlayMounting = true;
-		try {
-			const beforeId = [
-				'traffic-case',
-				'traffic-flow',
-				'traffic-pulse',
-				'place-label',
-				'road-label'
-			].find((id) => mapInstance.getLayer(id));
-
-			try {
-				mapInstance.addLayer(createSwissBuildingsLayer(maplibregl), beforeId);
-			} catch (error) {
-				console.warn('swiss buildings layer failed to mount', error);
-				// Failed onAdd can leave a zombie layer that blocks retries.
-				if (mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) {
-					try {
-						mapInstance.removeLayer(SWISS_BUILDINGS_LAYER_ID);
-					} catch {
-						/* ignore */
-					}
-				}
-			}
-		} finally {
-			swissOverlayMounting = false;
-		}
+	/**
+	 * swissBUILDINGS3D mesh is temporarily not mounted: the shared-context Three.js
+	 * transform draws corrupt spikes and suppresses MapLibre fill-extrusions.
+	 * OSM `osm-buildings-3d` is the reliable city massing path for now.
+	 */
+	function mountSwissOverlay(_mapInstance: MapLibreMap, _maplibregl: typeof import('maplibre-gl')) {
+		return;
 	}
 
 	function applyMode(next: 'orbit' | 'walk', animate = true) {
@@ -351,11 +339,31 @@
 				id: 'parking-pill',
 				type: 'circle',
 				source: 'parking',
+				layout: {
+					visibility: showParking ? 'visible' : 'none'
+				},
 				paint: {
-					'circle-radius': 11,
-					'circle-color': '#1c7ed6',
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ffffff'
+					'circle-radius': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						10,
+						16,
+						14
+					],
+					'circle-color': [
+						'match',
+						['get', 'tone'],
+						'green',
+						'#2b8a3e',
+						'red',
+						'#c92a2a',
+						'#1c7ed6'
+					],
+					'circle-stroke-width': 2.5,
+					'circle-stroke-color': '#ffffff',
+					'circle-opacity': 0.95
 				}
 			});
 			mapInstance.addLayer({
@@ -363,15 +371,28 @@
 				type: 'symbol',
 				source: 'parking',
 				layout: {
+					visibility: showParking ? 'visible' : 'none',
 					'text-field': ['get', 'label'],
-					'text-size': 10,
-					'text-offset': [0, 1.4],
-					'text-font': ['Noto Sans Bold']
+					'text-size': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						10,
+						16,
+						12
+					],
+					'text-offset': [0, 1.55],
+					'text-font': ['Noto Sans Bold'],
+					'text-anchor': 'top',
+					'text-allow-overlap': false,
+					'text-optional': true
 				},
 				paint: {
-					'text-color': '#16304e',
+					'text-color': '#0b1a2a',
 					'text-halo-color': '#ffffff',
-					'text-halo-width': 1.2
+					'text-halo-width': 2,
+					'text-halo-blur': 0.4
 				}
 			});
 		}
