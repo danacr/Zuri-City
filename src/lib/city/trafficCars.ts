@@ -25,9 +25,9 @@ export const CONGESTION_COLOR: Record<Congestion, string> = {
 };
 
 export const CAR_ICON_IDS: Record<Congestion, string> = {
-	free: 'traffic-car-free',
-	slow: 'traffic-car-slow',
-	jam: 'traffic-car-jam'
+	free: 'traffic-car-free-xl',
+	slow: 'traffic-car-slow-xl',
+	jam: 'traffic-car-jam-xl'
 };
 
 const SPEED_MPS: Record<Congestion, [number, number]> = {

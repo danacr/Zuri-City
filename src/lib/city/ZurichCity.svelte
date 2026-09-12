@@ -578,32 +578,29 @@
 	}
 
 	/** Oversized on purpose — cars should read as filling the street surface. */
-	const CAR_ICON_SIZE = [
+	const CAR_ICON_SIZE: [
 		'interpolate',
 		['linear'],
 		['zoom'],
-		15,
-		1.8,
-		16,
-		2.8,
-		18,
-		4.5
-	] as const;
+		number,
+		number,
+		number,
+		number,
+		number,
+		number
+	] = ['interpolate', ['linear'], ['zoom'], 15, 2.6, 16, 4.2, 18, 7];
 
 	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
 		if (!mapInstance.isStyleLoaded()) return;
 		const congestions = Object.keys(CAR_ICON_IDS) as Congestion[];
 		for (const congestion of congestions) {
 			const id = CAR_ICON_IDS[congestion];
+			if (mapInstance.hasImage(id)) continue;
 			const sprite = drawCarIcon(congestion, 64);
 			if (!sprite) continue;
-			const image = imageDataForMap(sprite);
 			try {
-				if (mapInstance.hasImage(id)) {
-					mapInstance.updateImage(id, image);
-				} else {
-					mapInstance.addImage(id, image, { pixelRatio: 2 });
-				}
+				// pixelRatio 1 → full 64 CSS px at icon-size 1 (intentionally huge on streets)
+				mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 1 });
 			} catch (error) {
 				console.warn('car icon add failed', id, error);
 			}
@@ -621,8 +618,8 @@
 				source: 'traffic-cars',
 				minzoom: 15,
 				layout: {
-					'icon-image': ['coalesce', ['get', 'icon'], 'traffic-car-free'],
-					'icon-size': [...CAR_ICON_SIZE],
+					'icon-image': ['coalesce', ['get', 'icon'], CAR_ICON_IDS.free],
+					'icon-size': CAR_ICON_SIZE,
 					'icon-rotate': ['get', 'bearing'],
 					'icon-rotation-alignment': 'map',
 					'icon-pitch-alignment': 'map',
@@ -632,7 +629,7 @@
 				}
 			});
 		} else {
-			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', [...CAR_ICON_SIZE]);
+			mapInstance.setLayoutProperty('traffic-cars', 'icon-size', CAR_ICON_SIZE);
 		}
 	}
 
@@ -802,6 +799,9 @@
 					hash: false
 				});
 				map = instance;
+				if (typeof window !== 'undefined') {
+					(window as unknown as { __zurichMap?: MapLibreMap }).__zurichMap = instance;
+				}
 				instance.addControl(
 					new maplibregl.AttributionControl({ compact: true }),
 					'bottom-right'
