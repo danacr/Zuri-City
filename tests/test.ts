@@ -102,7 +102,6 @@ test('follows phone appearance for the parking feature sheet', async ({ page }, 
 	await page.getByRole('button', { name: 'Show parking feature' }).click();
 	await expect(page.getByRole('article').first()).toHaveCSS('background-color', 'rgb(21, 34, 53)');
 	await page.screenshot({ path: testInfo.outputPath('mobile-dark-city.png') });
-	await page.emulateMedia({ colorScheme: 'light' });
 	await page.getByRole('button', { name: 'Switch to light mode' }).click();
 	await expect(page.getByRole('article').first()).toHaveCSS(
 		'background-color',

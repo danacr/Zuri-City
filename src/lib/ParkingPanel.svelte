@@ -75,7 +75,7 @@
 </script>
 
 {#if open}
-	<aside class="parking-panel" aria-label="Parking feature">
+	<aside class="parking-panel" role="region" aria-label="Parking feature">
 		<header class="panel-head">
 			<div>
 				<p class="eyebrow">Feature</p>

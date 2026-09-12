@@ -81,8 +81,8 @@
 			on:click={() => dialog.close()}>×</button
 		>
 	</div>
-	<h2 id="install-title">Züri Parking, one tap away.</h2>
-	<p>Add the web app to your Home Screen for quick access to garages and directions.</p>
+	<h2 id="install-title">Züri City, one tap away.</h2>
+	<p>Add the web app to your Home Screen for quick access to the city map and parking.</p>
 	{#if ios}<ol>
 			<li>Open this page in <strong>Safari</strong>.</li>
 			<li>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>

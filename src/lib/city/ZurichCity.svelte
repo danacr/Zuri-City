@@ -390,7 +390,7 @@
 
 	onDestroy(() => {
 		disposed = true;
-		cancelAnimationFrame(raf);
+		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
 		userMarker?.remove();
 		map?.remove();
 		map = undefined;
