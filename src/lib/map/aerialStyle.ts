@@ -52,24 +52,25 @@ export function zurichAerialStyle(): StyleSpecification {
 				maxzoom: CITY_MAX_ZOOM + 1,
 				filter: ['!=', ['get', 'hide_3d'], true],
 				paint: {
+					// Strong façade contrast vs SWISSIMAGE so massing reads at orbit pitch.
 					'fill-extrusion-color': [
 						'interpolate',
 						['linear'],
 						['coalesce', ['get', 'render_height'], ['get', 'height'], 16],
 						0,
-						'#e8dcc8',
-						18,
-						'#d4c4a8',
-						40,
-						'#b9a88c',
-						80,
-						'#8f7f68'
+						'#c4b49a',
+						16,
+						'#9a8b74',
+						32,
+						'#6f6354',
+						64,
+						'#4a433a'
 					],
 					'fill-extrusion-height': [
 						'coalesce',
 						['get', 'render_height'],
 						['get', 'height'],
-						16
+						18
 					],
 					'fill-extrusion-base': [
 						'coalesce',
@@ -77,7 +78,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'min_height'],
 						0
 					],
-					'fill-extrusion-opacity': 0.88,
+					'fill-extrusion-opacity': 0.95,
 					'fill-extrusion-vertical-gradient': true
 				}
 			},

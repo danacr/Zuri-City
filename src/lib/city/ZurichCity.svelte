@@ -812,6 +812,9 @@
 					}
 				});
 				map = instance;
+				if (import.meta.env.DEV) {
+					(window as unknown as { __zurichMap?: typeof instance }).__zurichMap = instance;
+				}
 				instance.addControl(
 					new maplibregl.AttributionControl({ compact: true }),
 					'bottom-right'
