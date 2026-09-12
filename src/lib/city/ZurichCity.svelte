@@ -19,6 +19,13 @@
 	import { drawAircraftIcon, FLIGHT_ICON_IDS } from '$lib/intel/aircraftIcons';
 	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
 	import type { FlightSize } from '$lib/intel/types';
+	import {
+		advanceCars,
+		carsToGeoJSON,
+		drawCarIcon,
+		spawnCarsFromRoadFeatures,
+		type SimCar
+	} from '$lib/city/trafficCars';
 
 	export let places: Place[];
 	export let parkings: Parking[] = [];
@@ -50,6 +57,10 @@
 	let keys = new Set<string>();
 	let raf = 0;
 	let walkBearing = -20;
+	let trafficCars: SimCar[] = [];
+	let trafficRaf = 0;
+	let lastTrafficTs = 0;
+	let lastTrafficReseed = 0;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
 	$: visibleParkings = layers.parking
@@ -100,6 +111,12 @@
 			map.setPaintProperty('detection-flights', 'circle-stroke-opacity', opacity);
 		}
 		syncTrafficVisibility(map, intelLayers.traffic);
+		if (intelLayers.traffic) {
+			ensureTrafficCarsLayer(map);
+			startTrafficLoop();
+		} else {
+			stopTrafficLoop();
+		}
 	}
 	$: if (map && mode) applyMode(mode, false);
 	$: if (map && selectedId) focusSelection(selectedId);
@@ -274,7 +291,7 @@
 			});
 		}
 
-		// Traffic is added last (below) so it paints above 3D buildings.
+		// Viewsheds / cameras / flights sit above the basemap; cars are ensured at the end.
 
 		if (!mapInstance.getSource('viewsheds')) {
 			mapInstance.addSource('viewsheds', {
@@ -414,9 +431,13 @@
 			});
 		}
 
-		// Traffic is painted from OpenMapTiles `transportation` in the aerial style
-		// (layers traffic-case / traffic-flow) — no hand-drawn GeoJSON corridors.
+		// Living streets: fake cars on OSM centerlines (foundation of the city view).
+		ensureTrafficCarsLayer(mapInstance);
 		syncTrafficVisibility(mapInstance, intelLayers.traffic);
+		if (intelLayers.traffic) {
+			reseedTrafficCars(true);
+			startTrafficLoop();
+		}
 	}
 
 	function registerAircraftIcons(mapInstance: MapLibreMap) {
@@ -431,12 +452,130 @@
 		}
 	}
 
+	function ensureTrafficCarsLayer(mapInstance: MapLibreMap) {
+		const sprite = drawCarIcon(64);
+		if (sprite && !mapInstance.hasImage('traffic-car')) {
+			mapInstance.addImage('traffic-car', sprite, { pixelRatio: 2 });
+		}
+		if (!mapInstance.getSource('traffic-cars')) {
+			mapInstance.addSource('traffic-cars', {
+				type: 'geojson',
+				data: { type: 'FeatureCollection', features: [] }
+			});
+		}
+		if (!mapInstance.getLayer('traffic-cars')) {
+			mapInstance.addLayer({
+				id: 'traffic-cars',
+				type: 'symbol',
+				source: 'traffic-cars',
+				layout: {
+					'icon-image': 'traffic-car',
+					'icon-size': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						0.28,
+						14,
+						0.48,
+						16,
+						0.72,
+						18,
+						1.05
+					],
+					'icon-rotate': ['get', 'bearing'],
+					'icon-rotation-alignment': 'map',
+					'icon-pitch-alignment': 'map',
+					'icon-allow-overlap': true,
+					'icon-ignore-placement': true,
+					visibility: intelLayers.traffic ? 'visible' : 'none'
+				}
+			});
+		}
+	}
+
 	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
 		const visibility = on ? 'visible' : 'none';
 		for (const id of TRAFFIC_STYLE_LAYERS) {
 			if (mapInstance.getLayer(id)) {
 				mapInstance.setLayoutProperty(id, 'visibility', visibility);
 			}
+		}
+	}
+
+	function pushCarsToMap() {
+		if (!map?.getSource('traffic-cars')) return;
+		(map.getSource('traffic-cars') as GeoJSONSource).setData(carsToGeoJSON(trafficCars));
+	}
+
+	function reseedTrafficCars(force = false) {
+		if (!map || !intelLayers.traffic) return;
+		const now = performance.now();
+		if (!force && now - lastTrafficReseed < 2600) return;
+		lastTrafficReseed = now;
+
+		let features: GeoJSON.Feature[] = [];
+		try {
+			features = map.queryRenderedFeatures({ layers: ['traffic-roads-query'] }) as GeoJSON.Feature[];
+		} catch {
+			features = [];
+		}
+
+		if (features.length < 6) {
+			try {
+				features = map.querySourceFeatures('openmaptiles', {
+					sourceLayer: 'transportation',
+					filter: [
+						'all',
+						['==', ['geometry-type'], 'LineString'],
+						[
+							'in',
+							['get', 'class'],
+							['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
+						]
+					]
+				}) as GeoJSON.Feature[];
+			} catch {
+				features = [];
+			}
+		}
+
+		const zoom = map.getZoom();
+		trafficCars = spawnCarsFromRoadFeatures(features, {
+			maxCars: zoom >= 15.5 ? 130 : zoom >= 14 ? 100 : 70
+		});
+		pushCarsToMap();
+	}
+
+	function startTrafficLoop() {
+		if (trafficRaf || typeof requestAnimationFrame !== 'function') return;
+		lastTrafficTs = performance.now();
+		if (trafficCars.length === 0) reseedTrafficCars(true);
+		const tick = (ts: number) => {
+			trafficRaf = 0;
+			if (!map || !intelLayers.traffic || disposed) return;
+			const dt = Math.min(0.05, Math.max(0.012, (ts - lastTrafficTs) / 1000));
+			lastTrafficTs = ts;
+			if (trafficCars.length) {
+				trafficCars = advanceCars(trafficCars, dt);
+				pushCarsToMap();
+			}
+			trafficRaf = requestAnimationFrame(tick);
+		};
+		trafficRaf = requestAnimationFrame(tick);
+	}
+
+	function stopTrafficLoop() {
+		if (trafficRaf) {
+			cancelAnimationFrame(trafficRaf);
+			trafficRaf = 0;
+		}
+		trafficCars = [];
+		if (map?.getSource('traffic-cars')) {
+			(map.getSource('traffic-cars') as GeoJSONSource).setData({
+				type: 'FeatureCollection',
+				features: []
+			});
 		}
 	}
 
@@ -551,6 +690,11 @@
 					}
 					ensureLayers(instance);
 				});
+				const onViewportSettle = () => {
+					if (intelLayers.traffic) reseedTrafficCars(false);
+				};
+				instance.on('moveend', onViewportSettle);
+				instance.on('zoomend', onViewportSettle);
 				for (const layer of [
 					'places-core',
 					'places-glow',
@@ -608,6 +752,7 @@
 
 	onDestroy(() => {
 		disposed = true;
+		stopTrafficLoop();
 		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
 		userMarker?.remove();
 		map?.remove();

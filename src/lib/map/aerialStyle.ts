@@ -2,8 +2,8 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 /**
  * Aerial god’s-eye basemap for Zürich:
- * SWISSIMAGE under OpenMapTiles 3D buildings, with traffic painted on the
- * same `transportation` centerlines (no hand-drawn corridors).
+ * SWISSIMAGE under OpenMapTiles 3D buildings. Living traffic is simulated
+ * as cars along OSM transportation centerlines (see trafficCars.ts).
  */
 export function zurichAerialStyle(): StyleSpecification {
 	return {
@@ -14,7 +14,7 @@ export function zurichAerialStyle(): StyleSpecification {
 			aerial: {
 				type: 'raster',
 				tiles: [
-					// SWISSIMAGE — official Swiss orthophoto (XYZ Web Mercator, CORS OK).
+					// Official SWISSIMAGE XYZ (Web Mercator) — CORS enabled.
 					'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg'
 				],
 				tileSize: 256,
@@ -87,13 +87,13 @@ export function zurichAerialStyle(): StyleSpecification {
 					'fill-extrusion-vertical-gradient': true
 				}
 			},
-			// Traffic on real OSM road centerlines (same tiles as buildings) — not custom polylines.
+			// Invisible road layer used to query centerlines for the car simulation.
 			{
-				id: 'traffic-case',
+				id: 'traffic-roads-query',
 				type: 'line',
 				source: 'openmaptiles',
 				'source-layer': 'transportation',
-				minzoom: 12,
+				minzoom: 11,
 				filter: [
 					'all',
 					[
@@ -103,93 +103,11 @@ export function zurichAerialStyle(): StyleSpecification {
 					],
 					['!=', ['get', 'brunnel'], 'tunnel']
 				],
-				layout: {
-					'line-cap': 'round',
-					'line-join': 'round',
-					visibility: 'visible'
-				},
+				layout: { visibility: 'visible' },
 				paint: {
-					'line-color': '#0b1724',
-					'line-opacity': 0.4,
-					'line-width': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						12,
-						2.2,
-						15,
-						5.5,
-						17,
-						9
-					]
-				}
-			},
-			{
-				id: 'traffic-flow',
-				type: 'line',
-				source: 'openmaptiles',
-				'source-layer': 'transportation',
-				minzoom: 12,
-				filter: [
-					'all',
-					[
-						'in',
-						['get', 'class'],
-						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-					],
-					['!=', ['get', 'brunnel'], 'tunnel']
-				],
-				layout: {
-					'line-cap': 'round',
-					'line-join': 'round',
-					visibility: 'visible'
-				},
-				paint: {
-					// Modeled congestion: mix feature id + class + ref/name so unnamed
-					// roads don't all collapse to one (red) color.
-					'line-color': [
-						'match',
-						[
-							'%',
-							[
-								'+',
-								['coalesce', ['to-number', ['id']], 0],
-								[
-									'match',
-									['get', 'class'],
-									'motorway',
-									0,
-									'trunk',
-									1,
-									'primary',
-									2,
-									'secondary',
-									3,
-									1
-								],
-								['length', ['coalesce', ['get', 'ref'], '']],
-								['length', ['coalesce', ['get', 'name'], '']]
-							],
-							3
-						],
-						0,
-						'#30d158',
-						1,
-						'#ff9f0a',
-						'#ff3b30'
-					],
-					'line-opacity': 0.92,
-					'line-width': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						12,
-						1.4,
-						15,
-						3.4,
-						17,
-						6
-					]
+					'line-color': '#000000',
+					'line-opacity': 0,
+					'line-width': 8
 				}
 			},
 			{
@@ -234,4 +152,4 @@ export function zurichAerialStyle(): StyleSpecification {
 	};
 }
 
-export const TRAFFIC_STYLE_LAYERS = ['traffic-case', 'traffic-flow'] as const;
+export const TRAFFIC_STYLE_LAYERS = ['traffic-roads-query', 'traffic-cars'] as const;

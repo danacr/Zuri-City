@@ -63,8 +63,8 @@
 		parking: data.parkings.length,
 		flights: flights.length,
 		cameras: cameras.length,
-		// Traffic uses OpenMapTiles roads on the map — no custom corridor count.
-		traffic: intelLayers.traffic ? 'roads' : 0,
+		// Live streets: simulated cars on OpenMapTiles roads — no corridor count.
+		traffic: intelLayers.traffic ? 'cars' : 0,
 		quakes: quakes.length
 	};
 
@@ -313,11 +313,11 @@
 
 	<!-- Desktop left briefing -->
 	<aside class="desk-hud" aria-label="City briefing">
-		<p class="eyebrow">Live recon</p>
-		<h2>Walk Zürich in 3D</h2>
+		<p class="eyebrow">Living city</p>
+		<h2>Zürich in motion</h2>
 		<p>
-			Orbit the rooftops, track aircraft, flip CCTV viewsheds and drop into street level. Parking stays
-			one tap away.
+			Cars crawl or stream along real roads while you orbit the rooftops, track aircraft, flip CCTV
+			viewsheds, and drop to street level. Parking stays one tap away.
 		</p>
 		<div class="mode-row">
 			<button
@@ -566,7 +566,7 @@
 	/>
 
 	<footer class="credits">
-		<span>OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich</span>
+		<span>SWISSIMAGE · OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich</span>
 		<span class="dot">·</span>
 		<InstallApp />
 		<span class="dot">·</span>

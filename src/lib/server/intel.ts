@@ -127,7 +127,7 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 	const notes = [
 		flightsResult.error,
 		quakesResult.error,
-		'Traffic is painted on OpenMapTiles road centerlines (free) — modeled congestion colors, not a paid live-feed API.',
+		'Live streets: small cars drive OpenMapTiles road centerlines — denser and slower in jam, lighter and faster when free. Modeled motion, not a paid traffic API.',
 		'CCTV stills are live ASTRA Mobcam JPEGs (proxied + validated). Map pins are approximate corridor placements.',
 		'Aircraft are live ADS-B (adsb.lol). Tap “Find aircraft” or enable Aircraft — most contacts are outside the city bowl.',
 		'Basemap is SWISSIMAGE (swisstopo) with solid 3D building masses (keyless). Photoreal street façades need a commercial 3D-tiles key.'

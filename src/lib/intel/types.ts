@@ -61,7 +61,7 @@ export type IntelSnapshot = {
 export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 	flights: 'Aircraft',
 	cameras: 'CCTV mesh',
-	traffic: 'Traffic',
+	traffic: 'Live streets',
 	quakes: 'Earthquakes',
 	detection: 'Detection'
 };
@@ -69,7 +69,7 @@ export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 export const INTEL_LAYER_COLOR: Record<IntelLayer, string> = {
 	flights: '#f0b429',
 	cameras: '#7c5cff',
-	traffic: '#ef5d28',
+	traffic: '#d8d2c8',
 	quakes: '#e03131',
 	detection: '#3dd68c'
 };
