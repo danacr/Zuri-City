@@ -652,11 +652,11 @@
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			1.35,
+			2.0,
 			15,
-			1.85,
+			2.6,
 			CITY_MAX_ZOOM,
-			2.4
+			3.2
 		];
 		if (!mapInstance.getLayer('traffic-cars')) {
 			mapInstance.addLayer({
