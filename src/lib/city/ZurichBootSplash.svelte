@@ -2,9 +2,9 @@
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 
 	/** Keep splash visible at least this long so it feels intentional. */
-	export let minMs = 1200;
-	/** Hard cap so a stalled map never traps the user. */
-	export let maxMs = 14000;
+	export let minMs = 400;
+	/** Hard cap so a stalled map never traps the user (Google/HERE are under ~2s). */
+	export let maxMs = 2500;
 	export let ready = false;
 	export let failed = false;
 

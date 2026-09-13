@@ -9,10 +9,11 @@ export const CITY_MAX_ZOOM = 18;
  * Walk = street-level immersion (locked high pitch, locomotion).
  * Layers stay identical — pose + interaction model change.
  */
+/** Default basin view — steep enough that OSM extrusions read as a city, not a flat aerial. */
 export const ORBIT_CAMERA = {
-	zoom: 14.2,
-	pitch: 52,
-	bearing: -22
+	zoom: 14.6,
+	pitch: 58,
+	bearing: -18
 } as const;
 
 export const WALK_CAMERA = {

@@ -17,27 +17,49 @@ export type TerrainHandle = {
 	unregister?: () => void;
 };
 
-function resolveDecode(): (buffer: ArrayBuffer) => unknown {
-	const mod = quantizedMeshDecoder as
-		| ((buffer: ArrayBuffer) => unknown)
-		| { default: ((buffer: ArrayBuffer) => unknown) | { default: (buffer: ArrayBuffer) => unknown } };
-	if (typeof mod === 'function') return mod;
-	const inner = mod.default;
-	if (typeof inner === 'function') return inner;
-	return inner.default;
+/**
+ * Soft-resolve the quantized-mesh decoder.
+ * Never throw at module load — that takes down the entire ssr:false map boot graph.
+ */
+function resolveDecode(): ((buffer: ArrayBuffer) => unknown) | null {
+	try {
+		const mod = quantizedMeshDecoder as
+			| ((buffer: ArrayBuffer) => unknown)
+			| {
+					default:
+						| ((buffer: ArrayBuffer) => unknown)
+						| { default: (buffer: ArrayBuffer) => unknown };
+			  };
+		if (typeof mod === 'function') return mod;
+		const inner = mod?.default;
+		if (typeof inner === 'function') return inner;
+		if (inner && typeof (inner as { default?: unknown }).default === 'function') {
+			return (inner as { default: (buffer: ArrayBuffer) => unknown }).default;
+		}
+		console.warn('quantized-mesh decoder export shape unrecognized');
+		return null;
+	} catch (error) {
+		console.warn('quantized-mesh decoder unavailable', error);
+		return null;
+	}
 }
-
-const decode = resolveDecode();
 
 /**
  * Attach continuous elevation for Zürich.
  * Prefers swisstopo quantized-mesh; falls back to Terrarium DEM.
+ * Soft-fails so OSM massing / parking / traffic still paint.
  */
 export async function attachSwissTerrain(
 	map: MapLibreMap,
 	maplibregl: MapLibreProtocolHost
 ): Promise<TerrainHandle> {
 	try {
+		const decode = resolveDecode();
+		if (!decode) {
+			console.warn('swisstopo terrain skipped — decoder missing; using Terrarium');
+			return attachFallbackTerrain(map);
+		}
+
 		const dataset = await loadQuantizedMeshDataset(SWISS_TERRAIN_LAYER, {
 			attribution: 'Terrain: © swisstopo',
 			boundsOverride: { west: 5.6, south: 45.5, east: 11.0, north: 48.2 },

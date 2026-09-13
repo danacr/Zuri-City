@@ -51,7 +51,10 @@ async function probeMap(page: Page): Promise<MapProbe> {
 			const raw = map.getPaintProperty(buildingId, 'fill-extrusion-opacity');
 			if (typeof raw === 'number') buildingOpacity = raw;
 			else if (Array.isArray(raw)) {
-				const nums = raw.filter((v: unknown) => typeof v === 'number') as number[];
+				// Opacity expressions include zoom stops (e.g. 13, 14.5, 16) — only keep real opacities.
+				const nums = raw.filter(
+					(v: unknown): v is number => typeof v === 'number' && v > 0 && v <= 1
+				);
 				buildingOpacity = nums.length ? Math.max(...nums) : null;
 			}
 		}

@@ -192,7 +192,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						'coalesce',
 						['get', 'render_height'],
 						['get', 'height'],
-						14
+						18
 					],
 					'fill-extrusion-base': [
 						'coalesce',
@@ -200,17 +200,8 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'min_height'],
 						0
 					],
-					'fill-extrusion-opacity': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						13,
-						0.72,
-						14.5,
-						0.84,
-						16,
-						0.92
-					],
+					/** Solid from first orbit paint — never ghost into SWISSIMAGE. */
+					'fill-extrusion-opacity': 0.95,
 					'fill-extrusion-vertical-gradient': true
 				}
 			},

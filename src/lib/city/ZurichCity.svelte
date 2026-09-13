@@ -28,7 +28,7 @@
 		SWISS_BUILDINGS_ENABLED,
 		WALK_CAMERA
 	} from '$lib/map/swissSources';
-	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
+	import type { TerrainHandle } from '$lib/map/swissTerrain';
 	import {
 		attachIconAtlasResolver,
 		ensureBaseIconAtlas,
@@ -138,6 +138,20 @@
 			}
 		} catch (error) {
 			console.warn('swissBUILDINGS3D unavailable', error);
+		}
+	}
+
+
+	async function attachTerrainLazy(
+		mapInstance: MapLibreMap,
+		maplibregl: typeof import('maplibre-gl')
+	) {
+		try {
+			const { attachSwissTerrain } = await import('$lib/map/swissTerrain');
+			return await attachSwissTerrain(mapInstance, maplibregl);
+		} catch (error) {
+			console.warn('terrain attach skipped', error);
+			return {} as TerrainHandle;
 		}
 	}
 
@@ -636,7 +650,7 @@
 					});
 					void (async () => {
 						if (!terrainHandle) {
-							terrainHandle = await attachSwissTerrain(instance, maplibregl);
+							terrainHandle = await attachTerrainLazy(instance, maplibregl);
 						}
 						mountSwissOverlay(instance, maplibregl);
 						refreshOverlaySources(instance);
@@ -657,7 +671,7 @@
 					instance.once('idle', () => refreshOverlaySources(instance));
 					void (async () => {
 						terrainHandle?.unregister?.();
-						terrainHandle = await attachSwissTerrain(instance, maplibregl);
+						terrainHandle = await attachTerrainLazy(instance, maplibregl);
 						mountSwissOverlay(instance, maplibregl);
 						refreshOverlaySources(instance);
 					})();
@@ -684,7 +698,8 @@
 				});
 				resizeObserver = new ResizeObserver(() => instance.resize());
 				resizeObserver.observe(container);
-			} catch {
+			} catch (error) {
+				console.error('map boot failed', error);
 				mapError = 'The 3D city map could not load. Check your connection and try again.';
 				dispatch('error');
 			}

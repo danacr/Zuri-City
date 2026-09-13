@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import Parser from 'rss-parser';
-import { parseParking, type Parking } from '$lib/parking';
+import { FALLBACK_PARKINGS, parseParking, type Parking } from '$lib/parking';
 import { enrichParkings } from '$lib/server/parking-details';
 import { loadCityPlaces } from '$lib/server/places';
 import { loadIntelSnapshot } from '$lib/server/intel';
@@ -15,6 +15,10 @@ const EMPTY_INTEL: IntelSnapshot = {
 	fetchedAt: new Date(0).toISOString(),
 	notes: []
 };
+
+function withCoordinates(parkings: Parking[]): Parking[] {
+	return parkings.filter((parking) => parking.coordinates !== null);
+}
 
 async function loadParkings(fetchFn: typeof fetch): Promise<{
 	parkings: Parking[];
@@ -31,16 +35,24 @@ async function loadParkings(fetchFn: typeof fetch): Promise<{
 		if (!response.ok) throw new Error('Feed unavailable');
 		const feed = await new Parser().parseString(await response.text());
 		const parkings = await enrichParkings(feed.items.map(parseParking), fetchFn);
+		const located = withCoordinates(parkings);
+		if (located.length === 0) {
+			return {
+				parkings: FALLBACK_PARKINGS,
+				refreshedAt: new Date().toISOString(),
+				error: 'Live parking had no map locations — showing curated Zürich garages.'
+			};
+		}
 		return {
-			parkings,
+			parkings: located,
 			refreshedAt: new Date().toISOString(),
 			error: ''
 		};
 	} catch {
 		return {
-			parkings: [],
+			parkings: FALLBACK_PARKINGS,
 			refreshedAt: null,
-			error: 'Parking data could not be loaded. Try refreshing again.'
+			error: 'Live parking feed unavailable — showing curated Zürich garages.'
 		};
 	} finally {
 		clearTimeout(timer);
@@ -50,6 +62,7 @@ async function loadParkings(fetchFn: typeof fetch): Promise<{
 /**
  * Sync shell returns immediately so `app.html` boot splash can paint before
  * Overpass / parking RSS / ADS-B finish. Real data arrives via `hydrateCity`.
+ * Seed parking with curated coords so capacity pills exist before hydrate.
  */
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
@@ -68,7 +81,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		places: FALLBACK_PLACES,
 		placesSource: 'fallback' as const,
 		placesError: '',
-		parkings: [] as Parking[],
+		parkings: FALLBACK_PARKINGS,
 		refreshedAt: null as string | null,
 		error: '',
 		intel: EMPTY_INTEL,

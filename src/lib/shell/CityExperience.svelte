@@ -395,7 +395,7 @@
 		<aside class="desk-hud" aria-label="City briefing">
 			<p class="eyebrow">On the map</p>
 			<h2>See Zürich move</h2>
-			<p>Traffic paints the streets. Parking stays on. Open Layers for places and live feeds.</p>
+			<p>Modeled street colors and always-on parking. Open Layers for places and live feeds.</p>
 			<div class="mode-row">
 				<button
 					type="button"
