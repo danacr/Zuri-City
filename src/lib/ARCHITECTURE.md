@@ -24,7 +24,7 @@ src/
     parking/                   # PLS parking domain
       model.ts                 # Parse, availability, map labels
     map/
-      aerialStyle.ts           # SWISSIMAGE + solid OSM massing + OMT traffic
+      aerialStyle.ts           # SWISSIMAGE + solid OSM massing + OMT road skeleton
       iconAtlas.ts             # Pre-register place/aircraft/CCTV MapLibre sprites
       swissSources.ts          # Zoom contract + swisstopo endpoints
       swissTerrain.ts
@@ -33,13 +33,14 @@ src/
         types.ts               # CityLayerPlugin contract
         placesLayer.ts
         parkingLayer.ts        # Always-on blue capacity pills
+        swissTrafficLayer.ts   # Live ASTRA DATEX free/slow/jam
     city/                      # Map host + HUD widgets (legacy path, shrinking)
       ZurichCity.svelte        # MapLibre host; delegates overlays to map/layers
       LayersPanel.svelte
       mapShellGestures.ts
       layerRegistry.ts
     intel/                     # Flights, cameras, quakes, icons
-    server/                    # Node-only loaders (Overpass, PLS enrich, ADS-B)
+    server/                    # Node-only loaders (Overpass, PLS, ADS-B, ASTRA DATEX)
 ```
 
 ## Rules
