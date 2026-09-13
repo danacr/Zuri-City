@@ -128,7 +128,7 @@
 		parking: parkings.length,
 		flights: flights.length,
 		cameras: cameras.length,
-		traffic: intelLayers.traffic ? traffic.length : 0,
+		traffic: traffic.length,
 		quakes: quakes.length
 	} satisfies LayerCounts;
 	$: activePlaceCount = PLACE_CATEGORIES.filter((key) => layers[key]).length;
@@ -144,6 +144,14 @@
 	let didRevealFlights = false;
 	let mapReady = false;
 	let mapFailed = false;
+	/** One-shot: enable Traffic when the first ASTRA segments arrive. */
+	let trafficAutoEnabled = false;
+
+	/** Turn Traffic on once when ASTRA counters first land — stay off while empty. */
+	$: if (mapReady && traffic.length > 0 && !trafficAutoEnabled) {
+		trafficAutoEnabled = true;
+		if (!intelLayers.traffic) intelLayers = { ...intelLayers, traffic: true };
+	}
 
 	function tryRevealFlights() {
 		if (didRevealFlights || !flights.length || !intelLayers.flights) return;
@@ -201,7 +209,12 @@
 		// Guarantee every place category is on so the map is never an empty orbit.
 		layers = setAllPlaceLayers(true);
 		showParking = true;
-		intelLayers = { ...createDefaultIntelLayers(), ...intelLayers, traffic: true };
+		// Keep Traffic off until ASTRA segments exist — don't advertise an empty layer.
+		intelLayers = {
+			...createDefaultIntelLayers(),
+			...intelLayers,
+			traffic: traffic.length > 0
+		};
 		tryRevealFlights();
 	}
 

@@ -60,11 +60,11 @@ describe('parking layer contract', () => {
 });
 
 describe('intel defaults — no purple-dot first paint', () => {
-	it('starts cameras and detection off; flights and traffic on', () => {
+	it('starts cameras, detection, and empty traffic off; flights on', () => {
 		expect(DEFAULT_INTEL_LAYERS.cameras).toBe(false);
 		expect(DEFAULT_INTEL_LAYERS.detection).toBe(false);
 		expect(DEFAULT_INTEL_LAYERS.flights).toBe(true);
-		expect(DEFAULT_INTEL_LAYERS.traffic).toBe(true);
+		expect(DEFAULT_INTEL_LAYERS.traffic).toBe(false);
 		expect(createDefaultIntelLayers()).toEqual(DEFAULT_INTEL_LAYERS);
 	});
 });

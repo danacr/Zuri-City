@@ -110,13 +110,13 @@
 					class="switch"
 					class:on={showParking}
 					aria-pressed={showParking}
-					title="Toggle live PLS parking markers"
+					title="Toggle PLS parking markers"
 					on:click={onToggleParking}
 				>
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
 						<span class="switch-meta"
-							>{#if counts.parking > 0}{counts.parking} · live PLS{:else}live PLS{/if}</span
+							>{#if counts.parking > 0}{counts.parking} · live PLS{:else}unavailable{/if}</span
 						>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
