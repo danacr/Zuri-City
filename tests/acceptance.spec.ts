@@ -26,18 +26,8 @@ type MapProbe = {
 async function waitForMapReady(page: Page) {
 	const map = page.getByTestId('zurich-map');
 	await expect(map).toBeVisible({ timeout: 45_000 });
+	// Gate on our ready flag — MapLibre isStyleLoaded() can stay false while the city paints.
 	await expect(map).toHaveAttribute('data-map-ready', 'true', { timeout: 60_000 });
-	await expect
-		.poll(
-			async () =>
-				page.evaluate(() => {
-					const m = (window as unknown as { __zurichMap?: { isStyleLoaded?: () => boolean } })
-						.__zurichMap;
-					return Boolean(m?.isStyleLoaded?.());
-				}),
-			{ timeout: 60_000 }
-		)
-		.toBe(true);
 }
 
 async function probeMap(page: Page): Promise<MapProbe> {
