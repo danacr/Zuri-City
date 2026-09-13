@@ -63,8 +63,8 @@
 		class="install"
 		class:labeled
 		data-testid="install-app"
-		aria-label="Install web app"
-		title="Install web app"
+		aria-label="Install Züri City"
+		title="Install Züri City"
 		disabled={installing}
 		onclick={install}
 		><svg
@@ -75,7 +75,7 @@
 			stroke="currentColor"
 			stroke-width="1.8"
 			aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5" /></svg
-		>{#if labeled}<span>Install web app</span>{/if}</button
+		>{#if labeled}<span>Install</span>{/if}</button
 	>{/if}
 <dialog id="install-instructions" bind:this={dialog} aria-labelledby="install-title">
 	<div class="heading">
@@ -85,8 +85,8 @@
 			onclick={() => dialog.close()}>×</button
 		>
 	</div>
-	<h2 id="install-title">Züri City, one tap away.</h2>
-	<p>Add the web app to your Home Screen for quick access to the interactive city map.</p>
+	<h2 id="install-title">Keep Zürich in your pocket</h2>
+	<p>Add Züri City to your Home Screen — open the live map without digging for a tab.</p>
 	{#if ios}<ol>
 			<li>Open this page in <strong>Safari</strong>.</li>
 			<li>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>

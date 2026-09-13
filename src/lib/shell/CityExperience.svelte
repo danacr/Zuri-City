@@ -370,7 +370,7 @@
 			<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
 				<img src="/favicon.svg" alt="" width="32" height="32" />
 				<div>
-					<p class="brand-kicker">Interactive city</p>
+					<p class="brand-kicker">Zürich · live</p>
 					<h1>Züri City</h1>
 				</div>
 			</a>
@@ -388,9 +388,9 @@
 
 		<!-- Desktop left briefing -->
 		<aside class="desk-hud" aria-label="City briefing">
-			<p class="eyebrow">Map</p>
-			<h2>Interactive city</h2>
-			<p>Traffic colors the streets. Open Layers to choose places and live feeds.</p>
+			<p class="eyebrow">On the map</p>
+			<h2>See Zürich move</h2>
+			<p>Traffic paints the streets. Parking stays on. Open Layers for places and live feeds.</p>
 			<div class="mode-row">
 				<button
 					type="button"

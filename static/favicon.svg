@@ -1,10 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Züri City">
   <defs>
-    <clipPath id="badge"><rect width="64" height="64" rx="12" /></clipPath>
+    <linearGradient id="night" x1="12" y1="0" x2="52" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f2740"/>
+      <stop offset="0.55" stop-color="#07131f"/>
+      <stop offset="1" stop-color="#041018"/>
+    </linearGradient>
+    <linearGradient id="dawn" x1="32" y1="4" x2="32" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0b429" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#f0b429" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lake" x1="8" y1="44" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2a6f8a"/>
+      <stop offset="1" stop-color="#123a4c"/>
+    </linearGradient>
+    <clipPath id="badge"><rect width="64" height="64" rx="14"/></clipPath>
   </defs>
   <g clip-path="url(#badge)">
-    <path fill="#fff" d="M0 0h64v64H0z" />
-    <path fill="#0072ce" d="M64 0v64H0z" />
-    <path fill="#092c54" stroke="#fff" stroke-width="2" stroke-linejoin="round" fill-rule="evenodd" d="M19 12h16c11 0 17 6 17 16s-6 16-17 16h-5v10H19V12zm11 10v12h5c4 0 6-2 6-6s-2-6-6-6h-5z" />
+    <rect width="64" height="64" fill="url(#night)"/>
+    <ellipse cx="32" cy="10" rx="28" ry="16" fill="url(#dawn)"/>
+    <!-- lake -->
+    <path fill="url(#lake)" d="M0 46c10-6 22-9 32-9s22 3 32 9v18H0V46z"/>
+    <!-- soft shoreline -->
+    <path fill="#87baff" fill-opacity="0.22" d="M0 46c10-6 22-9 32-9s22 3 32 9v3c-10-5-22-8-32-8s-22 3-32 8v-3z"/>
+    <!-- skyline silhouette -->
+    <path fill="#0a1c2c" d="M6 46h6l2-8h4l2 8h7l2-14h3l2-8 3-4 3 4 2 8h3l2 14h8l2-10h5l2 10h7v4H6v-4z"/>
+    <!-- warm windows -->
+    <g fill="#f0b429">
+      <rect x="16" y="40" width="2" height="2" rx="0.4" opacity="0.9"/>
+      <rect x="27" y="32" width="2" height="2" rx="0.4" opacity="0.85"/>
+      <rect x="32" y="28" width="2" height="2" rx="0.4" opacity="0.95"/>
+      <rect x="45" y="38" width="2" height="2" rx="0.4" opacity="0.8"/>
+    </g>
+    <!-- monogram Z — reads at 16px -->
+    <path fill="#f7fafc" d="M18 14h28l-20 20h18v6H16l20-20H18v-6z"/>
+    <path fill="#f0b429" d="M18 14h28v3H18zM16 40h28v3H16z"/>
   </g>
 </svg>
