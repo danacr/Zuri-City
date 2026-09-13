@@ -5,7 +5,7 @@
 ## What it does
 
 - Opens Zürich from orbit, then lets you walk street-level with WASD / arrow keys.
-- Colors major streets green / amber / red by congestion, with motion along the roads.
+- Colors major corridors green / amber / red from live Swiss ASTRA DATEX counters (not a fake road hash).
 - Pins open attractions, restaurants, and shops on SWISSIMAGE + OpenFreeMap.
 - Keeps PLS parking pills visible on the map (not a hideable overlay).
 - Installs as a home-screen web app with dark city chrome.

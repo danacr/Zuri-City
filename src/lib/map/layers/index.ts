@@ -5,4 +5,13 @@
  */
 export { ensureParkingLayer, syncParkingLayer, parkingsToGeoJSON } from './parkingLayer';
 export { ensurePlacesLayer, syncPlacesLayer } from './placesLayer';
+export {
+	ensureSwissTrafficLayer,
+	syncSwissTrafficLayer,
+	trafficToGeoJSON,
+	SWISS_TRAFFIC_SOURCE_ID,
+	SWISS_TRAFFIC_CASE_LAYER_ID,
+	SWISS_TRAFFIC_FLOW_LAYER_ID,
+	TRAFFIC_LEVEL_COLOR
+} from './swissTrafficLayer';
 export type { CityLayerContext, CityLayerPlugin } from './types';

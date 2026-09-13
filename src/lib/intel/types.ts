@@ -34,8 +34,10 @@ export type Camera = {
 export type TrafficSegment = {
 	id: string;
 	name: string;
+	/** LineString positions as [lon, lat]. */
 	coordinates: [number, number][];
 	level: 'free' | 'slow' | 'jam';
+	/** True only for synthetic placeholders — live ASTRA DATEX is false. */
 	modeled: boolean;
 };
 
@@ -61,16 +63,16 @@ export type IntelSnapshot = {
 export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 	flights: 'Aircraft',
 	cameras: 'Cameras',
-	traffic: 'Traffic (modeled)',
+	traffic: 'Traffic (ASTRA)',
 	quakes: 'Quakes',
 	detection: 'Camera cones'
 };
 
-/** Compact legend for congestion-colored streets (stable hash — not live jams). */
+/** Legend for live ASTRA DATEX counter speeds (not a road-name hash). */
 export const TRAFFIC_LEGEND: { label: string; color: string }[] = [
-	{ label: 'Free*', color: '#6f8f72' },
-	{ label: 'Slow*', color: '#b08a4a' },
-	{ label: 'Jam*', color: '#a35a5a' }
+	{ label: 'Free', color: '#1faa5b' },
+	{ label: 'Slow', color: '#e0a21b' },
+	{ label: 'Jam', color: '#e03131' }
 ];
 
 export const INTEL_LAYER_COLOR: Record<IntelLayer, string> = {

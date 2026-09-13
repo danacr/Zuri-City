@@ -34,7 +34,7 @@ describe('zurichAerialStyle — product acceptance contracts', () => {
 		expect(Math.max(...numbers)).toBeGreaterThan(0.55);
 	});
 
-	it('keeps congestion traffic layers on OMT transportation centerlines', () => {
+	it('keeps OMT road skeleton layers without fake congestion colors', () => {
 		for (const id of TRAFFIC_STYLE_LAYERS) {
 			const layer = style.layers.find((item) => item.id === id);
 			expect(layer, id).toBeDefined();
@@ -45,6 +45,7 @@ describe('zurichAerialStyle — product acceptance contracts', () => {
 		expect(omt.maxzoom).toBe(14);
 		const flow = style.layers.find((item) => item.id === 'traffic-flow') as {
 			filter?: unknown[];
+			layout?: { visibility?: string };
 			paint?: Record<string, unknown>;
 		};
 		expect(JSON.stringify(flow.filter)).toContain('ramp');
@@ -52,6 +53,13 @@ describe('zurichAerialStyle — product acceptance contracts', () => {
 		const opacity = JSON.stringify(flow.paint?.['line-opacity']);
 		expect(opacity).toContain('interpolate');
 		expect(opacity).not.toMatch(/\["\*",/);
+		// Congestion is ASTRA GeoJSON — OMT flow stays hidden + neutral (no name/hash paint).
+		expect(flow.layout?.visibility).toBe('none');
+		expect(typeof flow.paint?.['line-color']).toBe('string');
+		const paintJson = JSON.stringify(flow.paint);
+		expect(paintJson).not.toMatch(/#2f9e44|#e03131|#1faa5b|#e0a21b/);
+		expect(paintJson).not.toContain('ref');
+		expect(paintJson).not.toContain('"name"');
 	});
 
 	it('stays within the city zoom contract', () => {

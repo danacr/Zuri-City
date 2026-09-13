@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { ZURICH_CAMERAS } from '$lib/intel/cameras';
-import { loadFlights, loadQuakes } from '$lib/server/intel';
+import { loadFlights, loadIntelSnapshot, loadQuakes } from '$lib/server/intel';
+import { loadSwissTraffic } from '$lib/server/swissTraffic';
 
 export const GET: RequestHandler = async ({ fetch, url, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
@@ -16,25 +17,19 @@ export const GET: RequestHandler = async ({ fetch, url, setHeaders }) => {
 		return json({ ...result, fetchedAt: new Date().toISOString() });
 	}
 	if (layer === 'traffic') {
-		// Road geometry is OpenMapTiles on the client — no custom corridor payload.
+		const result = await loadSwissTraffic(fetch);
 		return json({
-			traffic: [],
+			traffic: result.traffic,
 			fetchedAt: new Date().toISOString(),
-			modeled: true,
-			source: 'openmaptiles-transportation'
+			modeled: false,
+			source: result.source,
+			error: result.error || undefined
 		});
 	}
 	if (layer === 'cameras') {
 		return json({ cameras: ZURICH_CAMERAS, fetchedAt: new Date().toISOString() });
 	}
 
-	const [flights, quakes] = await Promise.all([loadFlights(fetch), loadQuakes(fetch)]);
-	return json({
-		flights: flights.flights,
-		quakes: quakes.quakes,
-		traffic: [],
-		cameras: ZURICH_CAMERAS,
-		fetchedAt: new Date().toISOString(),
-		notes: [flights.error, quakes.error].filter(Boolean)
-	});
+	const snapshot = await loadIntelSnapshot(fetch);
+	return json(snapshot);
 };

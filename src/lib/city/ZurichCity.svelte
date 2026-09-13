@@ -12,14 +12,14 @@
 		type PlaceCategory
 	} from './places';
 	import { type Parking } from '$lib/parking';
-	import { syncParkingLayer, syncPlacesLayer } from '$lib/map/layers';
+	import { syncParkingLayer, syncPlacesLayer, syncSwissTrafficLayer } from '$lib/map/layers';
 	import {
 		cameraViewshedsGeoJSON,
 		camerasToGeoJSON,
 		flightsToGeoJSON,
 		quakesToGeoJSON
 	} from '$lib/intel/geo';
-	import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
+	import type { Camera, Flight, IntelLayer, Quake, TrafficSegment } from '$lib/intel/types';
 	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
 	import {
 		CITY_MAX_ZOOM,
@@ -45,6 +45,7 @@
 	export let flights: Flight[] = [];
 	export let cameras: Camera[] = [];
 	export let quakes: Quake[] = [];
+	export let traffic: TrafficSegment[] = [];
 	export let mode: 'orbit' | 'walk' = 'orbit';
 	export let selectedId: string | null = null;
 	export let userPosition: [number, number] | null = null;
@@ -128,6 +129,7 @@
 	}
 	$: if (map && styleReady) {
 		syncTrafficVisibility(map, intelLayers.traffic);
+		syncSwissTrafficLayer(map, traffic, intelLayers.traffic);
 	}
 	let lastAppliedMode: 'orbit' | 'walk' | null = null;
 	$: if (map && mode && mode !== lastAppliedMode) {
@@ -500,14 +502,21 @@
 		}
 
 		syncTrafficVisibility(mapInstance, intelLayers.traffic);
+		syncSwissTrafficLayer(mapInstance, traffic, intelLayers.traffic);
 	}
 
 
 	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
-		const visibility = on ? 'visible' : 'none';
+		// OMT traffic-case = neutral road skeleton only. Congestion color is ASTRA.
+		// Never unhide traffic-flow / traffic-pulse (kept in style for contract IDs).
+		const caseVisibility = on ? 'visible' : 'none';
+		if (mapInstance.getLayer('traffic-case')) {
+			mapInstance.setLayoutProperty('traffic-case', 'visibility', caseVisibility);
+		}
 		for (const id of TRAFFIC_STYLE_LAYERS) {
+			if (id === 'traffic-case') continue;
 			if (mapInstance.getLayer(id)) {
-				mapInstance.setLayoutProperty(id, 'visibility', visibility);
+				mapInstance.setLayoutProperty(id, 'visibility', 'none');
 			}
 		}
 	}

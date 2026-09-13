@@ -6,6 +6,7 @@ import {
 	type IntelSnapshot,
 	type Quake
 } from '$lib/intel/types';
+import { loadSwissTraffic } from '$lib/server/swissTraffic';
 
 type AdsbAircraft = {
 	hex?: string;
@@ -120,14 +121,20 @@ export async function loadQuakes(fetchFn: typeof fetch): Promise<{
 }
 
 export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSnapshot> {
-	const [flightsResult, quakesResult] = await Promise.all([
+	const [flightsResult, quakesResult, trafficResult] = await Promise.all([
 		loadFlights(fetchFn),
-		loadQuakes(fetchFn)
+		loadQuakes(fetchFn),
+		loadSwissTraffic(fetchFn)
 	]);
+	const trafficNote =
+		trafficResult.source === 'astra-datex' && trafficResult.traffic.length
+			? `Live traffic: ${trafficResult.traffic.length} ASTRA DATEX counters in the Zürich bowl (opentransportdata.swiss).`
+			: trafficResult.error ||
+				'Live traffic: ASTRA DATEX (set OPENTRANSPORTDATA_API_KEY). No fake road-name colors.';
 	const notes = [
 		flightsResult.error,
 		quakesResult.error,
-		'Live streets: roads are colored green / amber / red by modeled congestion. Glowing streaks slide along the centerlines — accent only, not the main signal. Not a paid traffic API.',
+		trafficNote,
 		'CCTV stills are live ASTRA Mobcam JPEGs (proxied + validated). Map pins are approximate corridor placements.',
 		'Aircraft are live ADS-B (adsb.lol). Tap “Find aircraft” or enable Aircraft — most contacts are outside the city bowl.',
 		'Basemap is SWISSIMAGE (swisstopo) with solid 3D building masses (keyless). Photoreal street façades need a commercial 3D-tiles key.'
@@ -136,7 +143,7 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 	return {
 		flights: flightsResult.flights,
 		cameras: ZURICH_CAMERAS,
-		traffic: [],
+		traffic: trafficResult.traffic,
 		quakes: quakesResult.quakes,
 		fetchedAt: new Date().toISOString(),
 		notes

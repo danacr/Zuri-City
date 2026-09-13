@@ -30,8 +30,11 @@ fixed downtown seed list.
 
 The foundation is still the map itself — SWISSIMAGE aerial, **solid OSM building
 massing** (opaque fill-extrusions that read as real volume on terrain — not
-translucent “ghost” boxes), **swisstopo terrain**, and **congestion-colored streets**
-on OpenMapTiles centerlines (**green** / **amber** / **red**). Parking from the
+translucent “ghost” boxes), **swisstopo terrain**, and **live ASTRA DATEX traffic**
+(opentransportdata.swiss — green / amber / red from measured speeds; never a
+road-name hash). Set `OPENTRANSPORTDATA_API_KEY` (free key from
+[api-manager.opentransportdata.swiss](https://api-manager.opentransportdata.swiss)).
+Parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) starts **on** as **blue capacity
 pills** (toggleable in Layers; list panel optional). Place and aircraft markers use
 **sprites**, never raw MapLibre circles as the primary glyph. Do **not** ship

@@ -30,7 +30,8 @@
 		type Camera,
 		type Flight,
 		type IntelLayer,
-		type Quake
+		type Quake,
+		type TrafficSegment
 	} from '$lib/intel/types';
 	import type { PageData } from '../../routes/$types';
 
@@ -59,6 +60,7 @@
 	let flights: Flight[] = data.intel?.flights ?? [];
 	let cameras: Camera[] = data.intel?.cameras ?? [];
 	let quakes: Quake[] = data.intel?.quakes ?? [];
+	let traffic: TrafficSegment[] = data.intel?.traffic ?? [];
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let hydrateGen = 0;
 	let lastHydrate: PageData['hydrateCity'] | undefined;
@@ -126,8 +128,7 @@
 		parking: parkings.length,
 		flights: flights.length,
 		cameras: cameras.length,
-		// Live streets: simulated cars on OpenMapTiles roads — no corridor count.
-		traffic: intelLayers.traffic ? 'roads' : 0,
+		traffic: intelLayers.traffic ? traffic.length : 0,
 		quakes: quakes.length
 	} satisfies LayerCounts;
 	$: activePlaceCount = PLACE_CATEGORIES.filter((key) => layers[key]).length;
@@ -179,6 +180,7 @@
 			}
 			if (payload.quakes) quakes = payload.quakes;
 			if (payload.cameras) cameras = payload.cameras;
+			if (Array.isArray(payload.traffic)) traffic = payload.traffic;
 			if (payload.notes) intelNotes = payload.notes;
 		} catch {
 			/* Keep last good snapshot. */
@@ -399,6 +401,7 @@
 			{flights}
 			{cameras}
 			{quakes}
+			{traffic}
 			{mode}
 			selectedId={selectedKind === 'place'
 				? placeOf(selected)?.id || null

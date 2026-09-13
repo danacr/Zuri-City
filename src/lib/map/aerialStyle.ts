@@ -2,8 +2,9 @@ import type { ExpressionSpecification, StyleSpecification } from 'maplibre-gl';
 import { CITY_MAX_ZOOM, CITY_MIN_ZOOM, SWISSIMAGE_TILES } from './swissSources';
 
 /**
- * Major + local OMT transportation classes so congestion strokes sit on the
- * same centerlines users see in the aerial (not a sparse arterial-only graph).
+ * Major + local OMT transportation classes so the neutral road skeleton
+ * sits on the same centerlines as SWISSIMAGE (not a sparse arterial-only graph).
+ * Live congestion color comes from ASTRA DATEX (`swiss-traffic-*`), never a hash.
  */
 const TRAFFIC_CLASSES = [
 	'motorway',
@@ -41,46 +42,10 @@ function fadedLineOpacity(peak: number): ExpressionSpecification {
 		16.5,
 		peak * 0.72,
 		17.5,
-		// Keep congestion readable at walk — thin, not invisible.
+		// Keep the road skeleton readable at walk — thin, not invisible.
 		peak * 0.62
 	];
 }
-
-/** Pseudo congestion from stable road identity (ref/name/class) — green / amber / red. */
-const congestionColor: ExpressionSpecification = [
-	'match',
-	[
-		'%',
-		[
-			'+',
-			[
-				'match',
-				['get', 'class'],
-				'motorway',
-				0,
-				'trunk',
-				1,
-				'primary',
-				2,
-				'secondary',
-				3,
-				'tertiary',
-				4,
-				'minor',
-				5,
-				6
-			],
-			['length', ['coalesce', ['get', 'ref'], '']],
-			['length', ['coalesce', ['get', 'name'], ['get', 'name:en'], 'rd']]
-		],
-		3
-	],
-	0,
-	'#5f8f62',
-	1,
-	'#c49a3a',
-	'#b54a4a'
-];
 
 /**
  * Class-aware centerline width — thin enough to read as streets on SWISSIMAGE,
@@ -270,6 +235,10 @@ export function zurichAerialStyle(): StyleSpecification {
 				}
 			},
 			{
+				/**
+				 * Neutral OMT centerline guide only — congestion color comes from
+				 * live ASTRA DATEX (`swiss-traffic-*` layers), never a road-name hash.
+				 */
 				id: 'traffic-flow',
 				type: 'line',
 				source: 'openmaptiles',
@@ -280,16 +249,16 @@ export function zurichAerialStyle(): StyleSpecification {
 				layout: {
 					'line-cap': 'round',
 					'line-join': 'round',
-					visibility: 'visible'
+					visibility: 'none'
 				},
 				paint: {
-					'line-color': congestionColor,
-					'line-opacity': fadedLineOpacity(0.95),
-					'line-width': trafficWidth(0.85)
+					'line-color': '#9eb0c2',
+					'line-opacity': fadedLineOpacity(0.35),
+					'line-width': trafficWidth(0.55)
 				}
 			},
 			{
-				/** Static dash accent — no per-frame dasharray RAF. */
+				/** Kept for style contract / toggle list — hidden; live color is ASTRA. */
 				id: 'traffic-pulse',
 				type: 'line',
 				source: 'openmaptiles',
@@ -309,12 +278,12 @@ export function zurichAerialStyle(): StyleSpecification {
 				layout: {
 					'line-cap': 'butt',
 					'line-join': 'round',
-					visibility: 'visible'
+					visibility: 'none'
 				},
 				paint: {
 					'line-color': '#ffffff',
-					'line-opacity': fadedLineOpacity(0.2),
-					'line-width': trafficWidth(0.28),
+					'line-opacity': fadedLineOpacity(0.12),
+					'line-width': trafficWidth(0.22),
 					'line-dasharray': [1.2, 3.6]
 				}
 			},
