@@ -158,7 +158,7 @@
 			{/each}
 		</ul>
 		{#if intelLayers.traffic && counts.traffic > 0}
-			<div class="traffic-legend" aria-label="Traffic colors">
+			<div class="traffic-legend" aria-label="Roadworks colors">
 				{#each TRAFFIC_LEGEND as item (item.label)}
 					<span><i style:background={item.color}></i>{item.label}</span>
 				{/each}

@@ -63,12 +63,12 @@ export type IntelSnapshot = {
 export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 	flights: 'Aircraft',
 	cameras: 'Cameras',
-	traffic: 'Traffic',
+	traffic: 'Roadworks',
 	quakes: 'Quakes',
 	detection: 'Camera cones'
 };
 
-/** Legend for live roadworks / disruptions (not a road-name hash or fake speeds). */
+/** Legend for live KTZH/OSM roadworks (not congestion flow). */
 export const TRAFFIC_LEGEND: { label: string; color: string }[] = [
 	{ label: 'Restricted', color: '#e0a21b' },
 	{ label: 'Closed', color: '#e03131' }

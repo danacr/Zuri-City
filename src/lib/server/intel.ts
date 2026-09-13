@@ -128,7 +128,7 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 	]);
 	const trafficNote =
 		trafficResult.source === 'zh-roadworks' && trafficResult.traffic.length
-			? `Live traffic: ${trafficResult.traffic.length} roadworks / disruptions (Kanton Zürich Baustellen + OSM construction — no API key).`
+			? `Live roadworks: ${trafficResult.traffic.length} sites (Kanton Zürich Baustellen + OSM construction — no API key).`
 			: '';
 	// Visitor-facing notes only — never put env-var / deploy instructions on the map toast.
 	const notes = [
