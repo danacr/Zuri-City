@@ -1,0 +1,51 @@
+name: Quality
+
+# Pre-human CI gate. Uses `npm run quality` when the script exists; otherwise
+# check + unit + build (+ Playwright if configured). Safe to merge onto branches
+# that do not yet define a `quality` script.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run quality gate
+        run: |
+          if npm run | grep -qE '^[[:space:]]*quality[[:space:]]'; then
+            npm run quality
+          else
+            echo "No npm run quality — using check + vitest + build + playwright"
+            npm run check
+            npx vitest run
+            npm run build
+            npx playwright test
+          fi
