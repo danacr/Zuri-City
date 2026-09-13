@@ -212,6 +212,8 @@
 
 		async function boot() {
 			try {
+				// Must be set before Cesium evaluates worker URLs.
+				(window as unknown as { CESIUM_BASE_URL?: string }).CESIUM_BASE_URL = '/cesiumStatic/';
 				handle = await createCesiumCity(container);
 				CesiumMod = await import('cesium');
 				if (disposed) {

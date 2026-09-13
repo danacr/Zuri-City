@@ -23,7 +23,7 @@ Cesium ion keys for the default experience.
 
 - **Runtime:** Node.js **24.x** (see `.nvmrc`, `.node-version`, `package.json`)
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
-- **Map:** CesiumJS — one engine for SWISSIMAGE tiles, swissBUILDINGS3D, and terrain (`src/lib/city/ZurichCity.svelte`, `src/lib/map/cesiumCity.ts`)
+- **Map:** CesiumJS (Workers/Assets via `static/cesiumStatic` from `npm run cesium:assets`) — one engine for SWISSIMAGE tiles, swissBUILDINGS3D, and terrain (`src/lib/city/ZurichCity.svelte`, `src/lib/map/cesiumCity.ts`)
 - **swisstopo sources:** `src/lib/map/swissSources.ts` (no Cesium ion key)
 - **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only; Cesium converts zoom → height)
 - **Traffic:** Cesium corridor polylines in `src/lib/map/zurichArteries.ts` (congestion colors; no per-frame dash RAF)

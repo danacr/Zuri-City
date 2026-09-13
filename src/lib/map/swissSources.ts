@@ -16,15 +16,18 @@ export const WALK_CAMERA = {
 	pitch: 72
 } as const;
 
-/** SWISSIMAGE WMTS (Web Mercator) for Cesium UrlTemplateImageryProvider. */
+/**
+ * SWISSIMAGE via geo.admin WMTS (Web Mercator / EPSG:3857).
+ * Official REST template used by map.geo.admin.ch.
+ */
 export const SWISSIMAGE_TILES =
 	'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg';
 
-/** swissBUILDINGS3D — native Cesium 3D Tileset (no ion key). */
+/** swissBUILDINGS3D — Cesium 3D Tiles (no ion key). */
 export const SWISS_BUILDINGS_TILESET =
 	'https://3d.geo.admin.ch/ch.swisstopo.swissbuildings3d.3d/v1/tileset.json';
 
-/** swisstopo quantized-mesh terrain root (CesiumTerrainProvider). */
+/** swisstopo quantized-mesh terrain root. */
 export const SWISS_TERRAIN_URL = 'https://3d.geo.admin.ch/ch.swisstopo.terrain.3d/v1/';
 
 /** Fallback Terrarium DEM when swisstopo terrain is unreachable. */

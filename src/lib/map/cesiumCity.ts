@@ -16,26 +16,30 @@ export type CesiumCityHandle = {
 	destroy: () => void;
 };
 
+const CESIUM_ASSET_BASE = '/cesiumStatic/';
+
+function ensureCesiumBaseUrl() {
+	if (typeof window === 'undefined') return;
+	const w = window as Window & { CESIUM_BASE_URL?: string };
+	if (!w.CESIUM_BASE_URL) w.CESIUM_BASE_URL = CESIUM_ASSET_BASE;
+}
+
 /**
  * Create a Cesium Viewer that owns SWISSIMAGE + swissBUILDINGS3D + swisstopo terrain.
  * No Cesium ion token required — all URLs are public geo.admin.ch endpoints.
+ *
+ * Boot is resilient: ellipsoid + imagery first, terrain/buildings attach in background
+ * so a slow 3D tileset never blanks the whole map.
  */
 export async function createCesiumCity(container: HTMLElement): Promise<CesiumCityHandle> {
+	ensureCesiumBaseUrl();
+
 	const Cesium = await import('cesium');
 	await import('cesium/Build/Cesium/Widgets/widgets.css');
 
+	// Never hit ion defaults — we supply our own imagery/terrain.
 	if (Cesium.Ion) {
 		Cesium.Ion.defaultAccessToken = '';
-	}
-
-	let terrainProvider: TerrainProvider;
-	try {
-		terrainProvider = await Cesium.CesiumTerrainProvider.fromUrl(SWISS_TERRAIN_URL, {
-			requestVertexNormals: true
-		});
-	} catch (error) {
-		console.warn('swisstopo terrain unavailable — using ellipsoid', error);
-		terrainProvider = new Cesium.EllipsoidTerrainProvider();
 	}
 
 	const viewer = new Cesium.Viewer(container, {
@@ -52,17 +56,25 @@ export async function createCesiumCity(container: HTMLElement): Promise<CesiumCi
 		navigationHelpButton: false,
 		navigationInstructionsInitiallyVisible: false,
 		creditContainer: document.createElement('div'),
-		terrainProvider,
+		// Fast sync boot — upgrade to swisstopo terrain after first frame.
+		terrainProvider: new Cesium.EllipsoidTerrainProvider(),
 		baseLayer: false,
 		requestRenderMode: true,
-		maximumRenderTimeChange: Infinity
+		maximumRenderTimeChange: Infinity,
+		contextOptions: {
+			webgl: {
+				alpha: false,
+				antialias: true,
+				powerPreference: 'high-performance'
+			}
+		}
 	});
 
 	viewer.scene.globe.depthTestAgainstTerrain = true;
 	viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#07131f');
 	viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#07131f');
 	viewer.scene.fog.enabled = true;
-	if (viewer.scene.skyAtmosphere) if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = true;
+	if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = true;
 	viewer.scene.globe.enableLighting = false;
 	viewer.scene.screenSpaceCameraController.minimumZoomDistance = zoomToHeight(18);
 	viewer.scene.screenSpaceCameraController.maximumZoomDistance = zoomToHeight(11);
@@ -75,21 +87,7 @@ export async function createCesiumCity(container: HTMLElement): Promise<CesiumCi
 	const imagery = viewer.imageryLayers.addImageryProvider(imageryProvider);
 	imagery.brightness = 1.02;
 	imagery.contrast = 1.05;
-	imagery.saturation = 0.95;
-
-	let buildings: Cesium3DTileset | null = null;
-	try {
-		const mobile = typeof window !== 'undefined' && window.innerWidth < 768;
-		buildings = await Cesium.Cesium3DTileset.fromUrl(SWISS_BUILDINGS_TILESET, {
-			maximumScreenSpaceError: mobile ? 16 : 8,
-			cacheBytes: 256 * 1024 * 1024,
-			maximumCacheOverflowBytes: 128 * 1024 * 1024
-		});
-		viewer.scene.primitives.add(buildings);
-	} catch (error) {
-		console.warn('swissBUILDINGS3D failed to load', error);
-		buildings = null;
-	}
+	imagery.saturation = 0.92;
 
 	viewer.camera.setView({
 		destination: Cesium.Cartesian3.fromDegrees(
@@ -105,10 +103,11 @@ export async function createCesiumCity(container: HTMLElement): Promise<CesiumCi
 	});
 
 	viewer.camera.changed.addEventListener(() => viewer.scene.requestRender());
+	viewer.scene.requestRender();
 
-	return {
+	const handle: CesiumCityHandle = {
 		viewer,
-		buildings,
+		buildings: null,
 		imagery,
 		destroy: () => {
 			try {
@@ -118,6 +117,53 @@ export async function createCesiumCity(container: HTMLElement): Promise<CesiumCi
 			}
 		}
 	};
+
+	// Non-blocking upgrades — map is already usable with aerial + ellipsoid.
+	void attachSwissTerrain(viewer, Cesium);
+	void attachSwissBuildings(handle, Cesium);
+
+	return handle;
+}
+
+async function attachSwissTerrain(
+	viewer: Viewer,
+	Cesium: typeof import('cesium')
+): Promise<void> {
+	try {
+		const terrainProvider: TerrainProvider = await Cesium.CesiumTerrainProvider.fromUrl(
+			SWISS_TERRAIN_URL,
+			{ requestVertexNormals: true }
+		);
+		if (!viewer.isDestroyed()) {
+			viewer.terrainProvider = terrainProvider;
+			viewer.scene.requestRender();
+		}
+	} catch (error) {
+		console.warn('swisstopo terrain unavailable — keeping ellipsoid', error);
+	}
+}
+
+async function attachSwissBuildings(
+	handle: CesiumCityHandle,
+	Cesium: typeof import('cesium')
+): Promise<void> {
+	try {
+		const mobile = typeof window !== 'undefined' && window.innerWidth < 768;
+		const buildings = await Cesium.Cesium3DTileset.fromUrl(SWISS_BUILDINGS_TILESET, {
+			maximumScreenSpaceError: mobile ? 24 : 12,
+			cacheBytes: 192 * 1024 * 1024,
+			maximumCacheOverflowBytes: 96 * 1024 * 1024
+		});
+		if (handle.viewer.isDestroyed()) {
+			buildings.destroy();
+			return;
+		}
+		handle.viewer.scene.primitives.add(buildings);
+		handle.buildings = buildings;
+		handle.viewer.scene.requestRender();
+	} catch (error) {
+		console.warn('swissBUILDINGS3D failed to load', error);
+	}
 }
 
 export { flyCityCamera };
