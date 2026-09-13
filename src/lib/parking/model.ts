@@ -68,20 +68,16 @@ export function isFallbackParking(parking: Parking) {
 }
 
 /**
- * Map label: live free/capacity when known.
- * Fallback / unknown free → capacity-only landmark copy (never "Unknown · — / n").
+ * Map label for parking POIs — always parking, never "landmark".
+ * Prefer live free/capacity; capacity-only when free is still loading.
  */
 export function parkingMapLabel(parking: Parking) {
 	const state = availability(parking);
 	if (state === 'Closed') return 'Closed';
 	if (state === 'Full') return `Full · ${spotCount(parking)}`;
 	if (parking.free !== null) return `${state} · ${spotCount(parking)}`;
-	if (parking.capacity != null) {
-		return isFallbackParking(parking)
-			? `Landmark · ${parking.capacity} spaces`
-			: `Capacity · ${parking.capacity}`;
-	}
-	return isFallbackParking(parking) ? 'Landmark' : 'Garage';
+	if (parking.capacity != null) return `Parking · ${parking.capacity}`;
+	return 'Parking';
 }
 
 export function distance(from: [number, number], to: [number, number]) {

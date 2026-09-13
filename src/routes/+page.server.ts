@@ -1,6 +1,10 @@
 import type { PageServerLoad } from './$types';
 import Parser from 'rss-parser';
-import { FALLBACK_PARKINGS, parseParking, type Parking } from '$lib/parking';
+import {
+	assistParkingCoordinates,
+	parseParking,
+	type Parking
+} from '$lib/parking';
 import { enrichParkings } from '$lib/server/parking-details';
 import { loadCityPlaces } from '$lib/server/places';
 import { loadIntelSnapshot } from '$lib/server/intel';
@@ -16,8 +20,28 @@ const EMPTY_INTEL: IntelSnapshot = {
 	notes: []
 };
 
+const PLS_FEED_URLS = [
+	'https://www.pls-zh.ch/plsFeed/rss',
+	'https://www.pls-zh.ch/plsFeed/rss.xml'
+];
+
 function withCoordinates(parkings: Parking[]): Parking[] {
 	return parkings.filter((parking) => parking.coordinates !== null);
+}
+
+async function fetchPlsFeed(fetchFn: typeof fetch, signal: AbortSignal): Promise<Parking[]> {
+	let lastError: unknown;
+	for (const url of PLS_FEED_URLS) {
+		try {
+			const response = await fetchFn(url, { cache: 'no-store', signal });
+			if (!response.ok) throw new Error(`Feed ${response.status}`);
+			const feed = await new Parser().parseString(await response.text());
+			return feed.items.map(parseParking);
+		} catch (error) {
+			lastError = error;
+		}
+	}
+	throw lastError instanceof Error ? lastError : new Error('PLS feed unavailable');
 }
 
 async function loadParkings(fetchFn: typeof fetch): Promise<{
@@ -26,33 +50,31 @@ async function loadParkings(fetchFn: typeof fetch): Promise<{
 	error: string;
 }> {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 10000);
+	const timer = setTimeout(() => controller.abort(), 12000);
 	try {
-		const response = await fetchFn('https://www.pls-zh.ch/plsFeed/rss', {
-			cache: 'no-store',
-			signal: controller.signal
-		});
-		if (!response.ok) throw new Error('Feed unavailable');
-		const feed = await new Parser().parseString(await response.text());
-		const parkings = await enrichParkings(feed.items.map(parseParking), fetchFn);
-		const located = withCoordinates(parkings);
+		const parsed = await fetchPlsFeed(fetchFn, controller.signal);
+		const enriched = await enrichParkings(parsed, fetchFn);
+		const assisted = assistParkingCoordinates(enriched);
+		const located = withCoordinates(assisted);
 		if (located.length === 0) {
 			return {
-				parkings: FALLBACK_PARKINGS,
-				refreshedAt: new Date().toISOString(),
-				error: 'Live parking had no map locations — showing curated Zürich garages.'
+				parkings: [],
+				refreshedAt: null,
+				error: 'Live parking loaded but no garage coordinates yet — retry shortly.'
 			};
 		}
 		return {
 			parkings: located,
 			refreshedAt: new Date().toISOString(),
-			error: ''
+			error: located.length < assisted.length
+				? `Showing ${located.length} garages with map locations (${assisted.length - located.length} still locating).`
+				: ''
 		};
 	} catch {
 		return {
-			parkings: FALLBACK_PARKINGS,
+			parkings: [],
 			refreshedAt: null,
-			error: 'Live parking feed unavailable — showing curated Zürich garages.'
+			error: 'Live parking feed unavailable — retry or refresh.'
 		};
 	} finally {
 		clearTimeout(timer);
@@ -60,9 +82,8 @@ async function loadParkings(fetchFn: typeof fetch): Promise<{
 }
 
 /**
- * Sync shell returns immediately so `app.html` boot splash can paint before
- * Overpass / parking RSS / ADS-B finish. Real data arrives via `hydrateCity`.
- * Seed parking with curated coords so capacity pills exist before hydrate.
+ * Sync shell returns immediately so `app.html` boot splash can paint.
+ * Parking starts empty — hydrate always loads dynamic PLS (never curated landmarks).
  */
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
@@ -81,7 +102,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		places: FALLBACK_PLACES,
 		placesSource: 'fallback' as const,
 		placesError: '',
-		parkings: FALLBACK_PARKINGS,
+		parkings: [] as Parking[],
 		refreshedAt: null as string | null,
 		error: '',
 		intel: EMPTY_INTEL,

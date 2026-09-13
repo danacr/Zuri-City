@@ -17,7 +17,26 @@ const TRAFFIC_CLASSES = [
 const trafficClassFilter: ExpressionSpecification = [
 	'all',
 	['in', ['get', 'class'], ['literal', [...TRAFFIC_CLASSES]]],
-	['!=', ['get', 'brunnel'], 'tunnel']
+	['!=', ['get', 'brunnel'], 'tunnel'],
+	// Ramps generalize poorly when OMT (maxzoom 14) is overzoomed onto SWISSIMAGE.
+	['!=', ['coalesce', ['get', 'ramp'], 0], 1]
+];
+
+/** Fade modeled strokes past z15 — overzoomed OMT centerlines drift vs aerial. */
+const trafficFadeOpacity: ExpressionSpecification = [
+	'interpolate',
+	['linear'],
+	['zoom'],
+	13,
+	0.9,
+	14.5,
+	0.82,
+	15.5,
+	0.45,
+	16.5,
+	0.18,
+	17.5,
+	0.08
 ];
 
 /** Pseudo congestion from stable road identity (ref/name/class) — green / amber / red. */
@@ -70,54 +89,54 @@ function trafficWidth(scale: number): ExpressionSpecification {
 			'match',
 			['get', 'class'],
 			'motorway',
-			2.2 * scale,
+			1.6 * scale,
 			'trunk',
-			2.0 * scale,
+			1.45 * scale,
 			'primary',
-			1.7 * scale,
+			1.25 * scale,
 			'secondary',
-			1.4 * scale,
+			1.05 * scale,
 			'tertiary',
-			1.2 * scale,
-			'minor',
 			0.9 * scale,
-			0.7 * scale
-		],
-		15,
-		[
-			'match',
-			['get', 'class'],
-			'motorway',
-			4.2 * scale,
-			'trunk',
-			3.6 * scale,
-			'primary',
-			3.0 * scale,
-			'secondary',
-			2.4 * scale,
-			'tertiary',
-			2.0 * scale,
 			'minor',
-			1.5 * scale,
-			1.1 * scale
+			0.7 * scale,
+			0.55 * scale
 		],
-		CITY_MAX_ZOOM,
+		14.5,
 		[
 			'match',
 			['get', 'class'],
 			'motorway',
-			6.0 * scale,
-			'trunk',
-			5.2 * scale,
-			'primary',
-			4.4 * scale,
-			'secondary',
-			3.4 * scale,
-			'tertiary',
 			2.8 * scale,
-			'minor',
+			'trunk',
+			2.4 * scale,
+			'primary',
 			2.0 * scale,
-			1.5 * scale
+			'secondary',
+			1.6 * scale,
+			'tertiary',
+			1.35 * scale,
+			'minor',
+			1.05 * scale,
+			0.85 * scale
+		],
+		16,
+		[
+			'match',
+			['get', 'class'],
+			'motorway',
+			3.2 * scale,
+			'trunk',
+			2.8 * scale,
+			'primary',
+			2.3 * scale,
+			'secondary',
+			1.8 * scale,
+			'tertiary',
+			1.5 * scale,
+			'minor',
+			1.15 * scale,
+			0.9 * scale
 		]
 	];
 }
@@ -143,7 +162,10 @@ export function zurichAerialStyle(): StyleSpecification {
 			},
 			openmaptiles: {
 				type: 'vector',
+				// TileJSON already caps at 14 — keep url so planet snapshots rotate.
+				// Explicit maxzoom documents the overzoom contract vs SWISSIMAGE z19.
 				url: 'https://tiles.openfreemap.org/planet',
+				maxzoom: 14,
 				attribution: '© OpenMapTiles © OpenStreetMap'
 			}
 		},
@@ -220,8 +242,12 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': '#0a121c',
-					'line-opacity': 0.38,
-					'line-width': trafficWidth(0.85)
+					'line-opacity': [
+						'*',
+						0.32,
+						trafficFadeOpacity
+					],
+					'line-width': trafficWidth(0.72)
 				}
 			},
 			{
@@ -240,15 +266,19 @@ export function zurichAerialStyle(): StyleSpecification {
 				paint: {
 					'line-color': congestionColor,
 					'line-opacity': [
-						'match',
-						['get', 'class'],
-						'minor',
-						0.72,
-						'service',
-						0.55,
-						0.88
+						'*',
+						[
+							'match',
+							['get', 'class'],
+							'minor',
+							0.78,
+							'service',
+							0.55,
+							0.95
+						],
+						trafficFadeOpacity
 					],
-					'line-width': trafficWidth(0.65)
+					'line-width': trafficWidth(0.55)
 				}
 			},
 			{
@@ -258,7 +288,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				source: 'openmaptiles',
 				'source-layer': 'transportation',
 				minzoom: CITY_MIN_ZOOM,
-				maxzoom: CITY_MAX_ZOOM + 1,
+				maxzoom: 15.5,
 				filter: [
 					'all',
 					[
@@ -266,7 +296,8 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'class'],
 						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
 					],
-					['!=', ['get', 'brunnel'], 'tunnel']
+					['!=', ['get', 'brunnel'], 'tunnel'],
+					['!=', ['coalesce', ['get', 'ramp'], 0], 1]
 				],
 				layout: {
 					'line-cap': 'butt',
@@ -275,8 +306,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': '#ffffff',
-					'line-opacity': 0.22,
-					'line-width': trafficWidth(0.32),
+					'line-opacity': ['*', 0.2, trafficFadeOpacity],
+					'line-width': trafficWidth(0.28),
 					'line-dasharray': [1.2, 3.6]
 				}
 			},

@@ -25,7 +25,7 @@
 		type LayerCounts
 	} from '$lib/city/layerRegistry';
 	import { placeIconDataUrl } from '$lib/city/placeIcons';
-	import { type Parking } from '$lib/parking';
+	import { availability, spotCount, type Parking } from '$lib/parking';
 	import {
 		SENSOR_LOOKS,
 		type Camera,
@@ -41,8 +41,8 @@
 	let mode: 'orbit' | 'walk' = 'orbit';
 	/** Mobile starts map-first; open the sheet from the Layers control when needed. */
 	let layersOpen = false;
-	let selected: Place | Flight | Camera | null = null;
-	let selectedKind: 'place' | 'flight' | 'camera' | null = null;
+	let selected: Place | Flight | Camera | Parking | null = null;
+	let selectedKind: 'place' | 'flight' | 'camera' | 'parking' | null = null;
 	let city: ZurichCity;
 	let position: [number, number] | null = null;
 	let locating = false;
@@ -91,7 +91,8 @@
 				for (const place of live.places) byId.set(place.id, place);
 				places = [...byId.values()];
 			}
-			if (live.parkings?.length) parkings = live.parkings;
+			// Always replace — sync shell starts empty; never keep a stale seed set.
+			if (Array.isArray(live.parkings)) parkings = live.parkings;
 			placesError = live.placesError;
 			parkingError = live.error;
 			refreshedAt = live.refreshedAt;
@@ -256,7 +257,13 @@
 		event: CustomEvent<{ id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' }>
 	) {
 		const { id, kind } = event.detail;
-		if (kind === 'parking') return;
+		if (kind === 'parking') {
+			const parking =
+				parkings.find((item) => (item.id || item.name) === id) || null;
+			selected = parking;
+			selectedKind = parking ? 'parking' : null;
+			return;
+		}
 		if (kind === 'flight') {
 			const flight = flights.find((item) => item.id === id) || null;
 			selected = flight;
@@ -310,13 +317,16 @@
 		);
 	}
 
-	function placeOf(value: Place | Flight | Camera | null): Place | null {
+	function placeOf(value: Place | Flight | Camera | Parking | null): Place | null {
 		return selectedKind === 'place' ? (value as Place) : null;
 	}
-	function flightOf(value: Place | Flight | Camera | null): Flight | null {
+	function parkingOf(value: Place | Flight | Camera | Parking | null): Parking | null {
+		return selectedKind === 'parking' ? (value as Parking) : null;
+	}
+	function flightOf(value: Place | Flight | Camera | Parking | null): Flight | null {
 		return selectedKind === 'flight' ? (value as Flight) : null;
 	}
-	function cameraOf(value: Place | Flight | Camera | null): Camera | null {
+	function cameraOf(value: Place | Flight | Camera | Parking | null): Camera | null {
 		return selectedKind === 'camera' ? (value as Camera) : null;
 	}
 
@@ -358,11 +368,13 @@
 			{mode}
 			selectedId={selectedKind === 'place'
 				? placeOf(selected)?.id || null
-				: selectedKind === 'flight'
-					? flightOf(selected)?.id || null
-					: selectedKind === 'camera'
-						? cameraOf(selected)?.id || null
-						: null}
+				: selectedKind === 'parking'
+					? parkingOf(selected)?.id || parkingOf(selected)?.name || null
+					: selectedKind === 'flight'
+						? flightOf(selected)?.id || null
+						: selectedKind === 'camera'
+							? cameraOf(selected)?.id || null
+							: null}
 			userPosition={position}
 			on:select={onSelect}
 			on:ready={onCityReady}
@@ -548,6 +560,39 @@
 						href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`}
 						>Open in OSM ↗</a
 					>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</article>
+			{/if}
+		{/if}
+
+		{#if selected && selectedKind === 'parking'}
+			{@const parking = parkingOf(selected)}
+			{#if parking}
+				<article class="inspect" aria-label={parking.name}>
+					<button
+						type="button"
+						class="close"
+						aria-label="Close parking"
+						on:click={() => {
+							selected = null;
+							selectedKind = null;
+						}}>×</button
+					>
+					<p class="eyebrow">Parking</p>
+					<h3>{parking.name}</h3>
+					{#if parking.address}
+						<p>{parking.address}</p>
+					{/if}
+					<p class="open-hint" class:open={availability(parking) === 'Open'} class:closed={availability(parking) === 'Closed' || availability(parking) === 'Full'}>
+						{availability(parking)} · {spotCount(parking)}
+					</p>
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					{#if parking.directions}
+						<a href={parking.directions}>Directions ↗</a>
+					{/if}
+					{#if parking.link}
+						<a href={parking.link}>PLS details ↗</a>
+					{/if}
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</article>
 			{/if}

@@ -1,9 +1,8 @@
 import type { Parking } from './model';
 
 /**
- * Curated Zürich garages with stable coordinates.
- * Used when the PLS RSS feed is blocked/unavailable so the product
- * contract (always-on capacity pills) still paints on first hydrate.
+ * Coord assist for live PLS items that fail map-page scrape.
+ * Never shown as the visible parking set — live RSS is always required.
  */
 export const FALLBACK_PARKINGS: Parking[] = [
 	{

@@ -681,6 +681,7 @@
 				for (const layer of [
 					'places-core',
 					'parking-pill',
+					'parking-label',
 					'flights-core',
 					'cameras-core',
 					'quakes-core'

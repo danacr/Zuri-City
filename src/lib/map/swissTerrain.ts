@@ -78,8 +78,8 @@ export async function attachSwissTerrain(
 			map.removeSource(TERRAIN_SOURCE_ID);
 		}
 		map.addSource(TERRAIN_SOURCE_ID, sourceSpec as never);
-		// Exaggeration 1.0 — avoid amplifying DEM stair-steps against SWISSIMAGE.
-		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1 });
+		// Slight under-exaggeration — steep pitch + DEM stairs shift OMT strokes vs SWISSIMAGE.
+		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 0.85 });
 		return { unregister };
 	} catch (error) {
 		console.warn('swisstopo terrain unavailable — using Terrarium fallback', error);
@@ -101,7 +101,7 @@ function attachFallbackTerrain(map: MapLibreMap): TerrainHandle {
 			maxzoom: 15,
 			attribution: 'Mapzen / AWS Terrain Tiles'
 		});
-		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1 });
+		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 0.85 });
 	} catch (error) {
 		console.warn('terrain fallback failed', error);
 	}

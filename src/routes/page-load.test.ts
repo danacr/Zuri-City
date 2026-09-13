@@ -62,8 +62,8 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 	};
 
 	const firstShell = (await load(event)) as Shell;
-	// Sync shell seeds curated garages so parking pills paint before hydrate.
-	expect(firstShell.parkings.length).toBeGreaterThan(0);
+	// Sync shell starts empty — parking always hydrates from live PLS.
+	expect(firstShell.parkings).toHaveLength(0);
 	const first = await firstShell.hydrateCity;
 	expect(first.parkings).toHaveLength(36);
 

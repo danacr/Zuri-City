@@ -48,7 +48,9 @@ describe('parking always-on contract', () => {
 		expect(geo.features).toHaveLength(1);
 		expect(geo.features[0].geometry.coordinates).toEqual([8.54, 47.37]);
 		expect(geo.features[0].properties.tone).toBe('green');
+		expect(geo.features[0].properties.icon).toBe('parking-green');
 		expect(geo.features[0].properties.label).toMatch(/Open/i);
+		expect(geo.features[0].properties.label).not.toMatch(/Landmark/i);
 	});
 
 	it('defines pill + label layer ids used by the map host', () => {

@@ -119,12 +119,64 @@ export function registerCameraIcon(map: MapLibreMap) {
 	addImageSafe(map, 'camera-cctv', drawCameraIcon(96));
 }
 
-/** Ensure the full base atlas exists (places + aircraft + camera). */
+
+const PARKING_ICON_COLORS: Record<'green' | 'red' | 'blue', string> = {
+	green: '#2f9e44',
+	red: '#e03131',
+	blue: '#1c7ed6'
+};
+
+/** Parking POI sprite — blue/green/red "P" disc (not a landmark pin). */
+export function drawParkingIcon(
+	tone: 'green' | 'red' | 'blue' = 'blue',
+	pixelSize = 96
+): ImageData | null {
+	const canvas = document.createElement('canvas');
+	canvas.width = pixelSize;
+	canvas.height = pixelSize;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return null;
+	const u = pixelSize / 64;
+	ctx.clearRect(0, 0, pixelSize, pixelSize);
+	ctx.translate(pixelSize / 2, pixelSize / 2);
+
+	ctx.fillStyle = 'rgba(10, 16, 28, 0.28)';
+	ctx.beginPath();
+	ctx.arc(1.2 * u, 2 * u, 20 * u, 0, Math.PI * 2);
+	ctx.fill();
+
+	ctx.fillStyle = PARKING_ICON_COLORS[tone];
+	ctx.beginPath();
+	ctx.arc(0, 0, 19 * u, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.strokeStyle = '#ffffff';
+	ctx.lineWidth = 2.4 * u;
+	ctx.stroke();
+
+	ctx.fillStyle = '#ffffff';
+	ctx.font = `bold ${22 * u}px system-ui, sans-serif`;
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
+	ctx.fillText('P', 0, 1.2 * u);
+
+	return ctx.getImageData(0, 0, pixelSize, pixelSize);
+}
+
+export function registerParkingIcons(map: MapLibreMap) {
+	for (const tone of ['green', 'red', 'blue'] as const) {
+		const id = `parking-${tone}`;
+		if (map.hasImage(id)) continue;
+		addImageSafe(map, id, drawParkingIcon(tone, 96));
+	}
+}
+
+/** Ensure the full base atlas exists (places + aircraft + camera + parking). */
 export function ensureBaseIconAtlas(map: MapLibreMap) {
 	if (!map.isStyleLoaded()) return;
 	registerPlaceIcons(map);
 	registerGenericAircraftIcons(map);
 	registerCameraIcon(map);
+	registerParkingIcons(map);
 }
 
 function paintFromPlaneImageId(id: string): AircraftPaint | null {
@@ -174,6 +226,10 @@ export function attachIconAtlasResolver(map: MapLibreMap) {
 		}
 		if (id === 'camera-cctv') {
 			registerCameraIcon(map);
+			return;
+		}
+		if (id.startsWith('parking-')) {
+			registerParkingIcons(map);
 			return;
 		}
 		if (id.startsWith('plane-')) {

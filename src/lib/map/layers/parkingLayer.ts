@@ -10,26 +10,31 @@ export function parkingsToGeoJSON(items: Parking[]) {
 		type: 'FeatureCollection' as const,
 		features: items
 			.filter((parking) => parking.coordinates !== null)
-			.map((parking) => ({
-				type: 'Feature' as const,
-				id: parking.id || parking.name,
-				properties: {
+			.map((parking) => {
+				const tone = parkingTone(parking);
+				const iconTone = tone === 'green' || tone === 'red' ? tone : 'blue';
+				return {
+					type: 'Feature' as const,
 					id: parking.id || parking.name,
-					name: parking.name,
-					label: parkingMapLabel(parking),
-					tone: parkingTone(parking)
-				},
-				geometry: {
-					type: 'Point' as const,
-					// Stored as [lat, lon]; GeoJSON needs [lon, lat].
-					coordinates: [parking.coordinates![1], parking.coordinates![0]]
-				}
-			}))
+					properties: {
+						id: parking.id || parking.name,
+						name: parking.name,
+						label: parkingMapLabel(parking),
+						tone,
+						icon: `parking-${iconTone}`
+					},
+					geometry: {
+						type: 'Point' as const,
+						// Stored as [lat, lon]; GeoJSON needs [lon, lat].
+						coordinates: [parking.coordinates![1], parking.coordinates![0]]
+					}
+				};
+			})
 	};
 }
 
 /**
- * Always-on parking overlay: blue/green/red capacity pills + labels.
+ * Always-on parking POIs: tone-colored "P" sprites + capacity labels.
  * Product contract: parking is never a map-layer toggle — always visible.
  */
 export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
@@ -40,37 +45,53 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 		});
 	}
 
+	// Migrate legacy circle pills → symbol POI sprites.
+	if (map.getLayer(PARKING_PILL_LAYER_ID)) {
+		const layer = map.getLayer(PARKING_PILL_LAYER_ID) as { type?: string } | undefined;
+		if (layer?.type === 'circle') {
+			map.removeLayer(PARKING_PILL_LAYER_ID);
+		}
+	}
+
 	if (!map.getLayer(PARKING_PILL_LAYER_ID)) {
 		map.addLayer({
 			id: PARKING_PILL_LAYER_ID,
-			type: 'circle',
+			type: 'symbol',
 			source: PARKING_SOURCE_ID,
-			paint: {
-				'circle-radius': [
+			layout: {
+				visibility: 'visible',
+				'icon-image': ['coalesce', ['get', 'icon'], 'parking-blue'],
+				'icon-size': [
 					'interpolate',
 					['linear'],
 					['zoom'],
 					12,
-					6,
+					0.55,
 					15,
-					8,
+					0.72,
 					17,
-					10
+					0.9
 				],
-				'circle-color': [
+				'icon-allow-overlap': true,
+				'icon-ignore-placement': false,
+				'icon-anchor': 'center',
+				'icon-padding': 2,
+				'symbol-sort-key': [
 					'match',
 					['get', 'tone'],
 					'green',
-					'#2f9e44',
+					0,
 					'red',
-					'#e03131',
-					'#1c7ed6'
-				],
-				'circle-stroke-width': 2,
-				'circle-stroke-color': '#ffffff',
-				'circle-opacity': 0.95
+					1,
+					2
+				]
+			},
+			paint: {
+				'icon-opacity': 0.98
 			}
 		});
+	} else {
+		map.setLayoutProperty(PARKING_PILL_LAYER_ID, 'visibility', 'visible');
 	}
 
 	if (!map.getLayer(PARKING_LABEL_LAYER_ID)) {
@@ -84,7 +105,7 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 				'text-field': ['get', 'label'],
 				'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 15, 12, 17, 14],
 				'text-font': ['Noto Sans Bold'],
-				'text-offset': [0, 1.35],
+				'text-offset': [0, 1.45],
 				'text-anchor': 'top',
 				'text-allow-overlap': false,
 				'text-optional': true,
@@ -107,10 +128,6 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 		});
 	} else {
 		map.setLayoutProperty(PARKING_LABEL_LAYER_ID, 'visibility', 'visible');
-	}
-
-	if (map.getLayer(PARKING_PILL_LAYER_ID)) {
-		map.setLayoutProperty(PARKING_PILL_LAYER_ID, 'visibility', 'visible');
 	}
 }
 
