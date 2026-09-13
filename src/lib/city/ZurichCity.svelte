@@ -763,10 +763,9 @@
 						refreshOverlaySources(instance);
 						instance.triggerRepaint();
 					})();
-					// Let the first frame paint on the dark canvas before lifting the splash.
-					requestAnimationFrame(() => {
-						dispatch('ready');
-					});
+					// Lift splash the same frame as data-map-ready (pointer-events none immediately).
+					document.getElementById('boot-splash-instant')?.classList.add('leaving');
+					dispatch('ready');
 				});
 				attachIconAtlasResolver(instance);
 				ensureBaseIconAtlas(instance);
