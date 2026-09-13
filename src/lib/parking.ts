@@ -58,6 +58,13 @@ export function parkingTone(parking: Parking) {
 export function spotCount(parking: Parking) {
 	return `${parking.free ?? '—'} / ${parking.capacity ?? '—'}`;
 }
+
+/** Map label: open/closed/full plus free spaces out of capacity (no list/card UI). */
+export function parkingMapLabel(parking: Parking) {
+	const state = availability(parking);
+	if (state === 'Closed') return 'Closed';
+	return `${state} · ${spotCount(parking)}`;
+}
 export function distance(from: [number, number], to: [number, number]) {
 	const rad = Math.PI / 180;
 	const a =

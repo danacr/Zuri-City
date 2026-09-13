@@ -114,7 +114,7 @@
 				>
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
-						<span class="switch-meta">{counts.parking} · free / capacity on map</span>
+						<span class="switch-meta">{counts.parking} · open + free / capacity</span>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
 				</button>

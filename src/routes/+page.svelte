@@ -26,7 +26,7 @@
 		type LayerCounts
 	} from '$lib/city/layerRegistry';
 	import { placeIconDataUrl } from '$lib/city/placeIcons';
-	import { availability, spotCount, type Parking } from '$lib/parking';
+	import { type Parking } from '$lib/parking';
 	import {
 		SENSOR_LOOKS,
 		type Camera,
@@ -42,8 +42,8 @@
 	let mode: 'orbit' | 'walk' = 'orbit';
 	/** Mobile starts map-first; open the sheet from the Layers control when needed. */
 	let layersOpen = false;
-	let selected: Place | Parking | Flight | Camera | null = null;
-	let selectedKind: 'place' | 'parking' | 'flight' | 'camera' | null = null;
+	let selected: Place | Flight | Camera | null = null;
+	let selectedKind: 'place' | 'flight' | 'camera' | null = null;
 	let city: ZurichCity;
 	let position: [number, number] | null = null;
 	let locating = false;
@@ -224,10 +224,6 @@
 
 	function toggleParkingLayer() {
 		showParking = !showParking;
-		if (!showParking && selectedKind === 'parking') {
-			selected = null;
-			selectedKind = null;
-		}
 	}
 
 	function showAllPlaces() {
@@ -246,13 +242,7 @@
 		event: CustomEvent<{ id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' }>
 	) {
 		const { id, kind } = event.detail;
-		if (kind === 'parking') {
-			if (!showParking) return;
-			const parking = parkings.find((item) => (item.id || item.name) === id) || null;
-			selected = parking;
-			selectedKind = parking ? 'parking' : null;
-			return;
-		}
+		if (kind === 'parking') return;
 		if (kind === 'flight') {
 			const flight = flights.find((item) => item.id === id) || null;
 			selected = flight;
@@ -306,16 +296,13 @@
 		);
 	}
 
-	function placeOf(value: Place | Parking | Flight | Camera | null): Place | null {
+	function placeOf(value: Place | Flight | Camera | null): Place | null {
 		return selectedKind === 'place' ? (value as Place) : null;
 	}
-	function parkingOf(value: Place | Parking | Flight | Camera | null): Parking | null {
-		return selectedKind === 'parking' ? (value as Parking) : null;
-	}
-	function flightOf(value: Place | Parking | Flight | Camera | null): Flight | null {
+	function flightOf(value: Place | Flight | Camera | null): Flight | null {
 		return selectedKind === 'flight' ? (value as Flight) : null;
 	}
-	function cameraOf(value: Place | Parking | Flight | Camera | null): Camera | null {
+	function cameraOf(value: Place | Flight | Camera | null): Camera | null {
 		return selectedKind === 'camera' ? (value as Camera) : null;
 	}
 
@@ -403,13 +390,11 @@
 			{mode}
 			selectedId={selectedKind === 'place'
 				? placeOf(selected)?.id || null
-				: selectedKind === 'parking'
-					? parkingOf(selected)?.id || parkingOf(selected)?.name || null
-					: selectedKind === 'flight'
-						? flightOf(selected)?.id || null
-						: selectedKind === 'camera'
-							? cameraOf(selected)?.id || null
-							: null}
+				: selectedKind === 'flight'
+					? flightOf(selected)?.id || null
+					: selectedKind === 'camera'
+						? cameraOf(selected)?.id || null
+						: null}
 			userPosition={position}
 			on:select={onSelect}
 			on:ready={onCityReady}
@@ -585,47 +570,6 @@
 						href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`}
 						>Open in OSM ↗</a
 					>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				</article>
-			{/if}
-		{/if}
-
-		{#if selected && selectedKind === 'parking'}
-			{@const parking = parkingOf(selected)}
-			{#if parking}
-				{@const state = availability(parking)}
-				<article class="inspect parking-inspect" aria-label={parking.name}>
-					<button
-						type="button"
-						class="close"
-						aria-label="Close parking"
-						on:click={() => {
-							selected = null;
-							selectedKind = null;
-						}}>×</button
-					>
-					<p class="eyebrow">Parking</p>
-					<h3>{parking.name.replace(/^Parkhaus\s+/, '')}</h3>
-					{#if parking.address}
-						<p>{parking.address}</p>
-					{/if}
-					<p
-						class="open-hint"
-						class:open={state === 'Open'}
-						class:closed={state === 'Closed' || state === 'Full'}
-					>
-						{state} · {spotCount(parking)} free
-					</p>
-					{#if refreshedAt}
-						<p class="distance">Updated {new Date(refreshedAt).toLocaleTimeString()}</p>
-					{/if}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -->
-					<div class="inspect-actions">
-						{#if parking.link}
-							<a href={parking.link}>Garage details ↗</a>
-						{/if}
-						<a href={parking.directions}>Directions ↗</a>
-					</div>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</article>
 			{/if}

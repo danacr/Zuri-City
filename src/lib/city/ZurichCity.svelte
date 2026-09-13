@@ -13,7 +13,7 @@
 		type Place,
 		type PlaceCategory
 	} from './places';
-	import { availability, parkingTone, spotCount, type Parking } from '$lib/parking';
+	import { parkingMapLabel, parkingTone, type Parking } from '$lib/parking';
 	import {
 		cameraViewshedsGeoJSON,
 		camerasToGeoJSON,
@@ -89,38 +89,12 @@
 		(map.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
 	}
 	$: if (map?.getSource('parking')) {
-		(map.getSource('parking') as GeoJSONSource).setData({
-			type: 'FeatureCollection',
-			features: visibleParkings.map((parking) => {
-				const state = availability(parking);
-				const label =
-					state === 'Closed'
-						? 'Closed'
-						: state === 'Full'
-							? `Full · ${spotCount(parking)}`
-							: spotCount(parking);
-				return {
-					type: 'Feature' as const,
-					id: parking.id || parking.name,
-					properties: {
-						id: parking.id || parking.name,
-						name: parking.name,
-						label,
-						state,
-						tone: parkingTone(parking)
-					},
-					geometry: {
-						type: 'Point' as const,
-						coordinates: [parking.coordinates![1], parking.coordinates![0]]
-					}
-				};
-			})
-		});
+		(map.getSource('parking') as GeoJSONSource).setData(parkingsToGeoJSON(visibleParkings));
 	}
 	$: if (map && styleReady) {
 		const visibility = showParking ? 'visible' : 'none';
-		for (const id of ['parking-pill', 'parking-label'] as const) {
-			if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility);
+		if (map.getLayer('parking-label')) {
+			map.setLayoutProperty('parking-label', 'visibility', visibility);
 		}
 	}
 	$: if (map?.getSource('flights')) {
@@ -157,6 +131,26 @@
 	}
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
+
+	function parkingsToGeoJSON(items: Parking[]) {
+		return {
+			type: 'FeatureCollection' as const,
+			features: items.map((parking) => ({
+				type: 'Feature' as const,
+				id: parking.id || parking.name,
+				properties: {
+					id: parking.id || parking.name,
+					name: parking.name,
+					label: parkingMapLabel(parking),
+					tone: parkingTone(parking)
+				},
+				geometry: {
+					type: 'Point' as const,
+					coordinates: [parking.coordinates![1], parking.coordinates![0]]
+				}
+			}))
+		};
+	}
 
 	/**
 	 * swissBUILDINGS3D mesh is temporarily not mounted: the shared-context Three.js
@@ -250,35 +244,7 @@
 		const placesSource = mapInstance.getSource('places') as GeoJSONSource | undefined;
 		placesSource?.setData(placesToGeoJSON(visiblePlaces));
 		const parkingSource = mapInstance.getSource('parking') as GeoJSONSource | undefined;
-		if (parkingSource) {
-			parkingSource.setData({
-				type: 'FeatureCollection',
-				features: visibleParkings.map((parking) => {
-					const state = availability(parking);
-					const label =
-						state === 'Closed'
-							? 'Closed'
-							: state === 'Full'
-								? `Full · ${spotCount(parking)}`
-								: spotCount(parking);
-					return {
-						type: 'Feature' as const,
-						id: parking.id || parking.name,
-						properties: {
-							id: parking.id || parking.name,
-							name: parking.name,
-							label,
-							state,
-							tone: parkingTone(parking)
-						},
-						geometry: {
-							type: 'Point' as const,
-							coordinates: [parking.coordinates![1], parking.coordinates![0]]
-						}
-					};
-				})
-			});
-		}
+		parkingSource?.setData(parkingsToGeoJSON(visibleParkings));
 		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
 		if (flightsSource) {
 			registerAircraftIcons(mapInstance, visibleFlights);
@@ -395,37 +361,6 @@
 				data: { type: 'FeatureCollection', features: [] }
 			});
 			mapInstance.addLayer({
-				id: 'parking-pill',
-				type: 'circle',
-				source: 'parking',
-				layout: {
-					visibility: showParking ? 'visible' : 'none'
-				},
-				paint: {
-					'circle-radius': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						12,
-						10,
-						16,
-						14
-					],
-					'circle-color': [
-						'match',
-						['get', 'tone'],
-						'green',
-						'#2b8a3e',
-						'red',
-						'#c92a2a',
-						'#1c7ed6'
-					],
-					'circle-stroke-width': 2.5,
-					'circle-stroke-color': '#ffffff',
-					'circle-opacity': 0.95
-				}
-			});
-			mapInstance.addLayer({
 				id: 'parking-label',
 				type: 'symbol',
 				source: 'parking',
@@ -437,23 +372,35 @@
 						['linear'],
 						['zoom'],
 						12,
-						10,
-						16,
-						12
+						11,
+						15,
+						13,
+						17,
+						15
 					],
-					'text-offset': [0, 1.55],
 					'text-font': ['Noto Sans Bold'],
-					'text-anchor': 'top',
-					'text-allow-overlap': false,
-					'text-optional': true
+					'text-anchor': 'center',
+					'text-allow-overlap': true,
+					'text-ignore-placement': true,
+					'text-padding': 2
 				},
 				paint: {
-					'text-color': '#0b1a2a',
+					'text-color': [
+						'match',
+						['get', 'tone'],
+						'green',
+						'#1b6b2e',
+						'red',
+						'#a61e1e',
+						'#1c4d7a'
+					],
 					'text-halo-color': '#ffffff',
-					'text-halo-width': 2,
-					'text-halo-blur': 0.4
+					'text-halo-width': 2.4,
+					'text-halo-blur': 0.2
 				}
 			});
+		} else if (mapInstance.getLayer('parking-pill')) {
+			mapInstance.removeLayer('parking-pill');
 		}
 
 		// Viewsheds / cameras / flights sit above the basemap; cars are ensured at the end.
@@ -803,7 +750,6 @@
 	}
 
 	function kindFromLayer(layerId: string) {
-		if (layerId.startsWith('parking')) return 'parking' as const;
 		if (layerId.startsWith('flights')) return 'flight' as const;
 		if (layerId.startsWith('cameras') || layerId === 'detection-cameras') return 'camera' as const;
 		if (layerId.startsWith('quakes')) return 'quake' as const;
@@ -949,7 +895,6 @@
 				for (const layer of [
 					'places-core',
 					'places-glow',
-					'parking-pill',
 					'flights-halo',
 					'flights-core',
 					'cameras-core',
