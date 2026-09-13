@@ -514,80 +514,139 @@
 
 
 
-	let walkPointerActive = false;
-	let walkPointerRaf = 0;
-	let walkHoldPointerId: number | null = null;
+	/**
+	 * Walk locomotion — do NOT use PointerEvent.
+	 * MapLibre + setCenter under a still finger synthesizes pointerup/cancel (~0.2s),
+	 * which killed RAF after ~5 m while keyboard W still worked. Mouse/touch on
+	 * document + setInterval keep a planted thumb gliding a full block.
+	 */
+	let walkHeld = false;
+	let walkTick = 0;
 	let walkLookLastX = 0;
 	let walkLookLastY = 0;
+	let walkTouchId: number | null = null;
+	let walkLastTouchAt = 0;
 
 	function stopWalkHold() {
-		walkPointerActive = false;
-		walkHoldPointerId = null;
-		if (walkPointerRaf) {
-			cancelAnimationFrame(walkPointerRaf);
-			walkPointerRaf = 0;
+		walkHeld = false;
+		walkTouchId = null;
+		if (walkTick) {
+			clearInterval(walkTick);
+			walkTick = 0;
 		}
-		window.removeEventListener('pointermove', onWalkPointerMove, true);
-		window.removeEventListener('pointerup', onWalkPointerUp, true);
+		document.removeEventListener('mousemove', onWalkMouseMove, true);
+		document.removeEventListener('mouseup', onWalkMouseUp, true);
+		document.removeEventListener('touchmove', onWalkTouchMove, true);
+		document.removeEventListener('touchend', onWalkTouchEnd, true);
+		document.removeEventListener('touchcancel', onWalkTouchEnd, true);
 	}
 
-	function walkForwardStep() {
-		walkPointerRaf = 0;
-		if (!map || disposed || mode !== 'walk' || !walkPointerActive) return;
-		const center = map.getCenter();
-		const zoom = map.getZoom();
-		const bearing = map.getBearing();
-		const rad = (bearing * Math.PI) / 180;
-		// ~18–28 m/s — a city block in ~3–4s of continuous hold.
-		const metersPerSec = zoom > 17 ? 18 : 28;
-		const step = metersPerSec / 60 / 111_320;
-		map.setCenter([center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step]);
-		if (map.getPitch() < WALK_CAMERA.minPitch) map.setPitch(WALK_CAMERA.minPitch);
-		walkBearing = bearing;
-		walkPointerRaf = requestAnimationFrame(walkForwardStep);
+	function walkTickOnce() {
+		if (!map || disposed || mode !== 'walk' || !walkHeld) {
+			stopWalkHold();
+			return;
+		}
+		try {
+			const center = map.getCenter();
+			const zoom = map.getZoom();
+			const bearing = map.getBearing();
+			const rad = (bearing * Math.PI) / 180;
+			// 50ms tick × 20–28 m/s ≈ a city block in ~3–4s.
+			const metersPerSec = zoom > 17 ? 20 : 28;
+			const step = (metersPerSec * 0.05) / 111_320;
+			map.setCenter([
+				center.lng + Math.sin(rad) * step,
+				center.lat + Math.cos(rad) * step
+			]);
+			if (map.getPitch() < WALK_CAMERA.minPitch) map.setPitch(WALK_CAMERA.minPitch);
+			walkBearing = bearing;
+		} catch (error) {
+			console.warn('walk tick failed', error);
+		}
 	}
 
-	function onWalkPointerMove(event: PointerEvent) {
-		if (!map || walkHoldPointerId === null || event.pointerId !== walkHoldPointerId) return;
-		const dx = event.clientX - walkLookLastX;
-		const dy = event.clientY - walkLookLastY;
-		walkLookLastX = event.clientX;
-		walkLookLastY = event.clientY;
+	function startWalkHold(clientX: number, clientY: number) {
+		if (walkHeld) return;
+		walkHeld = true;
+		walkLookLastX = clientX;
+		walkLookLastY = clientY;
+		if (!walkTick) {
+			walkTickOnce();
+			walkTick = window.setInterval(walkTickOnce, 50);
+		}
+	}
+
+	function applyWalkLook(clientX: number, clientY: number) {
+		if (!map || !walkHeld) return;
+		const dx = clientX - walkLookLastX;
+		const dy = clientY - walkLookLastY;
+		walkLookLastX = clientX;
+		walkLookLastY = clientY;
 		if (dx === 0 && dy === 0) return;
-		// Drag while held = look (bearing + pitch); forward walk continues on RAF.
 		map.setBearing(map.getBearing() - dx * 0.28);
-		const nextPitch = Math.min(
-			WALK_CAMERA.maxPitch,
-			Math.max(WALK_CAMERA.minPitch, map.getPitch() + dy * 0.22)
+		map.setPitch(
+			Math.min(
+				WALK_CAMERA.maxPitch,
+				Math.max(WALK_CAMERA.minPitch, map.getPitch() + dy * 0.22)
+			)
 		);
-		map.setPitch(nextPitch);
 		walkBearing = map.getBearing();
 	}
 
-	function onWalkPointerUp(event: PointerEvent) {
-		if (walkHoldPointerId !== null && event.pointerId !== walkHoldPointerId) return;
+	function onWalkMouseMove(event: MouseEvent) {
+		// Do NOT stop when buttons===0 here — setCenter under a still cursor can
+		// synthesize mousemove with buttons 0 and was killing the hold after ~1 tick.
+		if (!walkHeld) return;
+		applyWalkLook(event.clientX, event.clientY);
+	}
+
+	function onWalkMouseUp(event: MouseEvent) {
+		if (event.button !== 0) return;
 		stopWalkHold();
 	}
 
-	function onWalkPointerDown(event: PointerEvent) {
-		if (mode !== 'walk' || event.isPrimary === false) return;
-		if (event.button !== 0) return;
-		// Ignore duplicate pointerdowns (touch+mouse synth) while already holding.
-		if (walkHoldPointerId !== null) return;
+	function onWalkTouchMove(event: TouchEvent) {
+		if (walkTouchId === null) return;
+		const touch = [...event.touches].find((t) => t.identifier === walkTouchId);
+		if (!touch) {
+			stopWalkHold();
+			return;
+		}
+		event.preventDefault();
+		applyWalkLook(touch.clientX, touch.clientY);
+	}
+
+	function onWalkTouchEnd(event: TouchEvent) {
+		if (walkTouchId === null) return;
+		const still = [...event.touches].some((t) => t.identifier === walkTouchId);
+		if (!still) stopWalkHold();
+	}
+
+	function onWalkMouseDown(event: MouseEvent) {
+		if (mode !== 'walk' || event.button !== 0) return;
+		// Ghost compatibility-mouse after touch.
+		if (performance.now() - walkLastTouchAt < 600) return;
 		event.preventDefault();
 		event.stopPropagation();
-		walkHoldPointerId = event.pointerId;
-		walkLookLastX = event.clientX;
-		walkLookLastY = event.clientY;
-		walkPointerActive = true;
-		try {
-			map?.getCanvas()?.setPointerCapture?.(event.pointerId);
-		} catch {
-			/* optional */
-		}
-		window.addEventListener('pointermove', onWalkPointerMove, true);
-		window.addEventListener('pointerup', onWalkPointerUp, true);
-		if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
+		startWalkHold(event.clientX, event.clientY);
+		document.addEventListener('mousemove', onWalkMouseMove, true);
+		document.addEventListener('mouseup', onWalkMouseUp, true);
+	}
+
+	function onWalkTouchStart(event: TouchEvent) {
+		if (mode !== 'walk' || event.touches.length !== 1) return;
+		const touch = event.touches[0];
+		event.preventDefault();
+		event.stopPropagation();
+		walkLastTouchAt = performance.now();
+		walkTouchId = touch.identifier;
+		startWalkHold(touch.clientX, touch.clientY);
+		document.addEventListener('touchmove', onWalkTouchMove, {
+			capture: true,
+			passive: false
+		});
+		document.addEventListener('touchend', onWalkTouchEnd, true);
+		document.addEventListener('touchcancel', onWalkTouchEnd, true);
 	}
 
 	function guardWalkPitch() {
@@ -741,8 +800,11 @@
 					});
 				}
 				instance.on('pitch', guardWalkPitch);
-				instance.getCanvas().addEventListener('pointerdown', onWalkPointerDown, {
-					capture: true
+				const canvas = instance.getCanvas();
+				canvas.addEventListener('mousedown', onWalkMouseDown, true);
+				canvas.addEventListener('touchstart', onWalkTouchStart, {
+					capture: true,
+					passive: false
 				});
 				instance.on('rotate', () => {
 					if (mode === 'walk') walkBearing = instance.getBearing();
@@ -793,7 +855,6 @@
 	onDestroy(() => {
 		disposed = true;
 		stopWalkHold();
-		window.removeEventListener('pointerup', onWalkPointerUp, true);
 		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
 		userMarker?.remove();
 		terrainHandle?.unregister?.();
