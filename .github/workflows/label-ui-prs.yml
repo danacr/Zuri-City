@@ -1,0 +1,23 @@
+name: Label UI PRs
+
+# Applies the `ui` label when a PR touches user-facing surfaces.
+# Pair with the Cursor automation in `.cursor/automations/ui-pr-review.md`
+# (trigger on pull_request opened/pushed and/or label `ui`).
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply ui label from path changes
+        uses: actions/labeler@v5
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: false
