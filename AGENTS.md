@@ -14,7 +14,7 @@ Source of truth: [`.cursor/automations/README.md`](.cursor/automations/README.md
 | Maps power-user | `.cursor/automations/maps-power-user-review.md` — same; beat Google/HERE |
 | Remediate | `.cursor/automations/act-on-review-comments.md` — on bot comments, fix blocking → push → reply |
 
-Activate the three Cursor Automations once after merge (dashboard; no create API). Prefer Team Owned. Triggers for review bots: **PR opened + pushed** — no label/tag.
+Activate the three Cursor Automations once after merge (dashboard; no create API). Prefer Team Owned. Triggers for review bots: **PR opened + pushed** — no label/tag. Review bots must **skip merged/closed PRs**; re-paste prompts from `.cursor/automations/` when those files change.
 
 Before presenting a preview as ready:
 
