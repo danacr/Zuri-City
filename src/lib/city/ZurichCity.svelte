@@ -509,6 +509,8 @@
 
 	let walkPointerActive = false;
 	let walkPointerRaf = 0;
+	/** Ignore MapLibre's pointercancel that fires when we disable dragPan mid-gesture. */
+	let walkIgnoreCancelUntil = 0;
 
 	function walkForwardStep() {
 		walkPointerRaf = 0;
@@ -517,8 +519,8 @@
 		const zoom = map.getZoom();
 		const bearing = map.getBearing();
 		const rad = (bearing * Math.PI) / 180;
-		// ~10–16 m/s exploration pace (smooth RAF), not 40 m teleports.
-		const metersPerSec = zoom > 17 ? 10 : 16;
+		// ~14–22 m/s exploration glide (smooth RAF) — a block in ~3–5s, not hops or a statue.
+		const metersPerSec = zoom > 17 ? 14 : 22;
 		const step = metersPerSec / 60 / 111_320;
 		map.jumpTo({
 			center: [center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step],
@@ -535,17 +537,30 @@
 		// Right-click / non-primary reserved for map gestures.
 		if (event.button !== 0) return;
 		event.preventDefault();
+		event.stopPropagation();
+		const canvas = map?.getCanvas();
+		try {
+			canvas?.setPointerCapture?.(event.pointerId);
+		} catch {
+			/* optional */
+		}
+		// Disable pan immediately so MapLibre does not steal the hold; ignore the
+		// synthetic pointercancel that disable() can emit.
+		walkIgnoreCancelUntil = performance.now() + 400;
+		map?.dragPan.disable();
 		walkPointerActive = false;
 		const timer = window.setTimeout(() => {
 			if (mode !== 'walk') return;
 			walkPointerActive = true;
-			// Disable drag-pan while hold-walking so the gesture is not stolen.
-			map?.dragPan.disable();
 			if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
-		}, 140);
-		const clear = () => {
+		}, 100);
+		const clear = (ev?: Event) => {
+			if (ev?.type === 'pointercancel' && performance.now() < walkIgnoreCancelUntil) {
+				return;
+			}
 			window.clearTimeout(timer);
 			walkPointerActive = false;
+			walkIgnoreCancelUntil = 0;
 			if (walkPointerRaf) {
 				cancelAnimationFrame(walkPointerRaf);
 				walkPointerRaf = 0;

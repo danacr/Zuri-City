@@ -200,20 +200,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				'source-layer': 'building',
 				minzoom: 13,
 				maxzoom: CITY_MAX_ZOOM + 1,
-				// At orbit, only taller volumes — leave low fabric as SWISSIMAGE streets/roofs.
-				filter: [
-					'all',
-					['!=', ['get', 'hide_3d'], true],
-					[
-						'any',
-						['>=', ['zoom'], 15.2],
-						[
-							'>=',
-							['coalesce', ['get', 'render_height'], ['get', 'height'], 0],
-							14
-						]
-					]
-				],
+				// Full city fabric — never drop missing-height buildings (that erased orbit volume).
+				filter: ['!=', ['get', 'hide_3d'], true],
 				paint: {
 					'fill-extrusion-color': [
 						'interpolate',
@@ -243,8 +231,8 @@ export function zurichAerialStyle(): StyleSpecification {
 						0
 					],
 					/**
-					 * Solid (≥0.7) — orbit stays at the floor so SWISSIMAGE is the
-					 * first read in street gaps; denser at walk street scale.
+					 * Solid (≥0.7) with room for SWISSIMAGE in street gaps at orbit.
+					 * Volume stays; ortho reads between blocks — do not filter the city away.
 					 */
 					'fill-extrusion-opacity': [
 						'interpolate',
@@ -253,7 +241,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						13,
 						0.7,
 						14.6,
-						0.74,
+						0.72,
 						16,
 						0.88,
 						17.5,
