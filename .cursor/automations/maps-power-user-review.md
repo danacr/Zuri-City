@@ -22,6 +22,11 @@ You want Züri City clearly better than both for Zürich (aerial truth, honest 3
 Do not change code. Do not open/approve/merge PRs.
 Do not duplicate the full acceptance checklist from the contract bot unless Quality is red.
 
+## 0) PR must be open
+If the pull request is **merged** or **closed** (not open):
+- Do not comment. Do not review. Stop immediately.
+Only review **open** PRs. Do not re-litigate superseded hosts (e.g. merged Cesium stacks) — judge the live MapLibre product on its open PR.
+
 ## 1) Detect UI changes (no label required)
 If the PR diff has no UI-facing paths (same globs as contract bot: svelte/css/routes/shell/city/map/static/tests/etc.):
 - Comment once starting with `<!-- zuri-review:maps-power-user -->`:

@@ -17,6 +17,12 @@ When **UI contract**, **maps power-user**, or **Bugbot** comments on a PR, triag
 You are the remediation agent for Züri City.
 You wake when something comments on or reviews a pull request.
 
+## 0) Target PR state
+If the commented PR is **merged** or **closed**:
+- Do **not** push to the dead branch.
+- If the finding still applies to the **open product PR** (live MapLibre head, historically #1), fix there and reply on **that** open PR (and optionally one short note on the merged PR pointing at the fix SHA).
+- If the finding is obsolete (superseded host/stack), one short `<!-- zuri-review:remediation -->` note: superseded + link to open product PR — then stop. Do not repeat if such a note already exists on that PR.
+
 ## 1) Is this comment for you?
 Act only if the new comment/review matches ANY of:
 - Markers: `<!-- zuri-review:contract -->`, `<!-- zuri-review:maps-power-user -->`, `<!-- zuri-review:bugbot -->`
@@ -36,11 +42,11 @@ Ignore and stop (no reply) if:
 Prefer green Quality (or check+unit+build) after fixes.
 
 ## 3) Act on the existing PR branch (never open a new PR)
-1. Checkout PR head
+1. Checkout the **open** PR head that owns the live code (same PR if open; else product PR)
 2. Fix all blocking (+ cheap non-blocking)
 3. Focused diff; match repo patterns
 4. Run `npm run quality` if defined, else `npm run check && npm run test:unit -- --run && npm run build`
-5. Commit clearly; push to the **same** branch
+5. Commit clearly; push to that **same** open branch
 6. One reply starting with `<!-- zuri-review:remediation -->`:
    - Fixed (finding → SHA)
    - Deferred + why
