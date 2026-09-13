@@ -1,4 +1,4 @@
-import type { Place } from './types';
+import { CATEGORY_SORT_KEY, type Place } from './types';
 
 export function placeToFeature(placeItem: Place) {
 	return {
@@ -11,7 +11,8 @@ export function placeToFeature(placeItem: Place) {
 			icon: `place-${placeItem.category}`,
 			subtitle: placeItem.subtitle,
 			openHint: placeItem.openHint,
-			isOpen: placeItem.isOpen === null ? 'unknown' : placeItem.isOpen ? 'yes' : 'no'
+			isOpen: placeItem.isOpen === null ? 'unknown' : placeItem.isOpen ? 'yes' : 'no',
+			sortKey: CATEGORY_SORT_KEY[placeItem.category] ?? 50
 		},
 		geometry: {
 			type: 'Point' as const,

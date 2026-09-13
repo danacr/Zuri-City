@@ -66,6 +66,24 @@ export const CATEGORY_COLOR: Record<PlaceCategory, string> = {
 	stay: '#7048e8'
 };
 
+/**
+ * Lower = placed first in MapLibre collision (landmarks before shops).
+ * Used for symbol-sort-key so dense Overpass loads still read as a city.
+ */
+export const CATEGORY_SORT_KEY: Record<PlaceCategory, number> = {
+	sights: 0,
+	culture: 1,
+	outdoors: 2,
+	food: 3,
+	cafe: 4,
+	stay: 5,
+	nightlife: 6,
+	wellness: 7,
+	beauty: 8,
+	shop: 9,
+	daily: 10
+};
+
 /** MapLibre match expression for category colors. */
 export function categoryColorExpression(fallback = '#868e96'): unknown[] {
 	return [

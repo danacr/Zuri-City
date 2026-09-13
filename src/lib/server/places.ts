@@ -20,8 +20,11 @@ const AROUND_NEAR = `around:3800,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 /** Slightly wider ring for sights / parks / hotels. */
 const AROUND_WIDE = `around:5200,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 
-/** Keep POI density readable on mobile — merge-by-id preserves FALLBACK seeds. */
-const MAX_PER_CATEGORY = 30;
+/**
+ * Cap POI density so first orbit reads as a city, not sticker soup.
+ * Collision + label minzoom handle the rest; seeds still merge via dedupe.
+ */
+const MAX_PER_CATEGORY = 16;
 
 type OverpassElement = {
 	type: string;
