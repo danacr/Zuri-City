@@ -517,8 +517,9 @@
 		const zoom = map.getZoom();
 		const bearing = map.getBearing();
 		const rad = (bearing * Math.PI) / 180;
-		// ~25–40 m/frame at 60fps — street locomotion, not a plaza nudge.
-		const step = zoom > 17 ? 0.00022 : 0.00036;
+		// ~10–16 m/s exploration pace (smooth RAF), not 40 m teleports.
+		const metersPerSec = zoom > 17 ? 10 : 16;
+		const step = metersPerSec / 60 / 111_320;
 		map.jumpTo({
 			center: [center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step],
 			bearing,
@@ -533,6 +534,7 @@
 		if (mode !== 'walk' || event.isPrimary === false) return;
 		// Right-click / non-primary reserved for map gestures.
 		if (event.button !== 0) return;
+		event.preventDefault();
 		walkPointerActive = false;
 		const timer = window.setTimeout(() => {
 			if (mode !== 'walk') return;
@@ -842,6 +844,8 @@
 	.city-map :global(.maplibregl-canvas-container),
 	.city-map :global(.maplibregl-canvas) {
 		background: #07131f;
+		touch-action: none;
+		overscroll-behavior: none;
 	}
 	.map-error {
 		position: absolute;

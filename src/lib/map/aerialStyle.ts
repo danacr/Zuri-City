@@ -33,16 +33,16 @@ function fadedLineOpacity(peak: number): ExpressionSpecification {
 		['linear'],
 		['zoom'],
 		13,
-		peak * 0.95,
+		peak * 0.98,
 		14.5,
-		peak * 0.9,
+		peak * 0.95,
 		15.5,
-		peak * 0.7,
+		peak * 0.85,
 		16.5,
-		peak * 0.48,
+		peak * 0.72,
 		17.5,
-		// Readable floor at walk — still thinner than a highway overlay.
-		peak * 0.4
+		// Keep congestion readable at walk — thin, not invisible.
+		peak * 0.62
 	];
 }
 
@@ -200,7 +200,20 @@ export function zurichAerialStyle(): StyleSpecification {
 				'source-layer': 'building',
 				minzoom: 13,
 				maxzoom: CITY_MAX_ZOOM + 1,
-				filter: ['!=', ['get', 'hide_3d'], true],
+				// At orbit, only taller volumes — leave low fabric as SWISSIMAGE streets/roofs.
+				filter: [
+					'all',
+					['!=', ['get', 'hide_3d'], true],
+					[
+						'any',
+						['>=', ['zoom'], 15.2],
+						[
+							'>=',
+							['coalesce', ['get', 'render_height'], ['get', 'height'], 0],
+							14
+						]
+					]
+				],
 				paint: {
 					'fill-extrusion-color': [
 						'interpolate',
@@ -230,19 +243,19 @@ export function zurichAerialStyle(): StyleSpecification {
 						0
 					],
 					/**
-					 * Solid (≥0.7) always — slightly open at orbit so SWISSIMAGE
-					 * streets read through the massing; denser at walk street scale.
+					 * Solid (≥0.7) — orbit stays at the floor so SWISSIMAGE is the
+					 * first read in street gaps; denser at walk street scale.
 					 */
 					'fill-extrusion-opacity': [
 						'interpolate',
 						['linear'],
 						['zoom'],
 						13,
-						0.72,
+						0.7,
 						14.6,
-						0.8,
+						0.74,
 						16,
-						0.9,
+						0.88,
 						17.5,
 						0.95
 					],
@@ -264,8 +277,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': '#0a121c',
-					'line-opacity': fadedLineOpacity(0.32),
-					'line-width': trafficWidth(0.72)
+					'line-opacity': fadedLineOpacity(0.42),
+					'line-width': trafficWidth(1.05)
 				}
 			},
 			{
@@ -283,8 +296,8 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': congestionColor,
-					'line-opacity': fadedLineOpacity(0.88),
-					'line-width': trafficWidth(0.55)
+					'line-opacity': fadedLineOpacity(0.95),
+					'line-width': trafficWidth(0.85)
 				}
 			},
 			{
