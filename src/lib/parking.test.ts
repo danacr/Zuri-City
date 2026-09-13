@@ -22,7 +22,15 @@ describe('parking data', () => {
 		expect(spotCount(parking)).toBe('0 / —');
 		expect(parkingMapLabel(parking)).toBe('Full · 0 / —');
 	});
+	it('labels curated fallbacks as landmarks, not Unknown occupancy', () => {
+		const landmark = parseParking({ content: 'open / ' });
+		landmark.id = 'fallback-urania';
+		landmark.capacity = 600;
+		landmark.free = null;
+		expect(parkingMapLabel(landmark)).toBe('Landmark · 600 spaces');
+	});
 	it('labels open garages with free spots out of capacity for the map', () => {
+
 		const open = parseParking({ content: 'open / 42' });
 		open.capacity = 120;
 		expect(parkingMapLabel(open)).toBe('Open · 42 / 120');

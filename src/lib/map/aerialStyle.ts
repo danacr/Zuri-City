@@ -50,10 +50,10 @@ const congestionColor: ExpressionSpecification = [
 		3
 	],
 	0,
-	'#2f9e44',
+	'#6f8f72',
 	1,
-	'#f08c00',
-	'#e03131'
+	'#b08a4a',
+	'#a35a5a'
 ];
 
 /**

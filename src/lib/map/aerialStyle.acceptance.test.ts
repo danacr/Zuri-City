@@ -58,7 +58,7 @@ describe('orbit vs walk camera contract', () => {
 		expect(WALK_CAMERA.maxPitch).toBeGreaterThan(WALK_CAMERA.minPitch);
 	});
 
-	it('keeps swissBUILDINGS3D opt-in (solid OSM is default massing)', () => {
-		expect(SWISS_BUILDINGS_ENABLED).toBe(false);
+	it('enables swissBUILDINGS3D by default (soft-fails to OSM extrusions)', () => {
+		expect(SWISS_BUILDINGS_ENABLED).toBe(true);
 	});
 });

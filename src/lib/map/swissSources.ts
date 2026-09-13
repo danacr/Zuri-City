@@ -38,11 +38,10 @@ export const FALLBACK_TERRAIN_TILES =
 	'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 
 /**
- * Phase-2 swissBUILDINGS3D mesh (Three.js custom layer). Off by default until
- * the shared-GL path is stable on mobile. Default massing is **solid OSM
- * fill-extrusion** in aerialStyle — never ship flat aerial-only "ghost" city.
- * Set `PUBLIC_SWISS_BUILDINGS=1` to opt in to the mesh layer.
+ * swissBUILDINGS3D mesh (Three.js custom layer). On by default so orbit/walk
+ * read as Zürich rather than beige OSM boxes; soft-fails to OSM extrusions.
+ * Set `PUBLIC_SWISS_BUILDINGS=0` to force OSM-only massing.
  */
 export const SWISS_BUILDINGS_ENABLED =
-	import.meta.env.PUBLIC_SWISS_BUILDINGS === '1' ||
-	import.meta.env.PUBLIC_SWISS_BUILDINGS === 'true';
+	import.meta.env.PUBLIC_SWISS_BUILDINGS !== '0' &&
+	import.meta.env.PUBLIC_SWISS_BUILDINGS !== 'false';

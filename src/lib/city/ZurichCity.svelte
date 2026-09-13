@@ -507,7 +507,8 @@
 		const zoom = map.getZoom();
 		const bearing = map.getBearing();
 		const rad = (bearing * Math.PI) / 180;
-		const step = zoom > 17 ? 0.000012 : 0.000022;
+		// Phone hold-to-walk must feel like locomotion, not a 7m nudge.
+		const step = zoom > 17 ? 0.00009 : 0.00016;
 		map.jumpTo({
 			center: [center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step],
 			bearing,
@@ -520,14 +521,15 @@
 
 	function onWalkPointerDown(event: PointerEvent) {
 		if (mode !== 'walk' || event.isPrimary === false) return;
-		// Two-finger / right-click reserved for map gestures; primary long-hold walks.
-		if (event.pointerType === 'touch' && (event as PointerEvent & { touches?: unknown }).pressure === 0) return;
+		// Two-finger / right-click reserved for map gestures; primary hold walks forward.
+		if (event.pointerType === 'touch' && (event as PointerEvent & { touches?: unknown }).pressure === 0)
+			return;
 		walkPointerActive = false;
 		const timer = window.setTimeout(() => {
 			if (mode !== 'walk') return;
 			walkPointerActive = true;
 			if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
-		}, 280);
+		}, 160);
 		const clear = () => {
 			window.clearTimeout(timer);
 			walkPointerActive = false;

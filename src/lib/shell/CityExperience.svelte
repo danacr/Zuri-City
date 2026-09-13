@@ -414,7 +414,7 @@
 				>
 			</div>
 			{#if mode === 'walk'}
-				<p class="hint">WASD or arrows · Q/E turn · Shift hurry</p>
+				<p class="hint">Hold to walk · drag to look · WASD on desktop</p>
 			{/if}
 			{#if locationError}
 				<p class="notice error" role="alert">{locationError}</p>
@@ -507,7 +507,7 @@
 				>
 			</nav>
 			{#if mode === 'walk'}
-				<p class="walk-hint" role="status">Walk · drag to look · WASD / arrows to move</p>
+				<p class="walk-hint" role="status">Walk · drag to look · hold to move</p>
 			{/if}
 
 		</div>
@@ -961,10 +961,11 @@
 			line-height: 1.5;
 		}
 		.desk-layers {
-			left: 16px;
-			top: calc(248px + env(safe-area-inset-top));
+			right: 16px;
+			left: auto;
+			top: calc(78px + env(safe-area-inset-top));
 			width: min(320px, calc(100vw - 32px));
-			max-height: calc(100dvh - 270px);
+			max-height: calc(100dvh - 110px);
 			overflow: auto;
 			align-content: start;
 		}

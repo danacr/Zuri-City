@@ -68,9 +68,9 @@ export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 
 /** Compact legend for congestion-colored streets (stable hash — not live jams). */
 export const TRAFFIC_LEGEND: { label: string; color: string }[] = [
-	{ label: 'Free*', color: '#2f9e44' },
-	{ label: 'Slow*', color: '#f08c00' },
-	{ label: 'Jam*', color: '#e03131' }
+	{ label: 'Free*', color: '#6f8f72' },
+	{ label: 'Slow*', color: '#b08a4a' },
+	{ label: 'Jam*', color: '#a35a5a' }
 ];
 
 export const INTEL_LAYER_COLOR: Record<IntelLayer, string> = {

@@ -115,7 +115,9 @@
 				>
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
-						<span class="switch-meta">{counts.parking} · always on · free / capacity</span>
+						<span class="switch-meta"
+							>{counts.parking} · always on · live free when PLS loads, else landmarks</span
+						>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
 				</button>

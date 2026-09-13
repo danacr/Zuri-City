@@ -59,11 +59,29 @@ export function spotCount(parking: Parking) {
 	return `${parking.free ?? '—'} / ${parking.capacity ?? '—'}`;
 }
 
-/** Map label: open/closed/full plus free spaces out of capacity (no list/card UI). */
+/** Curated seed garages (no live free count) — never present as live occupancy. */
+export function isFallbackParking(parking: Parking) {
+	return (
+		parking.id.startsWith('fallback-') ||
+		(parking.updated === null && parking.free === null && parking.id.includes('fallback'))
+	);
+}
+
+/**
+ * Map label: live free/capacity when known.
+ * Fallback / unknown free → capacity-only landmark copy (never "Unknown · — / n").
+ */
 export function parkingMapLabel(parking: Parking) {
 	const state = availability(parking);
 	if (state === 'Closed') return 'Closed';
-	return `${state} · ${spotCount(parking)}`;
+	if (state === 'Full') return `Full · ${spotCount(parking)}`;
+	if (parking.free !== null) return `${state} · ${spotCount(parking)}`;
+	if (parking.capacity != null) {
+		return isFallbackParking(parking)
+			? `Landmark · ${parking.capacity} spaces`
+			: `Capacity · ${parking.capacity}`;
+	}
+	return isFallbackParking(parking) ? 'Landmark' : 'Garage';
 }
 
 export function distance(from: [number, number], to: [number, number]) {
