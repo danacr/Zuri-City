@@ -438,44 +438,14 @@
 			</button>
 		</header>
 
-		<!-- Desktop left briefing -->
-		<aside class="desk-hud" aria-label="City briefing">
-			<p class="eyebrow">On the map</p>
-			<h2>See Zürich move</h2>
-			<p>A living city — walk to see what’s open nearby, tap for hours, phone, and web. Parking from live PLS.</p>
-			<div class="mode-row">
-				<button
-					type="button"
-					class:active={mode === 'orbit'}
-					aria-pressed={mode === 'orbit'}
-					on:click={() => (mode = 'orbit')}>Orbit</button
-				>
-				<button
-					type="button"
-					class:active={mode === 'walk'}
-					aria-pressed={mode === 'walk'}
-					on:click={() => (mode = 'walk')}>Walk</button
-				>
-				<button type="button" on:click={locate} disabled={locating}
-					>{locating ? 'Locating…' : 'Locate'}</button
-				>
-			</div>
-			{#if mode === 'walk'}
-				<p class="hint">Hold to walk · drag to look · WASD on desktop</p>
-			{/if}
-			{#if locationError}
-				<p class="notice error" role="alert">{locationError}</p>
-			{/if}
-			{#if placesError || intelNotes[0]}
-				<p class="notice" role="status">{placesError || intelNotes[0]}</p>
-			{/if}
-			{#if parkingError}
-				<p class="notice" role="status">{parkingError}</p>
-			{/if}
-		</aside>
-
 		{#if locationError}
 			<p class="mobile-alert" role="alert">{locationError}</p>
+		{/if}
+		{#if placesError || intelNotes[0]}
+			<p class="desk-status" role="status">{placesError || intelNotes[0]}</p>
+		{/if}
+		{#if parkingError}
+			<p class="desk-status" role="status">{parkingError}</p>
 		{/if}
 
 		<div class="dock" aria-label="Map controls">
@@ -534,25 +504,6 @@
 			{/if}
 
 		</div>
-
-		<aside class="desk-layers" aria-label="Desktop map layers">
-			<LayersPanel
-				placeLayers={layers}
-				{intelLayers}
-				{showParking}
-				{openNowOnly}
-				{counts}
-				{categoryIcons}
-				onTogglePlace={togglePlaceLayer}
-				onToggleIntel={toggleIntelLayer}
-				onToggleParking={toggleParkingLayer}
-				onToggleOpenNow={() => (openNowOnly = !openNowOnly)}
-				onShowAllPlaces={showAllPlaces}
-				onHideAllPlaces={hideAllPlaces}
-				onFindAircraft={findAircraft}
-				flightCount={counts.flights}
-			/>
-		</aside>
 
 		{#if selected && selectedKind === 'place'}
 			{@const place = placeOf(selected)}
@@ -715,9 +666,8 @@
 		backdrop-filter: blur(10px);
 	}
 
-	/* Desktop briefing — hidden on mobile */
-	.desk-hud,
-	.desk-layers {
+
+	.desk-status {
 		display: none;
 	}
 
@@ -897,97 +847,44 @@
 	.dot {
 		opacity: 0.45;
 	}
-	.notice {
-		margin-top: 8px;
-		padding: 8px 10px;
-		border-radius: 10px;
-		background: var(--accent-soft);
-		color: var(--accent);
-		font-size: 12px;
-		line-height: 1.4;
-	}
-	.error {
-		background: var(--red-soft, #ffedf0);
-		color: var(--red, #b42332);
-	}
-	.hint {
-		margin-top: 8px;
-		font-size: 11px;
-		color: var(--muted);
-	}
 
 	@media (min-width: 860px) {
-		.dock,
 		.mobile-alert {
 			display: none;
 		}
-		.desk-hud,
-		.desk-layers {
-			display: grid;
-			position: absolute;
-			z-index: 22;
-			width: min(300px, calc(100vw - 28px));
-			padding: 12px;
-			border-radius: 16px;
-			background: color-mix(in srgb, var(--surface) 90%, transparent);
-			border: 1px solid var(--border);
-			backdrop-filter: blur(16px);
-			box-shadow: 0 16px 40px #07152640;
-			gap: 8px;
+		/* Map-first desktop: same Orbit/Walk/Locate/Layers dock as phone — no always-on side columns. */
+		.dock {
+			left: 50%;
+			right: auto;
+			bottom: calc(20px + env(safe-area-inset-bottom));
+			width: min(420px, calc(100vw - 48px));
+			transform: translateX(-50%);
 		}
-		.desk-hud {
+		.layer-sheet {
+			max-height: min(64vh, 560px);
+		}
+		.desk-status {
+			display: block;
+			position: absolute;
+			z-index: 24;
 			left: 16px;
 			top: calc(78px + env(safe-area-inset-top));
-		}
-		.desk-hud h2 {
-			font-size: 24px;
-			font-weight: 800;
-			letter-spacing: -0.04em;
-			margin: 2px 0 6px;
-		}
-		.desk-hud > p {
+			max-width: min(360px, calc(100vw - 32px));
+			padding: 10px 12px;
+			border-radius: 12px;
+			background: color-mix(in srgb, var(--surface) 92%, transparent);
+			border: 1px solid var(--border);
+			backdrop-filter: blur(12px);
+			font-size: 12px;
+			line-height: 1.4;
 			color: var(--muted);
-			font-size: 13px;
-			line-height: 1.5;
-		}
-		.desk-layers {
-			right: 16px;
-			left: auto;
-			top: calc(78px + env(safe-area-inset-top));
-			width: min(320px, calc(100vw - 32px));
-			max-height: calc(100dvh - 110px);
-			overflow: auto;
-			align-content: start;
-		}
-		.mode-row {
-			display: grid;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-			gap: 6px;
-			margin-top: 10px;
-			padding: 0;
-			background: transparent;
+			box-shadow: 0 10px 28px #07152640;
 		}
 		.inspect {
-			left: auto;
-			right: 16px;
-			width: min(320px, calc(100vw - 32px));
-			bottom: calc(24px + env(safe-area-inset-bottom));
+			left: 16px;
+			right: auto;
+			width: min(360px, calc(100vw - 32px));
+			bottom: calc(96px + env(safe-area-inset-bottom));
 		}
-	}
-	.walk-hint {
-		position: absolute;
-		left: 50%;
-		bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
-		transform: translateX(-50%);
-		z-index: 6;
-		margin: 0;
-		padding: 0.35rem 0.75rem;
-		border-radius: 999px;
-		background: rgba(8, 14, 24, 0.72);
-		color: #f2efe8;
-		font-size: 0.72rem;
-		letter-spacing: 0.02em;
-		pointer-events: none;
-		white-space: nowrap;
 	}
 </style>

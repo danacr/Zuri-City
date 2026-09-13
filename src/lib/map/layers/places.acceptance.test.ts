@@ -4,6 +4,7 @@ import {
 	PLACES_LABEL_LAYER_ID,
 	PLACES_LABEL_MIN_ZOOM
 } from '$lib/map/layers/placesLayer';
+import { ORBIT_CAMERA } from '$lib/map/swissSources';
 import { CATEGORY_SORT_KEY, placesToGeoJSON, type Place } from '$lib/places';
 
 function sample(partial: Partial<Place> & Pick<Place, 'id' | 'name' | 'category'>): Place {
@@ -21,7 +22,7 @@ function sample(partial: Partial<Place> & Pick<Place, 'id' | 'name' | 'category'
 
 describe('places declutter contract', () => {
 	it('keeps name labels off until settled city zoom (Google/HERE-like)', () => {
-		expect(PLACES_LABEL_MIN_ZOOM).toBeGreaterThanOrEqual(14);
+		expect(PLACES_LABEL_MIN_ZOOM).toBeGreaterThan(ORBIT_CAMERA.zoom);
 		expect(PLACES_CORE_LAYER_ID).toBe('places-core');
 		expect(PLACES_LABEL_LAYER_ID).toBe('places-label');
 	});

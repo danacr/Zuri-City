@@ -6,8 +6,11 @@ export const PLACES_SOURCE_ID = 'places';
 export const PLACES_CORE_LAYER_ID = 'places-core';
 export const PLACES_LABEL_LAYER_ID = 'places-label';
 
-/** Names stay off at basin overview — Google/HERE hide labels until you settle in. */
-export const PLACES_LABEL_MIN_ZOOM = 14.5;
+/**
+ * Names stay off at basin orbit — must sit above ORBIT_CAMERA.zoom (14.6).
+ * Google/HERE keep salon/café labels for street settle, not city inspect.
+ */
+export const PLACES_LABEL_MIN_ZOOM = 15.5;
 
 /**
  * Idempotent places overlay (category icon + name label).
