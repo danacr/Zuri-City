@@ -106,8 +106,23 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		refreshedAt: null as string | null,
 		error: '',
 		intel: EMPTY_INTEL,
-		hydrateCity: Promise.all([placesPromise, parkingsPromise, intelPromise]).then(
-			([city, parking, intel]) => ({
+		// Places + parking first; soft-timeout intel so slow roadworks never blank PLS or splash.
+		hydrateCity: Promise.all([placesPromise, parkingsPromise]).then(async ([city, parking]) => {
+			const intel = await Promise.race([
+				intelPromise,
+				new Promise<IntelSnapshot>((resolve) =>
+					setTimeout(
+						() =>
+							resolve({
+								...EMPTY_INTEL,
+								fetchedAt: new Date().toISOString(),
+								notes: ['Live intel still loading — traffic will fill in shortly.']
+							}),
+						4_000
+					)
+				)
+			]);
+			return {
 				places: city.places,
 				placesSource: city.source,
 				placesError: city.error,
@@ -115,7 +130,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 				refreshedAt: parking.refreshedAt,
 				error: parking.error,
 				intel
-			})
-		)
+			};
+		})
 	};
 };

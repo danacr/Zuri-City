@@ -105,6 +105,10 @@
 			cameras = live.intel?.cameras ?? [];
 			quakes = live.intel?.quakes ?? [];
 			intelNotes = live.intel?.notes ?? [];
+			// Keep last-good traffic if intel omits / returns empty (504 soft-fail).
+			if (Array.isArray(live.intel?.traffic) && live.intel.traffic.length) {
+				traffic = live.intel.traffic;
+			}
 			tryRevealFlights();
 		});
 	}

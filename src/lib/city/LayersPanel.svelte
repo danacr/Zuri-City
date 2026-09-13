@@ -51,7 +51,7 @@
 	<section class="master" aria-label="Places master toggle">
 		<button type="button" class="master-btn" on:click={onShowAllPlaces}>
 			<span class="master-label">All places</span>
-			<span class="master-hint">Everything open nearby</span>
+			<span class="master-hint">All OSM places on the map</span>
 		</button>
 		<button type="button" class="master-btn ghost" on:click={onHideAllPlaces}>
 			<span class="master-label">None</span>

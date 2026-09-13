@@ -16,15 +16,15 @@ const OVERPASS_ENDPOINTS = [
 ];
 
 /** ~3.8 km around Zürich HB — dense nearby coverage of the city core. */
-const AROUND_NEAR = `around:6500,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
+const AROUND_NEAR = `around:8000,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 /** Slightly wider ring for sights / parks / hotels. */
-const AROUND_WIDE = `around:9000,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
+const AROUND_WIDE = `around:11000,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 
 /**
  * Cap POI density so first orbit reads as a city, not sticker soup.
  * Collision + label minzoom handle the rest; seeds still merge via dedupe.
  */
-const MAX_PER_CATEGORY = 48;
+const MAX_PER_CATEGORY = 140;
 
 type OverpassElement = {
 	type: string;
@@ -45,7 +45,7 @@ const QUERY_BUNDLES = [
   way["amenity"~"restaurant|fast_food|cafe|bar|pub"](${AROUND_NEAR});
   way["shop"~"bakery|pastry|coffee"](${AROUND_NEAR});
 );
-out center 550;
+out center 1200;
 `.trim(),
 	`
 [out:json][timeout:18];
@@ -55,7 +55,7 @@ out center 550;
   node["beauty"](${AROUND_NEAR});
   node["amenity"="beauty_salon"](${AROUND_NEAR});
 );
-out body 400;
+out body 800;
 `.trim(),
 	`
 [out:json][timeout:18];
@@ -64,7 +64,7 @@ out body 400;
   node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water"](${AROUND_NEAR});
   node["amenity"="marketplace"](${AROUND_NEAR});
 );
-out body 550;
+out body 1200;
 `.trim(),
 	`
 [out:json][timeout:18];
@@ -76,7 +76,17 @@ out body 550;
   way["leisure"~"park|garden|nature_reserve"](${AROUND_WIDE});
   way["tourism"~"attraction|museum"](${AROUND_WIDE});
 );
-out center 500;
+out center 1000;
+`.trim(),
+	`
+[out:json][timeout:18];
+(
+  node["shop"]["name"](${AROUND_NEAR});
+  node["amenity"]["name"](${AROUND_NEAR});
+  node["office"]["name"](${AROUND_NEAR});
+  node["craft"]["name"](${AROUND_NEAR});
+);
+out body 1500;
 `.trim()
 ];
 
@@ -146,6 +156,9 @@ function categorize(tags: Record<string, string>): PlaceCategory | null {
 		return 'sights';
 	}
 	if (shop) return 'shop';
+	// Named amenity / office / craft catch-all so the map feels lived-in, not curated.
+	if (amenity) return 'daily';
+	if (tags.office || tags.craft) return 'shop';
 	return null;
 }
 
@@ -239,10 +252,11 @@ function dedupe(places: Place[]): Place[] {
 
 function rankNearbyOpen(places: Place[], origin: [number, number] = ZURICH_CENTER): Place[] {
 	return [...places].sort((a, b) => {
+		const distDiff =
+			haversineMeters(origin, [a.lon, a.lat]) - haversineMeters(origin, [b.lon, b.lat]);
+		if (Math.abs(distDiff) > 120) return distDiff;
 		const openScore = (value: boolean | null) => (value === true ? 0 : value === false ? 2 : 1);
-		const openDiff = openScore(a.isOpen) - openScore(b.isOpen);
-		if (openDiff !== 0) return openDiff;
-		return haversineMeters(origin, [a.lon, a.lat]) - haversineMeters(origin, [b.lon, b.lat]);
+		return openScore(a.isOpen) - openScore(b.isOpen);
 	});
 }
 
@@ -339,7 +353,7 @@ function bboxQueryBundles(bbox: PlacesBbox): string[] {
   way["amenity"~"restaurant|fast_food|cafe|bar|pub"](${b});
   way["shop"~"bakery|pastry|coffee"](${b});
 );
-out center 800;
+out center 1400;
 `.trim(),
 		`
 [out:json][timeout:20];
@@ -349,7 +363,7 @@ out center 800;
   node["craft"="hairdresser"](${b});
   node["beauty"](${b});
 );
-out center 900;
+out center 1600;
 `.trim(),
 		`
 [out:json][timeout:20];
@@ -360,7 +374,7 @@ out center 900;
   way["leisure"~"park|garden|nature_reserve"](${b});
   way["tourism"~"attraction|museum"](${b});
 );
-out center 700;
+out center 1200;
 `.trim()
 	];
 }
@@ -374,7 +388,7 @@ export async function loadPlacesInBbox(
 	bbox: PlacesBbox,
 	zoom = 15
 ): Promise<{ places: Place[]; source: 'overpass' | 'empty'; error: string }> {
-	const perCategory = zoom >= 16 ? 120 : zoom >= 14.5 ? 80 : zoom >= 13 ? 48 : 24;
+	const perCategory = zoom >= 16 ? 220 : zoom >= 14.5 ? 160 : zoom >= 13 ? 100 : 48;
 	const queries = bboxQueryBundles(bbox);
 	for (const endpoint of OVERPASS_ENDPOINTS) {
 		try {

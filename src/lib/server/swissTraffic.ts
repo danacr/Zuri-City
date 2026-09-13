@@ -25,8 +25,12 @@ const OVERPASS_MIRRORS = [
 /** Greater Zürich bowl — drop cantonal sites outside the city map. */
 const ZH_BBOX = { west: 8.35, south: 47.28, east: 8.72, north: 47.48 };
 
-/** Hard ceiling so hydrateCity cannot stall on a slow mirror. */
-const FEED_BUDGET_MS = 8_000;
+/**
+ * Hard ceiling so hydrateCity /api/intel cannot stall on a slow mirror.
+ * Vercel functions die ~10s — KTZH alone answers in ~1–2s; Overpass is optional.
+ */
+const FEED_BUDGET_MS = 3_500;
+const OVERPASS_BUDGET_MS = 2_500;
 
 type CacheBox<T> = { at: number; value: T };
 let cache: CacheBox<TrafficSegment[]> | null = null;
@@ -175,27 +179,34 @@ function parseOverpass(payload: {
 	return out;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-		promise.then(
-			(value) => {
-				clearTimeout(timer);
-				resolve(value);
-			},
-			(error) => {
-				clearTimeout(timer);
-				reject(error);
-			}
-		);
-	});
+function abortedFetch(
+	fetchFn: typeof fetch,
+	input: RequestInfo | URL,
+	init: RequestInit | undefined,
+	ms: number,
+	label: string
+): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), ms);
+	return fetchFn(input, { ...init, signal: controller.signal })
+		.finally(() => clearTimeout(timer))
+		.catch((error) => {
+			if (controller.signal.aborted) throw new Error(`${label} timed out`);
+			throw error;
+		});
 }
 
 async function fetchKtzh(fetchFn: typeof fetch): Promise<TrafficSegment[]> {
-	const response = await fetchFn(KTZH_WFS, {
-		headers: { accept: 'application/json', 'user-agent': 'ZuriCity/1.0 (https://zuri.city)' },
-		cache: 'no-store'
-	});
+	const response = await abortedFetch(
+		fetchFn,
+		KTZH_WFS,
+		{
+			headers: { accept: 'application/json', 'user-agent': 'ZuriCity/1.0 (https://zuri.city)' },
+			cache: 'no-store'
+		},
+		FEED_BUDGET_MS,
+		'KTZH Baustellen'
+	);
 	if (!response.ok) throw new Error(`KTZH Baustellen HTTP ${response.status}`);
 	const json = (await response.json()) as { features?: GjFeature[] };
 	return parseKtzh(json);
@@ -206,22 +217,28 @@ async function fetchOverpassMirror(
 	url: string,
 	query: string
 ): Promise<TrafficSegment[]> {
-	const response = await fetchFn(url, {
-		method: 'POST',
-		headers: {
-			'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
-			'user-agent': 'ZuriCity/1.0 (https://zuri.city)'
+	const response = await abortedFetch(
+		fetchFn,
+		url,
+		{
+			method: 'POST',
+			headers: {
+				'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+				'user-agent': 'ZuriCity/1.0 (https://zuri.city)'
+			},
+			body: `data=${encodeURIComponent(query)}`,
+			cache: 'no-store'
 		},
-		body: `data=${encodeURIComponent(query)}`,
-		cache: 'no-store'
-	});
+		OVERPASS_BUDGET_MS,
+		'Overpass'
+	);
 	if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
 	return parseOverpass((await response.json()) as Parameters<typeof parseOverpass>[0]);
 }
 
 async function fetchOverpass(fetchFn: typeof fetch): Promise<TrafficSegment[]> {
 	const query = `
-[out:json][timeout:8];
+[out:json][timeout:2];
 (
   way["highway"="construction"](${ZH_BBOX.south},${ZH_BBOX.west},${ZH_BBOX.north},${ZH_BBOX.east});
   way["highway"]["construction"](${ZH_BBOX.south},${ZH_BBOX.west},${ZH_BBOX.north},${ZH_BBOX.east});
@@ -255,23 +272,21 @@ export async function loadSwissTraffic(fetchFn: typeof fetch): Promise<{
 		return { traffic: cache.value, source: 'zh-roadworks', error: '' };
 	}
 
-	const settled = await Promise.allSettled([
-		withTimeout(fetchKtzh(fetchFn), FEED_BUDGET_MS, 'KTZH Baustellen'),
-		withTimeout(fetchOverpass(fetchFn), FEED_BUDGET_MS, 'Overpass construction')
-	]);
+	// Prefer KTZH (fast, official). Overpass is a bonus — never block on it.
+	const ktzhPromise = fetchKtzh(fetchFn);
+	const overpassPromise = fetchOverpass(fetchFn).catch(() => [] as TrafficSegment[]);
 	const chunks: TrafficSegment[] = [];
 	const errors: string[] = [];
 
-	for (const result of settled) {
-		if (result.status === 'fulfilled') chunks.push(...result.value);
-		else {
-			const reason = result.reason;
-			if (reason instanceof AggregateError) {
-				errors.push(reason.errors[0] instanceof Error ? reason.errors[0].message : 'Overpass failed');
-			} else {
-				errors.push(reason instanceof Error ? reason.message : 'feed failed');
-			}
-		}
+	try {
+		chunks.push(...(await ktzhPromise));
+	} catch (error) {
+		errors.push(error instanceof Error ? error.message : 'KTZH failed');
+	}
+	try {
+		chunks.push(...(await overpassPromise));
+	} catch (error) {
+		errors.push(error instanceof Error ? error.message : 'Overpass failed');
 	}
 
 	const traffic = dedupe(chunks);

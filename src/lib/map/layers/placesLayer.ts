@@ -46,32 +46,32 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 					['linear'],
 					['zoom'],
 					CITY_MIN_ZOOM,
-					0.42,
+					0.34,
 					13,
-					0.55,
+					0.48,
 					15,
-					0.72,
+					0.68,
 					CITY_MAX_ZOOM,
-					0.95
+					0.9
 				],
 				'icon-padding': [
 					'interpolate',
 					['linear'],
 					['zoom'],
 					CITY_MIN_ZOOM,
-					22,
+					10,
 					14,
-					8,
+					4,
 					16,
-					2,
+					1,
 					CITY_MAX_ZOOM,
-					1
+					0
 				],
 				'icon-allow-overlap': [
 					'step',
 					['zoom'],
 					false,
-					15.5,
+					14.2,
 					true
 				],
 				'icon-ignore-placement': false,
@@ -90,8 +90,34 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 			'step',
 			['zoom'],
 			false,
-			15.5,
+			14.2,
 			true
+		]);
+		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-padding', [
+			'interpolate',
+			['linear'],
+			['zoom'],
+			CITY_MIN_ZOOM,
+			10,
+			14,
+			4,
+			16,
+			1,
+			CITY_MAX_ZOOM,
+			0
+		]);
+		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-size', [
+			'interpolate',
+			['linear'],
+			['zoom'],
+			CITY_MIN_ZOOM,
+			0.34,
+			13,
+			0.48,
+			15,
+			0.68,
+			CITY_MAX_ZOOM,
+			0.9
 		]);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-ignore-placement', false);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-optional', true);
