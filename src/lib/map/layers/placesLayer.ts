@@ -13,6 +13,12 @@ export const PLACES_LABEL_LAYER_ID = 'places-label';
 export const PLACES_LABEL_MIN_ZOOM = 15.5;
 
 /**
+ * Icons may overlap only after street settle — same floor as labels.
+ * Orbit (14.6) must stay a clean aerial, not a sticker sheet.
+ */
+export const PLACES_ICON_OVERLAP_MIN_ZOOM = 15.5;
+
+/**
  * Idempotent places overlay (category icon + name label).
  * Collision + zoom gates keep SWISSIMAGE readable; icons never ignore placement.
  */
@@ -46,34 +52,29 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 					['linear'],
 					['zoom'],
 					CITY_MIN_ZOOM,
-					0.34,
+					0.42,
 					13,
-					0.48,
+					0.55,
 					15,
-					0.68,
+					0.72,
 					CITY_MAX_ZOOM,
-					0.9
+					0.95
 				],
+				// Generous padding + no overlap until street settle keeps orbit aerial clean.
 				'icon-padding': [
 					'interpolate',
 					['linear'],
 					['zoom'],
 					CITY_MIN_ZOOM,
-					10,
+					22,
 					14,
-					4,
+					8,
 					16,
-					1,
+					2,
 					CITY_MAX_ZOOM,
-					0
+					1
 				],
-				'icon-allow-overlap': [
-					'step',
-					['zoom'],
-					false,
-					14.2,
-					true
-				],
+				'icon-allow-overlap': ['step', ['zoom'], false, PLACES_ICON_OVERLAP_MIN_ZOOM, true],
 				'icon-ignore-placement': false,
 				'icon-optional': true,
 				'symbol-sort-key': ['get', 'sortKey'],
@@ -90,7 +91,7 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 			'step',
 			['zoom'],
 			false,
-			14.2,
+			PLACES_ICON_OVERLAP_MIN_ZOOM,
 			true
 		]);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-padding', [
@@ -98,26 +99,26 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			10,
+			22,
 			14,
-			4,
+			8,
 			16,
-			1,
+			2,
 			CITY_MAX_ZOOM,
-			0
+			1
 		]);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-size', [
 			'interpolate',
 			['linear'],
 			['zoom'],
 			CITY_MIN_ZOOM,
-			0.34,
+			0.42,
 			13,
-			0.48,
+			0.55,
 			15,
-			0.68,
+			0.72,
 			CITY_MAX_ZOOM,
-			0.9
+			0.95
 		]);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-ignore-placement', false);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-optional', true);

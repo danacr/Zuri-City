@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	PLACES_CORE_LAYER_ID,
+	PLACES_ICON_OVERLAP_MIN_ZOOM,
 	PLACES_LABEL_LAYER_ID,
 	PLACES_LABEL_MIN_ZOOM
 } from '$lib/map/layers/placesLayer';
@@ -25,6 +26,11 @@ describe('places declutter contract', () => {
 		expect(PLACES_LABEL_MIN_ZOOM).toBeGreaterThan(ORBIT_CAMERA.zoom);
 		expect(PLACES_CORE_LAYER_ID).toBe('places-core');
 		expect(PLACES_LABEL_LAYER_ID).toBe('places-label');
+	});
+
+	it('keeps icon overlap off at basin orbit so first frame is not a sticker sheet', () => {
+		expect(PLACES_ICON_OVERLAP_MIN_ZOOM).toBeGreaterThan(ORBIT_CAMERA.zoom);
+		expect(PLACES_ICON_OVERLAP_MIN_ZOOM).toBeGreaterThanOrEqual(PLACES_LABEL_MIN_ZOOM);
 	});
 
 	it('emits sortKey so landmarks win collision over shops', () => {
