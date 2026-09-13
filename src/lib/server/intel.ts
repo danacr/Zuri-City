@@ -62,7 +62,7 @@ export async function loadFlights(fetchFn: typeof fetch): Promise<{
 				signal: controller.signal,
 				headers: {
 					accept: 'application/json',
-					'user-agent': 'ZuriCity/1.0 (god-eye Zürich map)'
+					'user-agent': 'ZuriCity/1.0 (interactive Zürich city)'
 				}
 			}
 		);
@@ -127,7 +127,7 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 	const notes = [
 		flightsResult.error,
 		quakesResult.error,
-		'Live streets: roads are colored green / amber / red by modeled congestion. Tiny cars appear when you zoom in — accent only, not the main signal. Not a paid traffic API.',
+		'Live streets: roads are colored green / amber / red by modeled congestion. Glowing streaks slide along the centerlines — accent only, not the main signal. Not a paid traffic API.',
 		'CCTV stills are live ASTRA Mobcam JPEGs (proxied + validated). Map pins are approximate corridor placements.',
 		'Aircraft are live ADS-B (adsb.lol). Tap “Find aircraft” or enable Aircraft — most contacts are outside the city bowl.',
 		'Basemap is SWISSIMAGE (swisstopo) with solid 3D building masses (keyless). Photoreal street façades need a commercial 3D-tiles key.'

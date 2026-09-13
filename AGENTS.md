@@ -6,25 +6,28 @@ legacy Codex-specific notes.
 ## Product
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
-a god’s-eye / walkable **3D map of Zürich**. The foundation of the experience is
-the **living city** — SWISSIMAGE aerial basemap, extruded OSM buildings, and
-**congestion-colored streets** on OpenMapTiles centerlines (**green** / **amber** / **red**),
-with small cars as a zoom-in accent only. Parking from the
+**the interactive city**, a walkable **3D map of Zürich**. The foundation of the experience is
+the living map — SWISSIMAGE aerial basemap, **swisstopo swissBUILDINGS3D**
+meshes (continuous LOD), **swisstopo terrain**, and **congestion-colored streets**
+on OpenMapTiles centerlines (**green** / **amber** / **red**), with cars present
+across the city zoom range. Parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map in **blue**
 (list panel optional).
 
-Colored street lines are the primary traffic UX; cars are secondary decoration. Do not require Google Photorealistic 3D Tiles or Cesium keys
-for the default experience.
+Zoom only changes camera distance — not which city systems are visible. Colored
+street lines are the primary traffic UX; cars are secondary decoration. Prefer
+free swisstopo / OSM sources; do not require Google Photorealistic 3D Tiles or
+Cesium ion keys for the default experience.
 
 ## Stack
 
 - **Runtime:** Node.js **24.x** (see `.nvmrc`, `.node-version`, `package.json`)
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
-- **Map:** MapLibre GL (not Leaflet). Style builder: `src/lib/map/aerialStyle.ts`
-- **Living traffic:** `src/lib/city/trafficCars.ts` + GeoJSON symbol layer in
-  `src/lib/city/ZurichCity.svelte`
-- **Aircraft icons:** `src/lib/intel/aircraftIcons.ts` — ICAO type → airframe family,
-  callsign → airline livery; MapLibre sprites registered per flight
+- **Map:** CesiumJS (Workers/Assets via `static/cesiumStatic` from `npm run cesium:assets`) — one engine for SWISSIMAGE tiles, swissBUILDINGS3D, and terrain (`src/lib/city/ZurichCity.svelte`, `src/lib/map/cesiumCity.ts`)
+- **swisstopo sources:** `src/lib/map/swissSources.ts` (no Cesium ion key)
+- **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only; Cesium converts zoom → height)
+- **Traffic:** Cesium corridor polylines in `src/lib/map/zurichArteries.ts` (congestion colors; no per-frame dash RAF)
+- **Overlays:** `src/lib/map/layers/cesiumOverlays.ts` (places, parking, flights, cameras, quakes)
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
   Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
@@ -66,18 +69,27 @@ If you see `ERR_SSL_PROTOCOL_ERROR`, stop any old HTTP server and restart with
 
 ## Architecture (map-first)
 
+See **`src/lib/ARCHITECTURE.md`** for the scalable package layout and “how to add a layer”.
+
 | Area | Location |
 | --- | --- |
-| City map UI | `src/lib/city/ZurichCity.svelte` |
-| Places | `src/lib/city/places.ts` |
-| Car simulation | `src/lib/city/trafficCars.ts` |
-| Aerial / 3D style | `src/lib/map/aerialStyle.ts` |
-| Parking feed + panel | `src/lib/parking*`, `src/lib/ParkingPanel.svelte` |
+| Route (thin) | `src/routes/+page.svelte` → `CityExperience` |
+| Immersive shell / HUD | `src/lib/shell/CityExperience.svelte` |
+| Session stores | `src/lib/state/citySession.ts` |
+| Map host | `src/lib/city/ZurichCity.svelte` |
+| Map overlay plugins | `src/lib/map/layers/*` |
+| Places domain | `src/lib/places/` (`$lib/city/places` re-exports) |
+| Parking domain | `src/lib/parking/` (`$lib/parking` barrel) |
+| Aerial / terrain / buildings | `src/lib/map/*` |
 | Live intel (ADS-B, CCTV, quakes) | `src/lib/intel/*`, `src/lib/server/intel.ts` |
-| Page shell / HUD | `src/routes/+page.svelte` |
+| Layer toggle registry | `src/lib/city/layerRegistry.ts` |
 
 Intel layer **Live streets** (`traffic`) toggles colored road lines (and optional cars).
 `traffic-roads-query` supports the car accent.
+
+**Scalability rules:** keep routes thin; put new overlays in `map/layers/`; keep domain
+types out of the map host; prefer `citySession` stores when multiple UI surfaces share
+state.
 
 ## Parking data
 
@@ -127,9 +139,12 @@ Branch names: `cursor/<short-description>-abf9`.
 
 ## Agent preferences
 
-- Keep **colored traffic streets** as the readable traffic signal; cars stay optional accents.
+- Keep **one continuous city** across zoom: no layer pop-in / building-height morph /
+  car spawn gates inside the city zoom contract.
+- Keep **colored traffic streets** as the readable traffic signal; cars stay accents
+  that remain present (density by viewport, not zoom buckets).
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
 - Parking stays always-visible in blue (not a map-layer toggle).
-- Match existing MapLibre patterns; avoid reintroducing Leaflet for the city view.
+- Keep CesiumJS as the sole map engine; do not reintroduce MapLibre/Three.js for city massing.
 - Prefer small, focused diffs; update this file when product foundations change.

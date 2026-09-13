@@ -60,11 +60,18 @@ export type IntelSnapshot = {
 
 export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 	flights: 'Aircraft',
-	cameras: 'CCTV mesh',
-	traffic: 'Live streets',
-	quakes: 'Earthquakes',
-	detection: 'Detection'
+	cameras: 'Cameras',
+	traffic: 'Traffic',
+	quakes: 'Quakes',
+	detection: 'Camera cones'
 };
+
+/** Compact legend for congestion-colored streets. */
+export const TRAFFIC_LEGEND: { label: string; color: string }[] = [
+	{ label: 'Free', color: '#2f9e44' },
+	{ label: 'Slow', color: '#f08c00' },
+	{ label: 'Jam', color: '#e03131' }
+];
 
 export const INTEL_LAYER_COLOR: Record<IntelLayer, string> = {
 	flights: '#f0b429',

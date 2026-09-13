@@ -3,8 +3,9 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "vite dev --host 0.0.0.0",
-		"build": "vite build",
+		"cesium:assets": "node scripts/copy-cesium-assets.mjs",
+		"dev": "npm run cesium:assets && vite dev --host 0.0.0.0",
+		"build": "npm run cesium:assets && vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -12,7 +13,7 @@
 		"test:unit": "vitest",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"prepare": "svelte-kit sync"
+		"prepare": "svelte-kit sync && npm run cesium:assets"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -39,7 +40,7 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"maplibre-gl": "^6.9.0",
+		"cesium": "^1.145.0",
 		"rss-parser": "^3.13.0"
 	},
 	"engines": {

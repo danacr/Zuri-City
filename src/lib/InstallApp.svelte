@@ -86,7 +86,7 @@
 		>
 	</div>
 	<h2 id="install-title">Züri City, one tap away.</h2>
-	<p>Add the web app to your Home Screen for quick access to the city map and parking.</p>
+	<p>Add the web app to your Home Screen for quick access to the interactive city map.</p>
 	{#if ios}<ol>
 			<li>Open this page in <strong>Safari</strong>.</li>
 			<li>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>
@@ -100,7 +100,7 @@
 			<strong>File → Add to Dock</strong>.
 		</p>
 		<p>If no install option appears, bookmark this page or try a supported browser.</p>{/if}
-	<p class="note">An internet connection is needed for current parking data.</p>
+	<p class="note">An internet connection is needed for live map data.</p>
 	<button type="button" class="done" onclick={() => dialog.close()}>Got it</button>
 </dialog>
 

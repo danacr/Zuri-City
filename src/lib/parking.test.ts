@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseParking, availability, parkingTone, spotCount, distance } from './parking';
+import {
+	parseParking,
+	availability,
+	parkingTone,
+	spotCount,
+	parkingMapLabel,
+	distance
+} from './parking';
 import { parseCapacity, parseCoordinates, enrichParkings } from './server/parking-details';
 
 describe('parking data', () => {
@@ -13,6 +20,13 @@ describe('parking data', () => {
 		expect(parking.coordinates).toBeNull();
 		expect(parking.capacity).toBeNull();
 		expect(spotCount(parking)).toBe('0 / —');
+		expect(parkingMapLabel(parking)).toBe('Full · 0 / —');
+	});
+	it('labels open garages with free spots out of capacity for the map', () => {
+		const open = parseParking({ content: 'open / 42' });
+		open.capacity = 120;
+		expect(parkingMapLabel(open)).toBe('Open · 42 / 120');
+		expect(parkingMapLabel(parseParking({ content: 'closed / 7' }))).toBe('Closed');
 	});
 	it('uses red for closed even with spaces, and grey for unrecognized or missing availability', () => {
 		expect(parkingTone(parseParking({ content: 'closed / 42' }))).toBe('red');

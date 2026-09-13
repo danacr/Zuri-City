@@ -20,7 +20,7 @@ const AROUND_NEAR = `around:3800,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 /** Slightly wider ring for sights / parks / hotels. */
 const AROUND_WIDE = `around:5200,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 
-const MAX_PER_CATEGORY = 120;
+const MAX_PER_CATEGORY = 30;
 
 type OverpassElement = {
 	type: string;
@@ -34,7 +34,7 @@ type OverpassElement = {
 /** Split queries stay under Overpass timeouts while covering many nearby open venues. */
 const QUERY_BUNDLES = [
 	`
-[out:json][timeout:18];
+[out:json][timeout:10];
 (
   node["amenity"~"restaurant|fast_food|biergarten|food_court|cafe|ice_cream|bar|pub|nightclub"](${AROUND_NEAR});
   node["shop"~"bakery|pastry|coffee|chocolate|confectionery"](${AROUND_NEAR});
@@ -42,7 +42,7 @@ const QUERY_BUNDLES = [
 out body 550;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:10];
 (
   node["shop"~"hairdresser|beauty|nails|massage|cosmetics|perfumery|tattoo|piercing"](${AROUND_NEAR});
   node["craft"="hairdresser"](${AROUND_NEAR});
@@ -52,7 +52,7 @@ out body 550;
 out body 400;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:10];
 (
   node["shop"~"clothes|shoes|books|jewelry|gift|electronics|fashion_accessories|department_store|mall|bicycle|sports|florist|furniture|optician|mobile_phone|computer|toys|music|convenience|supermarket|chemist|kiosk|greengrocer|butcher|dairy"](${AROUND_NEAR});
   node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water"](${AROUND_NEAR});
@@ -61,7 +61,7 @@ out body 400;
 out body 550;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:10];
 (
   node["tourism"~"attraction|museum|viewpoint|gallery|artwork|zoo|theme_park|hotel|hostel|apartment"](${AROUND_WIDE});
   node["historic"~"monument|castle|memorial|ruins|archaeological_site"](${AROUND_WIDE});
@@ -255,7 +255,7 @@ async function fetchBundle(
 	query: string
 ): Promise<OverpassElement[]> {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 18000);
+	const timer = setTimeout(() => controller.abort(), 10000);
 	try {
 		const response = await fetchFn(endpoint, {
 			method: 'POST',
