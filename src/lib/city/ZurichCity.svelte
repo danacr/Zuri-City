@@ -604,9 +604,8 @@
 					}
 				});
 				map = instance;
-				if (import.meta.env.DEV) {
-					(window as unknown as { __zurichMap?: typeof instance }).__zurichMap = instance;
-				}
+				// Exposed for Playwright acceptance probes (mobile quality gates).
+				(window as unknown as { __zurichMap?: typeof instance }).__zurichMap = instance;
 				// Wheel without ctrl is intercepted by the page shell (credits scroll).
 				// Ctrl/meta wheel (trackpad pinch) still reaches MapLibre scrollZoom.
 				// touchPitch is mode-gated in applyModeInteractions (off in orbit, on in walk).
@@ -791,6 +790,10 @@
 	bind:this={container}
 	role="application"
 	aria-label="Walkable 3D map of Zürich"
+	data-testid="zurich-map"
+	data-map-ready={styleReady ? 'true' : 'false'}
+	data-map-mode={mode}
+	data-parking-count={visibleParkings.length}
 ></div>
 
 <style>

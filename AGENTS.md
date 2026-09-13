@@ -137,6 +137,34 @@ npm test
 npm run format
 ```
 
+### Quality gate — required before presenting ready
+
+Do **not** tell the user a preview is ready until this passes locally:
+
+```bash
+npm run quality
+```
+
+That runs, in order:
+
+1. `npm run check` — types / Svelte
+2. `npm run quality:unit` — unit + acceptance contract tests (buildings, parking, sprites, cameras-off, orbit≠walk)
+3. `npm run build` — production build
+4. `npm run quality:e2e` — Playwright **mobile-first** acceptance (`tests/acceptance.spec.ts`)
+
+Playwright acceptance covers:
+
+- Map boots `data-map-ready=true` on iPhone viewport (390×844)
+- Solid OSM buildings layer + opacity ≥ 0.7
+- Parking pills + labels present after hydrate
+- Traffic flow layer present
+- Place + aircraft sprites registered
+- Orbit vs Walk diverge in pitch/zoom; walk shows status hint
+- Cameras default off; parking cannot be toggled off
+- Map remains the primary mobile surface
+
+After `quality` is green, present the **Vercel preview URL** for the PR branch. The human review should then be about the implementation look — not discovering broken parking, flat buildings, or identical Orbit/Walk.
+
 Production:
 
 ```bash
@@ -176,6 +204,8 @@ Branch names: `cursor/<short-description>-abf9`.
 - Match existing MapLibre patterns; avoid reintroducing Leaflet or Cesium for the
   default city view.
 - Prefer small, focused diffs; update this file when product foundations change.
-- **Never present a non-professional / non-working outcome** as complete. If buildings
+- **Never present a non-professional / non-working outcome as complete.** If buildings
   are flat, parking missing, icons are dots, or orbit≈walk on mobile, keep fixing the
   same PR — do not open a celebratory summary.
+- **Always run `npm run quality` before presenting a preview as ready.** Human review
+  should only need to judge the implementation — not rediscover broken features.

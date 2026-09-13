@@ -7,12 +7,17 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
+		"test:acceptance": "playwright test tests/acceptance.spec.ts",
+		"test:unit": "vitest",
+		"test:unit:run": "vitest run",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"test:unit": "vitest",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"prepare": "svelte-kit sync"
+		"prepare": "svelte-kit sync",
+		"quality:unit": "vitest run",
+		"quality:e2e": "playwright test tests/acceptance.spec.ts",
+		"quality": "npm run check && npm run quality:unit && npm run build && npm run quality:e2e"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
