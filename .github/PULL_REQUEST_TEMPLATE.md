@@ -5,7 +5,9 @@
 ## Pre-human gates
 
 - [ ] **Quality** CI green (`npm run quality` — types, unit acceptance, build, Playwright mobile)
-- [ ] If this PR touches UI (`ui` label): Cursor **UI PR review** comment posted (Approve visually / Needs changes / Blocked)
+- [ ] If this PR touches UI (`ui` label):
+  - [ ] Cursor **UI contract review** comment (acceptance bar)
+  - [ ] Cursor **maps power-user** comment (must beat Google Maps / HERE for Zürich)
 - [ ] Bugbot (or equivalent) code review addressed for blocking findings
 
 Humans should only need to judge **look / implementation** after the above.
