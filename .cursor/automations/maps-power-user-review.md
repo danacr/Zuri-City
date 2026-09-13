@@ -77,6 +77,9 @@ End with an explicit answer. If you cannot name 2–3 concrete wins for Zürich 
 
 ## 4) Output — one top-level PR comment (separate from the contract UI bot)
 
+Start the comment body with this exact marker (required for the remediation automation):
+`<!-- zuri-review:maps-power-user -->`
+
 ### Maps power-user review (Google / HERE bar)
 - Verdict: Beats Google/HERE for this change | Needs work to beat them | Regresses vs them | Blocked
 - Device: mobile first (size) + desktop notes

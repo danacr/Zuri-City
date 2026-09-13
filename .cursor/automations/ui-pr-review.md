@@ -84,6 +84,9 @@ Capture screenshots (short recording for non-trivial flows). Attach artifacts wh
 
 ## 6) Output — exactly one top-level PR comment
 
+Start the comment body with this exact marker (required for the remediation automation):
+`<!-- zuri-review:contract -->`
+
 ### UI review summary
 - Verdict: Approve visually | Needs changes | Blocked (could not run)
 - Scope: screens/modes checked

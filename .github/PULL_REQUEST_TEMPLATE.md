@@ -8,6 +8,7 @@
 - [ ] If this PR touches UI (`ui` label):
   - [ ] Cursor **UI contract review** comment (acceptance bar)
   - [ ] Cursor **maps power-user** comment (must beat Google Maps / HERE for Zürich)
+  - [ ] **Remediation** automation addressed blocking findings (or none filed)
 - [ ] Bugbot (or equivalent) code review addressed for blocking findings
 
 Humans should only need to judge **look / implementation** after the above.

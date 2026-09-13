@@ -177,8 +177,14 @@ Full diagram + activation: [`.cursor/automations/README.md`](.cursor/automations
 | 3. Code bot | Cursor Bugbot (dashboard) |
 | 4a. UI contract | [`.cursor/automations/ui-pr-review.md`](.cursor/automations/ui-pr-review.md) — acceptance checklist |
 | 4b. Maps power-user | [`.cursor/automations/maps-power-user-review.md`](.cursor/automations/maps-power-user-review.md) — beat Google / HERE |
+| 5. Remediate | [`.cursor/automations/act-on-review-comments.md`](.cursor/automations/act-on-review-comments.md) — on bot comments, fix blocking → push → reply |
 
-**Activate Cursor automations (one-time each):** Automations → New → paste each prompt file. Enable comment + computer use; disable create-PR; prefer Team Owned. Prefer trigger on label `ui` (opened/pushed as backup).
+**Activate Cursor automations (one-time each):** Automations → New → paste each prompt file. Prefer Team Owned.
+
+- **4a / 4b:** comment + computer use on; create-PR off; trigger on label `ui`
+- **5:** triggers on PR comment / review comment / review submitted; push fixes to the **existing** PR branch only; never open a new PR; ignore its own `<!-- zuri-review:remediation -->` replies
+
+When this Cloud Agent is subscribed to PR events, treat bot review comments the same way: triage, fix blocking issues, push, report.
 
 PR template [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) lists the same gates.
 
