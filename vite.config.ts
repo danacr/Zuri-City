@@ -1,30 +1,21 @@
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
+import cesium from 'vite-plugin-cesium';
 import { localHttps } from './config/https.ts';
 
 export default defineConfig(({ command, mode }) => {
 	const https = command === 'serve' && mode !== 'test' ? localHttps() : undefined;
 	return {
-		plugins: [tailwindcss(), sveltekit()],
+		plugins: [tailwindcss(), sveltekit(), cesium()],
 		ssr: {
-			noExternal: ['maplibre-gl', 'three', '3d-tiles-renderer', 'maplibre-gl-3dtiles-terrain']
+			noExternal: ['cesium']
 		},
 		optimizeDeps: {
-			include: [
-				'maplibre-gl',
-				'three',
-				'three/addons/loaders/DRACOLoader.js',
-				'3d-tiles-renderer',
-				'3d-tiles-renderer/three',
-				'3d-tiles-renderer/three/plugins',
-				'maplibre-gl-3dtiles-terrain',
-				'@here/quantized-mesh-decoder'
-			]
+			include: ['cesium']
 		},
 		server: {
 			https,
-			// Keep local HTTPS on HTTP/1.1 for consistent browser and test behavior.
 			proxy: {},
 			fs: { deny: ['.env', '.env.*', '*.{crt,pem,key}', '**/.git/**', '**/.certs/**'] }
 		},

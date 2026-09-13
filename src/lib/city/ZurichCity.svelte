@@ -1,47 +1,28 @@
 <script lang="ts">
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-	import type {
-		ExpressionSpecification,
-		GeoJSONSource,
-		Map as MapLibreMap,
-		Marker
-	} from 'maplibre-gl';
-	import {
-		categoryColorExpression,
-		ZURICH_CENTER,
-		placesToGeoJSON,
-		type Place,
-		type PlaceCategory
-	} from './places';
+	import { type Place, type PlaceCategory } from './places';
 	import { type Parking } from '$lib/parking';
-	import { syncParkingLayer, syncPlacesLayer } from '$lib/map/layers';
-	import {
-		cameraViewshedsGeoJSON,
-		camerasToGeoJSON,
-		flightsToGeoJSON,
-		quakesToGeoJSON
-	} from '$lib/intel/geo';
 	import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
-	import {
-		aircraftIconId,
-		drawAircraftIcon,
-		GENERIC_FAMILY_ICON_IDS,
-		genericPaint,
-		paintFromFlight,
-		type AircraftFamily
-	} from '$lib/intel/aircraftIcons';
-	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
 	import {
 		CITY_MAX_ZOOM,
 		CITY_MIN_ZOOM,
 		ORBIT_CAMERA,
-		WALK_CAMERA
+		WALK_CAMERA,
+		ZURICH_LAT,
+		ZURICH_LON
 	} from '$lib/map/swissSources';
-	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
+	import { createCesiumCity, type CesiumCityHandle } from '$lib/map/cesiumCity';
+	import { flyCityCamera, heightToZoom } from '$lib/map/cesiumCamera';
 	import {
-		PLACE_ICON_IDS,
-		drawPlaceIcon,
-	} from '$lib/city/placeIcons';
+		attachEntityClick,
+		syncCameraEntities,
+		syncFlightEntities,
+		syncParkingEntities,
+		syncPlaceEntities,
+		syncQuakeEntities,
+		syncTrafficEntities,
+		syncUserEntity
+	} from '$lib/map/layers/cesiumOverlays';
 	import { createDefaultIntelLayers, PARKING_LAYER } from '$lib/city/layerRegistry';
 
 	export let places: Place[];
@@ -63,20 +44,17 @@
 	}>();
 
 	let container: HTMLDivElement;
-	let map: MapLibreMap | undefined;
+	let handle: CesiumCityHandle | undefined;
+	let CesiumMod: typeof import('cesium') | undefined;
 	let disposed = false;
-	let styleReady = false;
 	let mapError = '';
-	let userMarker: Marker | undefined;
+	let ready = false;
 	let keys = new Set<string>();
-	let raf = 0;
-	let walkBearing = -20;
-	let terrainHandle: TerrainHandle | undefined;
-	let trafficRaf = 0;
-	let trafficPulsePhase = 0;
-	let lastTrafficTs = 0;
-	
-	let placeIconsReady = false;
+	let walkRaf = 0;
+	let walkBearing: number = ORBIT_CAMERA.bearing;
+	let lastAppliedMode: 'orbit' | 'walk' | null = null;
+	let clickHandler: { destroy: () => void } | undefined;
+	let removeMoveEnd: (() => void) | undefined;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
 	$: visibleParkings = showParking
@@ -86,849 +64,210 @@
 	$: visibleCameras = intelLayers.cameras ? cameras : [];
 	$: visibleQuakes = intelLayers.quakes ? quakes : [];
 
-	$: if (map?.getSource('places')) {
-		(map.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
-	}
-	$: if (map?.getSource('parking')) {
-		syncParkingLayer(map, visibleParkings, showParking);
-	}
-	$: if (map && styleReady) {
-		const visibility = showParking ? 'visible' : 'none';
-		if (map.getLayer('parking-label')) {
-			map.setLayoutProperty('parking-label', 'visibility', visibility);
-		}
-	}
-	$: if (map?.getSource('flights')) {
-		registerAircraftIcons(map, visibleFlights);
-		(map.getSource('flights') as GeoJSONSource).setData(flightsToGeoJSON(visibleFlights));
-	}
-	$: if (map?.getSource('cameras')) {
-		(map.getSource('cameras') as GeoJSONSource).setData(camerasToGeoJSON(visibleCameras));
-	}
-	$: if (map?.getSource('viewsheds')) {
-		(map.getSource('viewsheds') as GeoJSONSource).setData(
-			cameraViewshedsGeoJSON(intelLayers.detection ? visibleCameras : [])
+	$: if (ready && handle && CesiumMod) syncPlaceEntities(handle.viewer, CesiumMod, visiblePlaces);
+	$: if (ready && handle && CesiumMod)
+		syncParkingEntities(handle.viewer, CesiumMod, visibleParkings, showParking);
+	$: if (ready && handle && CesiumMod)
+		syncFlightEntities(handle.viewer, CesiumMod, visibleFlights, intelLayers.flights);
+	$: if (ready && handle && CesiumMod)
+		syncCameraEntities(
+			handle.viewer,
+			CesiumMod,
+			visibleCameras,
+			intelLayers.cameras,
+			Boolean(intelLayers.detection && intelLayers.cameras)
 		);
-	}
-	$: if (map && styleReady && map.getLayer('camera-viewsheds')) {
-		map.setLayoutProperty(
-			'camera-viewsheds',
-			'visibility',
-			intelLayers.detection && intelLayers.cameras ? 'visible' : 'none'
-		);
-	}
-	$: if (map?.getSource('quakes')) {
-		(map.getSource('quakes') as GeoJSONSource).setData(quakesToGeoJSON(visibleQuakes));
-	}
-	$: if (map && styleReady) {
-		syncTrafficVisibility(map, intelLayers.traffic);
-		if (intelLayers.traffic) startTrafficPulse();
-		else stopTrafficPulse();
-	}
-	let lastAppliedMode: 'orbit' | 'walk' | null = null;
-	$: if (map && mode && mode !== lastAppliedMode) {
+	$: if (ready && handle && CesiumMod)
+		syncQuakeEntities(handle.viewer, CesiumMod, visibleQuakes, intelLayers.quakes);
+	$: if (ready && handle && CesiumMod)
+		syncTrafficEntities(handle.viewer, CesiumMod, intelLayers.traffic);
+	$: if (ready && handle && CesiumMod) syncUserEntity(handle.viewer, CesiumMod, userPosition);
+	$: if (ready && handle && mode && mode !== lastAppliedMode) {
 		lastAppliedMode = mode;
-		applyMode(mode, false);
+		void applyMode(mode, true);
 	}
-	$: if (map && selectedId) focusSelection(selectedId);
-	$: if (map && userPosition) syncUserMarker(userPosition);
+	$: if (ready && handle && selectedId) focusSelection(selectedId);
 
-	// parkings GeoJSON: $lib/map/layers/parkingLayer
-
-	/**
-	 * swissBUILDINGS3D mesh is temporarily not mounted: the shared-context Three.js
-	 * transform draws corrupt spikes and suppresses MapLibre fill-extrusions.
-	 * OSM `osm-buildings-3d` is the reliable city massing path for now.
-	 */
-	function mountSwissOverlay(_mapInstance: MapLibreMap, _maplibregl: typeof import('maplibre-gl')) {
-		return;
-	}
-
-	function applyMode(next: 'orbit' | 'walk', animate = true) {
-		if (!map) return;
-		const camera =
+	async function applyMode(next: 'orbit' | 'walk', animate = true) {
+		if (!handle) return;
+		const carto = handle.viewer.camera.positionCartographic;
+		const lon =
+			next === 'orbit' ? ZURICH_LON : carto ? (carto.longitude * 180) / Math.PI : ZURICH_LON;
+		const lat =
+			next === 'orbit' ? ZURICH_LAT : carto ? (carto.latitude * 180) / Math.PI : ZURICH_LAT;
+		const pose =
 			next === 'walk'
-				? {
-						zoom: WALK_CAMERA.zoom,
-						pitch: WALK_CAMERA.pitch,
-						bearing: walkBearing,
-						center: map.getCenter()
-				  }
+				? { lon, lat, zoom: WALK_CAMERA.zoom, pitch: WALK_CAMERA.pitch, bearing: walkBearing }
 				: {
+						lon: ZURICH_LON,
+						lat: ZURICH_LAT,
 						zoom: ORBIT_CAMERA.zoom,
 						pitch: ORBIT_CAMERA.pitch,
-						bearing: ORBIT_CAMERA.bearing,
-						center: ZURICH_CENTER
-				  };
-		if (animate) map.easeTo({ ...camera, duration: 1400 });
-		else map.jumpTo(camera);
+						bearing: ORBIT_CAMERA.bearing
+					};
+		await flyCityCamera(handle.viewer, pose, animate ? 1.4 : 0);
+		handle.viewer.scene.requestRender();
 	}
 
 	function focusSelection(id: string) {
-		if (!map) return;
+		if (!handle) return;
 		const place = places.find((item) => item.id === id);
 		if (place) {
-			map.easeTo({
-				center: [place.lon, place.lat],
-				zoom: Math.max(map.getZoom(), 16.5),
-				pitch: mode === 'walk' ? 72 : 62,
-				duration: 900
-			});
+			void flyCityCamera(
+				handle.viewer,
+				{
+					lon: place.lon,
+					lat: place.lat,
+					zoom: Math.max(16.5, mode === 'walk' ? WALK_CAMERA.zoom : 16.5),
+					pitch: mode === 'walk' ? 72 : 62,
+					bearing: walkBearing
+				},
+				0.9
+			);
 			return;
 		}
 		const parking = parkings.find((item) => (item.id || item.name) === id);
 		if (parking?.coordinates) {
-			map.easeTo({
-				center: [parking.coordinates[1], parking.coordinates[0]],
-				zoom: Math.max(map.getZoom(), 16),
-				duration: 900
-			});
+			const [plat, plon] = parking.coordinates;
+			void flyCityCamera(
+				handle.viewer,
+				{ lon: plon, lat: plat, zoom: 16, pitch: 60, bearing: walkBearing },
+				0.9
+			);
 			return;
 		}
 		const flight = flights.find((item) => item.id === id);
 		if (flight) {
-			map.easeTo({
-				center: [flight.lon, flight.lat],
-				zoom: Math.max(CITY_MIN_ZOOM, 12.5),
-				pitch: 55,
-				bearing: flight.heading ?? map.getBearing(),
-				duration: 1200
-			});
+			void flyCityCamera(
+				handle.viewer,
+				{
+					lon: flight.lon,
+					lat: flight.lat,
+					zoom: Math.max(CITY_MIN_ZOOM, 12.5),
+					pitch: 55,
+					bearing: flight.heading ?? walkBearing
+				},
+				1.2
+			);
 			return;
 		}
 		const camera = cameras.find((item) => item.id === id);
 		if (camera) {
-			map.easeTo({
-				center: [camera.lon, camera.lat],
-				zoom: 16.8,
-				pitch: 65,
-				bearing: camera.bearing,
-				duration: 1000
-			});
+			void flyCityCamera(
+				handle.viewer,
+				{ lon: camera.lon, lat: camera.lat, zoom: 16.8, pitch: 65, bearing: camera.bearing },
+				1
+			);
 		}
 	}
 
-	function syncUserMarker(position: [number, number]) {
-		if (!map) return;
-		import('maplibre-gl').then((maplibregl) => {
-			if (disposed || !map) return;
-			const lngLat: [number, number] = [position[1], position[0]];
-			if (!userMarker) {
-				const el = document.createElement('div');
-				el.className = 'user-pulse';
-				userMarker = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
-			} else userMarker.setLngLat(lngLat);
-		});
-	}
-
-	/** Re-push GeoJSON so MapLibre finishes loading overlays (first paint often races). */
-	function refreshOverlaySources(mapInstance: MapLibreMap = map!) {
-		if (!mapInstance) return;
-		const placesSource = mapInstance.getSource('places') as GeoJSONSource | undefined;
-		placesSource?.setData(placesToGeoJSON(visiblePlaces));
-		syncParkingLayer(mapInstance, visibleParkings, showParking);
-		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
-		if (flightsSource) {
-			registerAircraftIcons(mapInstance, visibleFlights);
-			flightsSource.setData(flightsToGeoJSON(visibleFlights));
+	function stopWalkLoop() {
+		if (walkRaf) {
+			cancelAnimationFrame(walkRaf);
+			walkRaf = 0;
 		}
-		const camerasSource = mapInstance.getSource('cameras') as GeoJSONSource | undefined;
-		camerasSource?.setData(camerasToGeoJSON(visibleCameras));
-		const viewshedsSource = mapInstance.getSource('viewsheds') as GeoJSONSource | undefined;
-		viewshedsSource?.setData(
-			cameraViewshedsGeoJSON(intelLayers.detection ? visibleCameras : [])
-		);
-		const quakesSource = mapInstance.getSource('quakes') as GeoJSONSource | undefined;
-		quakesSource?.setData(quakesToGeoJSON(visibleQuakes));
-		mapInstance.triggerRepaint();
-	}
-
-	function ensureLayers(mapInstance: MapLibreMap) {
-		ensurePlaceIcons(mapInstance);
-		syncPlacesLayer(mapInstance, visiblePlaces);
-		syncParkingLayer(mapInstance, visibleParkings, showParking);
-		if (!mapInstance.getSource('places')) {
-			mapInstance.addSource('places', {
-				type: 'geojson',
-				data: placesToGeoJSON(visiblePlaces),
-				// Promote id for faster feature state; keep data local so first paint is sync.
-				maxzoom: 18
-			});
-		} else {
-			(mapInstance.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
-		}
-		// Migrate legacy circle dots → category symbol icons.
-		if (mapInstance.getLayer('places-core')) {
-			const core = mapInstance.getLayer('places-core');
-			if (core && (core as { type?: string }).type === 'circle') {
-				mapInstance.removeLayer('places-core');
-			}
-		}
-		if (!mapInstance.getLayer('places-glow')) {
-			mapInstance.addLayer({
-				id: 'places-glow',
-				type: 'circle',
-				source: 'places',
-				paint: {
-					'circle-radius': 16,
-					'circle-color': categoryColorExpression() as any,
-					'circle-opacity': 0.18,
-					'circle-blur': 0.7
-				}
-			});
-		}
-		if (!mapInstance.getLayer('places-core')) {
-			mapInstance.addLayer({
-				id: 'places-core',
-				type: 'symbol',
-				source: 'places',
-				layout: {
-					'icon-image': [
-						'coalesce',
-						['get', 'icon'],
-						'place-sights'
-					],
-					'icon-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						CITY_MIN_ZOOM,
-						0.55,
-						15,
-						0.72,
-						CITY_MAX_ZOOM,
-						0.95
-					],
-					'icon-allow-overlap': true,
-					'icon-ignore-placement': true,
-					'symbol-placement': 'point',
-					// Avoid ground-anchoring until terrain settles — it can hide markers on first paint.
-					'icon-pitch-alignment': 'viewport',
-					'icon-rotation-alignment': 'viewport'
-				},
-				paint: {
-					'icon-opacity': [
-						'match',
-						['get', 'isOpen'],
-						'yes',
-						1,
-						'no',
-						0.45,
-						0.8
-					]
-				}
-			});
-		}
-		if (!mapInstance.getLayer('places-label')) {
-			mapInstance.addLayer({
-				id: 'places-label',
-				type: 'symbol',
-				source: 'places',
-				layout: {
-					'text-field': ['get', 'name'],
-					'text-size': 11,
-					'text-offset': [0, 1.7],
-					'text-font': ['Noto Sans Regular'],
-					'text-max-width': 10
-				},
-				paint: {
-					'text-color': '#16304e',
-					'text-halo-color': '#ffffff',
-					'text-halo-width': 1.4
-				}
-			});
-		}
-
-		if (!mapInstance.getSource('parking')) {
-			mapInstance.addSource('parking', {
-				type: 'geojson',
-				data: { type: 'FeatureCollection', features: [] }
-			});
-			mapInstance.addLayer({
-				id: 'parking-label',
-				type: 'symbol',
-				source: 'parking',
-				layout: {
-					visibility: showParking ? 'visible' : 'none',
-					'text-field': ['get', 'label'],
-					'text-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						12,
-						11,
-						15,
-						13,
-						17,
-						15
-					],
-					'text-font': ['Noto Sans Bold'],
-					'text-anchor': 'center',
-					'text-allow-overlap': true,
-					'text-ignore-placement': true,
-					'text-padding': 2
-				},
-				paint: {
-					'text-color': [
-						'match',
-						['get', 'tone'],
-						'green',
-						'#1b6b2e',
-						'red',
-						'#a61e1e',
-						'#1c4d7a'
-					],
-					'text-halo-color': '#ffffff',
-					'text-halo-width': 2.4,
-					'text-halo-blur': 0.2
-				}
-			});
-		} else if (mapInstance.getLayer('parking-pill')) {
-			mapInstance.removeLayer('parking-pill');
-		}
-
-		// Viewsheds / cameras / flights sit above the basemap; cars are ensured at the end.
-
-		if (!mapInstance.getSource('viewsheds')) {
-			mapInstance.addSource('viewsheds', {
-				type: 'geojson',
-				data: cameraViewshedsGeoJSON(visibleCameras)
-			});
-			mapInstance.addLayer({
-				id: 'camera-viewsheds',
-				type: 'fill',
-				source: 'viewsheds',
-				layout: {
-					visibility:
-						intelLayers.detection && intelLayers.cameras ? 'visible' : 'none'
-				},
-				paint: {
-					'fill-color': '#7c5cff',
-					'fill-opacity': 0.14
-				}
-			});
-		}
-
-		if (!mapInstance.getSource('cameras')) {
-			mapInstance.addSource('cameras', {
-				type: 'geojson',
-				data: camerasToGeoJSON(visibleCameras)
-			});
-			mapInstance.addLayer({
-				id: 'cameras-core',
-				type: 'circle',
-				source: 'cameras',
-				paint: {
-					'circle-radius': 7,
-					'circle-color': '#7c5cff',
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ffffff'
-				}
-			});
-			mapInstance.addLayer({
-				id: 'cameras-label',
-				type: 'symbol',
-				source: 'cameras',
-				layout: {
-					'text-field': 'CCTV',
-					'text-size': 9,
-					'text-offset': [0, 1.3],
-					'text-font': ['Noto Sans Bold']
-				},
-				paint: {
-					'text-color': '#4c3d99',
-					'text-halo-color': '#ffffff',
-					'text-halo-width': 1.2
-				}
-			});
-		}
-
-		if (!mapInstance.getSource('flights')) {
-			mapInstance.addSource('flights', {
-				type: 'geojson',
-				data: flightsToGeoJSON(visibleFlights)
-			});
-			registerAircraftIcons(mapInstance);
-			// Always-on halo so contacts read even when sprites are tiny / off-screen zoom.
-			mapInstance.addLayer({
-				id: 'flights-halo',
-				type: 'circle',
-				source: 'flights',
-				paint: {
-					'circle-radius': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						8,
-						3,
-						11,
-						5,
-						14,
-						8
-					],
-					'circle-color': '#f0b429',
-					'circle-opacity': 0.55,
-					'circle-stroke-width': 1.5,
-					'circle-stroke-color': '#fff6d6',
-					'circle-stroke-opacity': 0.9
-				}
-			});
-			mapInstance.addLayer({
-				id: 'flights-core',
-				type: 'symbol',
-				source: 'flights',
-				layout: {
-					'icon-image': ['coalesce', ['get', 'icon'], 'plane-narrow-gen'],
-					'icon-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						8,
-						[
-							'match',
-							['get', 'family'],
-							'ga',
-							0.35,
-							'regional',
-							0.42,
-							'narrow',
-							0.48,
-							'wide-twin',
-							0.58,
-							'wide-quad',
-							0.64,
-							'rotor',
-							0.38,
-							0.45
-						],
-						12,
-						[
-							'match',
-							['get', 'family'],
-							'ga',
-							0.62,
-							'regional',
-							0.82,
-							'narrow',
-							0.92,
-							'wide-twin',
-							1.12,
-							'wide-quad',
-							1.22,
-							'rotor',
-							0.72,
-							0.88
-						],
-						15,
-						[
-							'match',
-							['get', 'family'],
-							'ga',
-							0.85,
-							'regional',
-							1.05,
-							'narrow',
-							1.15,
-							'wide-twin',
-							1.35,
-							'wide-quad',
-							1.45,
-							'rotor',
-							0.95,
-							1.1
-						]
-					],
-					'icon-rotate': ['coalesce', ['get', 'heading'], 0],
-					'icon-rotation-alignment': 'map',
-					'icon-allow-overlap': true,
-					'icon-ignore-placement': true,
-					'text-field': ['get', 'callsign'],
-					'text-size': 11,
-					'text-offset': [0, 1.85],
-					'text-font': ['Noto Sans Bold'],
-					'text-allow-overlap': true,
-					'text-ignore-placement': true
-				},
-				paint: {
-					'text-color': '#ffe8a3',
-					'text-halo-color': '#1a1303',
-					'text-halo-width': 1.6,
-					'text-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0, 11, 0.95]
-				}
-			});
-		}
-
-		if (!mapInstance.getSource('quakes')) {
-			mapInstance.addSource('quakes', {
-				type: 'geojson',
-				data: quakesToGeoJSON(visibleQuakes)
-			});
-			mapInstance.addLayer({
-				id: 'quakes-core',
-				type: 'circle',
-				source: 'quakes',
-				paint: {
-					'circle-radius': ['get', 'radius'],
-					'circle-color': '#e64980',
-					'circle-opacity': 0.35,
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#f783ac'
-				}
-			});
-		}
-
-		// Living streets: animated dashes on congested roads.
-		syncTrafficVisibility(mapInstance, intelLayers.traffic);
-		if (intelLayers.traffic) {
-			
-			startTrafficPulse();
-		}
-	}
-
-	function imageDataForMap(image: ImageData): {
-		width: number;
-		height: number;
-		data: Uint8Array;
-	} {
-		// MapLibre 6 is picky about ImageData — pass a plain StyleImageInterface.
-		return {
-			width: image.width,
-			height: image.height,
-			data: new Uint8Array(image.data)
-		};
-	}
-
-	function addAircraftImage(
-		mapInstance: MapLibreMap,
-		id: string,
-		paint: Parameters<typeof drawAircraftIcon>[0]
-	) {
-		if (mapInstance.hasImage(id)) return;
-		const image = drawAircraftIcon(paint, 160);
-		if (!image) return;
-		try {
-			mapInstance.addImage(id, imageDataForMap(image), { pixelRatio: 2 });
-		} catch (error) {
-			console.warn('aircraft icon add failed', id, error);
-		}
-	}
-
-	function registerAircraftIcons(mapInstance: MapLibreMap, list: Flight[] = visibleFlights) {
-		if (!mapInstance.isStyleLoaded()) return;
-		const families = Object.keys(GENERIC_FAMILY_ICON_IDS) as AircraftFamily[];
-		for (const family of families) {
-			addAircraftImage(mapInstance, GENERIC_FAMILY_ICON_IDS[family], genericPaint(family));
-		}
-		for (const flight of list) {
-			const paint = paintFromFlight({
-				callsign: flight.callsign,
-				typeCode: flight.typeCode,
-				size: flight.size
-			});
-			addAircraftImage(mapInstance, aircraftIconId(paint), paint);
-		}
-	}
-
-	function ensureAircraftIconFromId(mapInstance: MapLibreMap, id: string) {
-		if (!id.startsWith('plane-') || mapInstance.hasImage(id)) return;
-		const parts = id.split('-');
-		// plane-{family}-{airline} — family may be wide-twin / wide-quad (two tokens).
-		let family: AircraftFamily = 'narrow';
-		let airline = 'gen';
-		if (parts[1] === 'wide' && (parts[2] === 'twin' || parts[2] === 'quad')) {
-			family = parts[2] === 'twin' ? 'wide-twin' : 'wide-quad';
-			airline = parts[3] || 'gen';
-		} else if (
-			parts[1] === 'ga' ||
-			parts[1] === 'regional' ||
-			parts[1] === 'narrow' ||
-			parts[1] === 'rotor'
-		) {
-			family = parts[1];
-			airline = parts[2] || 'gen';
-		}
-		const livery =
-			airline !== 'gen'
-				? paintFromFlight({ callsign: airline.toUpperCase() + '1' }).livery
-				: null;
-		addAircraftImage(mapInstance, id, {
-			family,
-			livery,
-			size:
-				family === 'ga'
-					? 'light'
-					: family === 'rotor'
-						? 'rotor'
-						: family.startsWith('wide')
-							? 'heavy'
-							: 'medium'
-		});
-	}
-
-
-	function ensurePlaceIcons(mapInstance: MapLibreMap) {
-		if (placeIconsReady) return;
-		for (const category of Object.keys(PLACE_ICON_IDS) as PlaceCategory[]) {
-			const id = PLACE_ICON_IDS[category];
-			const sprite = drawPlaceIcon(category, 128);
-			if (!sprite) continue;
-			try {
-				if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
-				mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
-			} catch (error) {
-				console.warn('place icon add failed', id, error);
-			}
-		}
-		placeIconsReady = (Object.keys(PLACE_ICON_IDS) as PlaceCategory[]).every((c) =>
-			mapInstance.hasImage(PLACE_ICON_IDS[c])
-		);
-	}
-
-	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
-		const visibility = on ? 'visible' : 'none';
-		for (const id of TRAFFIC_STYLE_LAYERS) {
-			if (mapInstance.getLayer(id)) {
-				mapInstance.setLayoutProperty(id, 'visibility', visibility);
-			}
-		}
-	}
-
-	/** March light dashes along traffic-colored roads (no sprites / models). */
-	function startTrafficPulse() {
-		if (trafficRaf || typeof requestAnimationFrame !== 'function') return;
-		lastTrafficTs = performance.now();
-		const tick = (ts: number) => {
-			trafficRaf = 0;
-			if (disposed) return;
-			if (!map || !intelLayers.traffic) {
-				trafficRaf = requestAnimationFrame(tick);
-				return;
-			}
-			const dt = Math.min(0.05, Math.max(0.008, (ts - lastTrafficTs) / 1000));
-			lastTrafficTs = ts;
-			trafficPulsePhase = (trafficPulsePhase + dt * 16) % 10;
-			if (map.getLayer('traffic-pulse')) {
-				const gapLead = Math.max(0.05, trafficPulsePhase);
-				const dash = 2.4;
-				const gapTrail = Math.max(0.05, 7.6 - trafficPulsePhase);
-				try {
-					map.setPaintProperty('traffic-pulse', 'line-dasharray', [
-						gapLead,
-						dash,
-						gapTrail
-					]);
-				} catch {
-					/* style mid-reload */
-				}
-			}
-			trafficRaf = requestAnimationFrame(tick);
-		};
-		trafficRaf = requestAnimationFrame(tick);
-	}
-
-	function stopTrafficPulse() {
-		if (trafficRaf) {
-			cancelAnimationFrame(trafficRaf);
-			trafficRaf = 0;
-		}
-	}
-
-	function kindFromLayer(layerId: string) {
-		if (layerId.startsWith('flights')) return 'flight' as const;
-		if (layerId.startsWith('cameras') || layerId === 'detection-cameras') return 'camera' as const;
-		if (layerId.startsWith('quakes')) return 'quake' as const;
-		return 'place' as const;
-	}
-
-	function onClick(event: {
-		features?: { properties?: Record<string, unknown>; layer?: { id?: string } }[];
-	}) {
-		const feature = event.features?.[0];
-		const id = feature?.properties?.id;
-		if (id == null) return;
-		dispatch('select', { id: String(id), kind: kindFromLayer(feature?.layer?.id || '') });
 	}
 
 	function stepWalk() {
-		if (!map || mode !== 'walk' || keys.size === 0) {
-			raf = requestAnimationFrame(stepWalk);
-			return;
-		}
-		const center = map.getCenter();
-		const zoom = map.getZoom();
-		const step = (zoom > 17 ? 0.000018 : 0.00003) * (keys.has('shift') ? 2.4 : 1);
-		let bearing = map.getBearing();
-		let dLng = 0;
-		let dLat = 0;
-		const rad = (bearing * Math.PI) / 180;
-		if (keys.has('w') || keys.has('arrowup')) {
-			dLng += Math.sin(rad) * step;
-			dLat += Math.cos(rad) * step;
-		}
-		if (keys.has('s') || keys.has('arrowdown')) {
-			dLng -= Math.sin(rad) * step;
-			dLat -= Math.cos(rad) * step;
-		}
-		if (keys.has('a') || keys.has('arrowleft')) {
-			dLng -= Math.cos(rad) * step;
-			dLat += Math.sin(rad) * step;
-		}
-		if (keys.has('d') || keys.has('arrowright')) {
-			dLng += Math.cos(rad) * step;
-			dLat -= Math.sin(rad) * step;
-		}
-		if (keys.has('q')) bearing -= 1.6;
-		if (keys.has('e')) bearing += 1.6;
-		walkBearing = bearing;
-		if (dLng || dLat || keys.has('q') || keys.has('e')) {
-			map.jumpTo({
-				center: [center.lng + dLng, center.lat + dLat],
-				bearing,
-				pitch: 72,
-				zoom
-			});
-		}
-		raf = requestAnimationFrame(stepWalk);
+		walkRaf = 0;
+		if (disposed || !handle || !CesiumMod || mode !== 'walk' || keys.size === 0) return;
+		const camera = handle.viewer.camera;
+		const carto = camera.positionCartographic;
+		if (!carto) return;
+		const zoom = heightToZoom(carto.height);
+		const stepMeters = (zoom > 17 ? 2.2 : 4.5) * (keys.has('shift') ? 2.4 : 1);
+		let heading = camera.heading;
+		let dEast = 0;
+		let dNorth = 0;
+		if (keys.has('w') || keys.has('arrowup')) dNorth += stepMeters;
+		if (keys.has('s') || keys.has('arrowdown')) dNorth -= stepMeters;
+		if (keys.has('a') || keys.has('arrowleft')) dEast -= stepMeters;
+		if (keys.has('d') || keys.has('arrowright')) dEast += stepMeters;
+		if (keys.has('q')) heading -= CesiumMod.Math.toRadians(1.6);
+		if (keys.has('e')) heading += CesiumMod.Math.toRadians(1.6);
+		walkBearing = CesiumMod.Math.toDegrees(heading);
+
+		const sin = Math.sin(heading);
+		const cos = Math.cos(heading);
+		const moveX = dEast * cos - dNorth * sin;
+		const moveY = dEast * sin + dNorth * cos;
+		const lon =
+			CesiumMod.Math.toDegrees(carto.longitude) + moveX / (111320 * Math.cos(carto.latitude));
+		const lat = CesiumMod.Math.toDegrees(carto.latitude) + moveY / 111320;
+
+		camera.setView({
+			destination: CesiumMod.Cartesian3.fromDegrees(lon, lat, carto.height),
+			orientation: { heading, pitch: camera.pitch, roll: 0 }
+		});
+		handle.viewer.scene.requestRender();
+		if (keys.size > 0) walkRaf = requestAnimationFrame(stepWalk);
+	}
+
+	function ensureWalkLoop() {
+		if (mode === 'walk' && keys.size > 0 && !walkRaf) walkRaf = requestAnimationFrame(stepWalk);
 	}
 
 	onMount(() => {
 		let resizeObserver: ResizeObserver | undefined;
+
 		async function boot() {
 			try {
-				const maplibregl = await import('maplibre-gl');
-				await import('maplibre-gl/dist/maplibre-gl.css');
-				const workerUrl = (await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'))
-					.default;
-				maplibregl.setWorkerUrl(workerUrl);
-				if (disposed) return;
-				const instance = new maplibregl.Map({
-					container,
-					style: zurichAerialStyle(),
-					center: ZURICH_CENTER,
-					zoom: ORBIT_CAMERA.zoom,
-					pitch: ORBIT_CAMERA.pitch,
-					bearing: ORBIT_CAMERA.bearing,
-					minZoom: CITY_MIN_ZOOM,
-					maxZoom: CITY_MAX_ZOOM,
-					maxPitch: 80,
-					attributionControl: false,
-					hash: false,
-					canvasContextAttributes: {
-						antialias: true,
-						alpha: true,
-						powerPreference: 'high-performance',
-						preserveDrawingBuffer: false,
-						failIfMajorPerformanceCaveat: false
-					}
-				});
-				map = instance;
-				if (import.meta.env.DEV) {
-					(window as unknown as { __zurichMap?: typeof instance }).__zurichMap = instance;
+				handle = await createCesiumCity(container);
+				CesiumMod = await import('cesium');
+				if (disposed) {
+					handle.destroy();
+					handle = undefined;
+					return;
 				}
-				// Wheel without ctrl is intercepted by the page shell (credits scroll).
-				// Ctrl/meta wheel (trackpad pinch) still reaches MapLibre scrollZoom.
-				// Disable two-finger pitch so vertical two-finger drags can scroll to credits.
-				instance.touchPitch.disable();
-				instance.addControl(
-					new maplibregl.AttributionControl({ compact: true }),
-					'bottom-right'
-				);
-				instance.addControl(
-					new maplibregl.NavigationControl({ visualizePitch: true }),
-					'bottom-right'
-				);
-				instance.on('load', () => {
-					styleReady = true;
-					ensureLayers(instance);
-					lastAppliedMode = mode;
-					applyMode(mode, false);
-					// Push overlay data again on idle so markers aren't blank until a layer click.
-					instance.once('idle', () => {
-						refreshOverlaySources(instance);
-						ensurePlaceIcons(instance);
-						instance.triggerRepaint();
-					});
-					void (async () => {
-						if (!terrainHandle) {
-							terrainHandle = await attachSwissTerrain(instance, maplibregl);
-						}
-						mountSwissOverlay(instance, maplibregl);
-						refreshOverlaySources(instance);
-						instance.triggerRepaint();
-					})();
-					// Let the first frame paint on the dark canvas before lifting the splash.
-					requestAnimationFrame(() => {
-						dispatch('ready');
-					});
+
+				clickHandler = attachEntityClick(handle.viewer, CesiumMod, ({ kind, id }) => {
+					dispatch('select', { id, kind });
 				});
-				// MapLibre 6: prefer the resolver so missing airline sprites are generated in time.
-				instance.setMissingStyleImageResolver((id) => {
-					ensureAircraftIconFromId(instance, id);
+
+				const onMoveEnd = () => handle?.viewer.scene.requestRender();
+				handle.viewer.camera.moveEnd.addEventListener(onMoveEnd);
+				removeMoveEnd = () => handle?.viewer.camera.moveEnd.removeEventListener(onMoveEnd);
+
+				resizeObserver = new ResizeObserver(() => {
+					handle?.viewer.resize();
+					handle?.viewer.scene.requestRender();
 				});
-				instance.on('styleimagemissing', (event: { id: string }) => {
-					ensureAircraftIconFromId(instance, event.id);
-				});
-				instance.on('style.load', () => {
-					placeIconsReady = false;
-					styleReady = true;
-					ensureLayers(instance);
-					instance.once('idle', () => refreshOverlaySources(instance));
-					void (async () => {
-						terrainHandle?.unregister?.();
-						terrainHandle = await attachSwissTerrain(instance, maplibregl);
-						mountSwissOverlay(instance, maplibregl);
-						refreshOverlaySources(instance);
-					})();
-				});
-				for (const layer of [
-					'places-core',
-					'places-glow',
-					'flights-halo',
-					'flights-core',
-					'cameras-core',
-					'quakes-core'
-				]) {
-					instance.on('click', layer, onClick);
-					instance.on('mouseenter', layer, () => {
-						instance.getCanvas().style.cursor = 'pointer';
-					});
-					instance.on('mouseleave', layer, () => {
-						instance.getCanvas().style.cursor = '';
-					});
-				}
-				resizeObserver = new ResizeObserver(() => instance.resize());
 				resizeObserver.observe(container);
-				raf = requestAnimationFrame(stepWalk);
-			} catch {
+
+				ready = true;
+				lastAppliedMode = mode;
+				await applyMode(mode, false);
+				requestAnimationFrame(() => dispatch('ready'));
+			} catch (error) {
+				console.error(error);
 				mapError = 'The 3D city map could not load. Check your connection and try again.';
 				dispatch('error');
 			}
 		}
-		boot();
+
+		void boot();
+
 		const down = (event: KeyboardEvent) => {
 			const key = event.key.toLowerCase();
 			if (
-				[
-					'w',
-					'a',
-					's',
-					'd',
-					'q',
-					'e',
-					'arrowup',
-					'arrowdown',
-					'arrowleft',
-					'arrowright',
-					'shift'
-				].includes(key)
+				['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(
+					key
+				)
 			) {
 				keys.add(key);
-				if (mode === 'walk') event.preventDefault();
+				if (mode === 'walk') {
+					event.preventDefault();
+					ensureWalkLoop();
+				}
 			}
 		};
-		const up = (event: KeyboardEvent) => keys.delete(event.key.toLowerCase());
+		const up = (event: KeyboardEvent) => {
+			keys.delete(event.key.toLowerCase());
+			if (keys.size === 0) stopWalkLoop();
+		};
 		window.addEventListener('keydown', down);
 		window.addEventListener('keyup', up);
+
 		return () => {
 			window.removeEventListener('keydown', down);
 			window.removeEventListener('keyup', up);
@@ -938,60 +277,69 @@
 
 	onDestroy(() => {
 		disposed = true;
-		stopTrafficPulse();
-		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
-		userMarker?.remove();
-		terrainHandle?.unregister?.();
-		terrainHandle = undefined;
-		map?.remove();
-		map = undefined;
+		stopWalkLoop();
+		removeMoveEnd?.();
+		clickHandler?.destroy();
+		handle?.destroy();
+		handle = undefined;
 	});
 
-	export function flyHome() {
+	export async function flyHome() {
 		lastAppliedMode = 'orbit';
-		applyMode('orbit', true);
+		await applyMode('orbit', true);
 	}
 
-	export function flyTo(lon: number, lat: number, zoom = 16.8) {
-		map?.easeTo({
-			center: [lon, lat],
-			zoom,
-			pitch: mode === 'walk' ? 72 : 60,
-			duration: 1000
-		});
-	}
-
-	export function trackFlight(flight: Flight) {
-		map?.easeTo({
-			center: [flight.lon, flight.lat],
-			zoom: 12.2,
-			pitch: 60,
-			bearing: flight.heading ?? -20,
-			duration: 1400
-		});
-	}
-
-	/** Prefer airborne contacts — parked airport traffic is a dense yellow blob. */
-	function airborneFlights(list: Flight[]) {
-		const air = list.filter(
-			(f) => !f.onGround && (f.altitudeFt == null || f.altitudeFt > 200)
+	export async function flyTo(lon: number, lat: number, zoom = 16.8) {
+		if (!handle) return;
+		await flyCityCamera(
+			handle.viewer,
+			{
+				lon,
+				lat,
+				zoom: Math.min(CITY_MAX_ZOOM, Math.max(CITY_MIN_ZOOM, zoom)),
+				pitch: mode === 'walk' ? 72 : 60,
+				bearing: walkBearing
+			},
+			1
 		);
-		return air.length ? air : list;
 	}
 
-	/** Zoom out to show live ADS-B contacts — most sit outside the city bowl. Explicit UX only. */
-	export function fitFlights(list: Flight[] = flights) {
-		if (!map || list.length === 0) return;
-		const targets = airborneFlights(list);
+	export async function trackFlight(flight: Flight) {
+		if (!handle) return;
+		await flyCityCamera(
+			handle.viewer,
+			{
+				lon: flight.lon,
+				lat: flight.lat,
+				zoom: 12.2,
+				pitch: 60,
+				bearing: flight.heading ?? -20
+			},
+			1.4
+		);
+	}
+
+	export async function fitFlights(list: Flight[] = flights) {
+		if (!handle || !CesiumMod || list.length === 0) return;
+		const air = list.filter((f) => !f.onGround && (f.altitudeFt == null || f.altitudeFt > 200));
+		const targets = air.length ? air : list;
 		const lons = targets.map((f) => f.lon);
 		const lats = targets.map((f) => f.lat);
-		map.fitBounds(
-			[
-				[Math.min(...lons), Math.min(...lats)],
-				[Math.max(...lons), Math.max(...lats)]
-			],
-			{ padding: 80, maxZoom: 12.8, duration: 1400, pitch: 48, essential: true }
+		const rectangle = CesiumMod.Rectangle.fromDegrees(
+			Math.min(...lons),
+			Math.min(...lats),
+			Math.max(...lons),
+			Math.max(...lats)
 		);
+		await new Promise<void>((resolve) => {
+			handle!.viewer.camera.flyTo({
+				destination: rectangle,
+				duration: 1.4,
+				complete: () => resolve(),
+				cancel: () => resolve()
+			});
+		});
+		handle.viewer.scene.requestRender();
 	}
 
 	/** Kept for callers that used to auto-frame aircraft — no longer moves the camera. */
@@ -1018,9 +366,21 @@
 		height: 100%;
 		background: #07131f;
 	}
-	.city-map :global(.maplibregl-canvas-container),
-	.city-map :global(.maplibregl-canvas) {
+	.city-map :global(.cesium-viewer),
+	.city-map :global(.cesium-viewer-cesiumWidgetContainer),
+	.city-map :global(.cesium-widget),
+	.city-map :global(.cesium-widget canvas) {
+		width: 100%;
+		height: 100%;
 		background: #07131f;
+	}
+	.city-map :global(.cesium-viewer-bottom),
+	.city-map :global(.cesium-viewer-toolbar),
+	.city-map :global(.cesium-viewer-animationContainer),
+	.city-map :global(.cesium-viewer-timelineContainer),
+	.city-map :global(.cesium-credit-logoContainer),
+	.city-map :global(.cesium-credit-textContainer) {
+		display: none !important;
 	}
 	.map-error {
 		position: absolute;
@@ -1034,29 +394,5 @@
 		color: #b42332;
 		border: 1px solid #f4ced3;
 		font-size: 13px;
-	}
-	:global(.user-pulse) {
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		background: #1260ce;
-		border: 3px solid #fff;
-		box-shadow: 0 0 0 0 #1260ce88;
-		animation: pulse 1.8s ease-out infinite;
-	}
-	@keyframes pulse {
-		70% {
-			box-shadow: 0 0 0 14px #1260ce00;
-		}
-		100% {
-			box-shadow: 0 0 0 0 #1260ce00;
-		}
-	}
-	:global(.maplibregl-ctrl-bottom-right) {
-		margin: 0 12px 18px 0;
-	}
-	:global(.maplibregl-ctrl-attrib) {
-		font-size: 10px;
-		background: #ffffffcc !important;
 	}
 </style>

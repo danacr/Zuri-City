@@ -85,8 +85,13 @@
 		const gen = ++hydrateGen;
 		void Promise.resolve(data.hydrateCity).then((live) => {
 			if (gen !== hydrateGen || !live) return;
-			places = live.places;
-			parkings = live.parkings;
+			// Merge-by-id so a sparse/failed Overpass response never blanks the map.
+			if (live.places?.length) {
+				const byId = new Map(places.map((place) => [place.id, place]));
+				for (const place of live.places) byId.set(place.id, place);
+				places = [...byId.values()];
+			}
+			if (live.parkings?.length) parkings = live.parkings;
 			placesError = live.placesError;
 			parkingError = live.error;
 			refreshedAt = live.refreshedAt;

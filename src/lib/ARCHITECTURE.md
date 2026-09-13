@@ -18,22 +18,21 @@ src/
     state/
       citySession.ts           # Shared writable stores (mode, layers, feeds)
     places/                    # Place domain
-      types.ts                 # PlaceCategory, colors, labels
+      types.ts
       catalog.ts               # FALLBACK_PLACES curated seeds
-      geo.ts                   # GeoJSON + haversine
+      geo.ts
     parking/                   # PLS parking domain
-      model.ts                 # Parse, availability, map labels
+      model.ts
     map/
-      aerialStyle.ts           # Basemap style builder
       swissSources.ts          # Zoom contract + swisstopo endpoints
-      swissTerrain.ts
-      swissBuildingsLayer.ts
-      layers/                  # Overlay plugins (ensure/sync)
+      cesiumCity.ts            # Cesium Viewer: SWISSIMAGE + buildings + terrain
+      cesiumCamera.ts          # Zoom↔height + orbit/walk poses
+      zurichArteries.ts        # Traffic corridor polylines
+      layers/
+        cesiumOverlays.ts      # Places/parking/intel entity sync
         types.ts               # CityLayerPlugin contract
-        placesLayer.ts
-        parkingLayer.ts
-    city/                      # Map host + HUD widgets (legacy path, shrinking)
-      ZurichCity.svelte        # MapLibre host; delegates overlays to map/layers
+    city/                      # Map host + HUD widgets
+      ZurichCity.svelte        # Cesium host; camera + overlay orchestration
       LayersPanel.svelte
       mapShellGestures.ts
       layerRegistry.ts
@@ -46,8 +45,9 @@ src/
 1. **Routes stay thin.** Load data, set SEO, render `CityExperience`.
 2. **Domain packages own data.** Places, parking, and intel types/helpers live under
    their package — not in the map host.
-3. **Map overlays are plugins.** Each feed implements idempotent `ensure` + `sync`
-   under `map/layers/`. `ZurichCity` is a host (camera, style, click routing).
+3. **One map engine: CesiumJS.** Imagery tiles, 3D buildings, and terrain share one
+   Viewer. Overlays sync through `map/layers/cesiumOverlays`. Do not bolt on a second
+   WebGL stack (MapLibre/Three) for city massing.
 4. **Shared UI state uses `state/citySession`.** Prefer stores over growing another
    1k-line component `let` block when multiple surfaces need the same toggles.
 5. **Server code stays in `lib/server`.** Never import server modules from client
@@ -60,24 +60,25 @@ src/
 ```
 +page.server.ts
   ├─ sync: FALLBACK_PLACES, empty parkings/intel (instant shell)
-  └─ hydrateCity → places + parkings + intel
+  └─ hydrateCity → places + parkings + intel (merge-by-id on client)
 
 CityExperience
-  ├─ merges hydrate into local/session state
+  ├─ merges hydrate into local/session state (never blanks FALLBACK)
   ├─ polls /api/intel
   └─ passes filtered feeds → ZurichCity
 
-ZurichCity
-  ├─ aerial style + terrain
-  ├─ map/layers/* ensure+sync
+ZurichCity (Cesium)
+  ├─ SWISSIMAGE + swissBUILDINGS3D + terrain
+  ├─ cesiumOverlays sync
   └─ orbit/walk camera
 ```
 
 ## Adding a layer
 
 1. Add types + fetch helpers in the domain package (`intel`, `places`, …).
-2. Add `src/lib/map/layers/<name>Layer.ts` with `ensure` / `sync`.
+2. Extend `src/lib/map/layers/cesiumOverlays.ts` (or add a sibling helper) with
+   ensure/sync against the Cesium Viewer.
 3. Register the toggle in `layerRegistry` + `LayersPanel`.
-4. Wire visibility from `CityExperience` → `ZurichCity` props → plugin `sync`.
+4. Wire visibility from `CityExperience` → `ZurichCity` props → overlay sync.
 
-Do not paste new `addLayer` blocks into the middle of `ZurichCity.svelte`.
+Do not paste new overlay blocks into the middle of `ZurichCity.svelte` beyond thin wiring.

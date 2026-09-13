@@ -23,14 +23,11 @@ Cesium ion keys for the default experience.
 
 - **Runtime:** Node.js **24.x** (see `.nvmrc`, `.node-version`, `package.json`)
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
-- **Map:** MapLibre GL (not Leaflet). Style builder: `src/lib/map/aerialStyle.ts`
-- **Continuous swisstopo:** `src/lib/map/swissSources.ts`, `swissTerrain.ts`,
-  `swissBuildingsLayer.ts` (3D Tiles + quantized-mesh; Terrarium DEM fallback)
-- **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only)
-- **Living traffic:** `src/lib/city/trafficCars.ts` + GeoJSON symbol layer in
-  `src/lib/city/ZurichCity.svelte` (always-on inside city zoom; no zoom spawn gates)
-- **Aircraft icons:** `src/lib/intel/aircraftIcons.ts` — ICAO type → airframe family,
-  callsign → airline livery; MapLibre sprites registered per flight
+- **Map:** CesiumJS — one engine for SWISSIMAGE tiles, swissBUILDINGS3D, and terrain (`src/lib/city/ZurichCity.svelte`, `src/lib/map/cesiumCity.ts`)
+- **swisstopo sources:** `src/lib/map/swissSources.ts` (no Cesium ion key)
+- **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only; Cesium converts zoom → height)
+- **Traffic:** Cesium corridor polylines in `src/lib/map/zurichArteries.ts` (congestion colors; no per-frame dash RAF)
+- **Overlays:** `src/lib/map/layers/cesiumOverlays.ts` (places, parking, flights, cameras, quakes)
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
   Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
@@ -149,5 +146,5 @@ Branch names: `cursor/<short-description>-abf9`.
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
 - Parking stays always-visible in blue (not a map-layer toggle).
-- Match existing MapLibre patterns; avoid reintroducing Leaflet for the city view.
+- Keep CesiumJS as the sole map engine; do not reintroduce MapLibre/Three.js for city massing.
 - Prefer small, focused diffs; update this file when product foundations change.
