@@ -11,7 +11,7 @@ import {
 } from '$lib/map/layers/parkingLayer';
 import type { Parking } from '$lib/parking';
 
-describe('parking always-on contract', () => {
+describe('parking layer contract', () => {
 	it('defaults parking visible and keeps registry color blue', () => {
 		expect(PARKING_LAYER.defaultVisible).toBe(true);
 		expect(PARKING_LAYER.color.toLowerCase()).toBe('#1c7ed6');

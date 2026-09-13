@@ -22,6 +22,10 @@ export type Place = {
 	openingHours: string | null;
 	isOpen: boolean | null;
 	tags: string[];
+	/** OSM phone / contact:phone when present. */
+	phone?: string | null;
+	/** OSM website / contact:website when present. */
+	website?: string | null;
 };
 
 export const PLACE_CATEGORIES: PlaceCategory[] = [

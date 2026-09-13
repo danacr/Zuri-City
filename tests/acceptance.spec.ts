@@ -144,7 +144,7 @@ test.describe('mobile acceptance gates', () => {
 		);
 	});
 
-	test('parking is always-on in Layers (cannot be toggled off)', async ({ page }) => {
+	test('parking defaults on in Layers and can be toggled off', async ({ page }) => {
 		await page.goto('/');
 		await waitForMapReady(page);
 		await page
@@ -155,11 +155,12 @@ test.describe('mobile acceptance gates', () => {
 			name: /^Parking\b/i
 		});
 		await expect(parking).toHaveAttribute('aria-pressed', 'true');
-		await expect(parking).toHaveAttribute('aria-disabled', 'true');
-		// Locked control: click must not flip state (force because aria-disabled).
-		await parking.click({ force: true });
-		await expect(parking).toHaveAttribute('aria-pressed', 'true');
+		await expect(parking).not.toHaveAttribute('aria-disabled', 'true');
 		expect((await probeMap(page)).hasParkingPill).toBe(true);
+		await parking.click();
+		await expect(parking).toHaveAttribute('aria-pressed', 'false');
+		await parking.click();
+		await expect(parking).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	test('mobile layout keeps the map as the primary surface', async ({ page }, testInfo) => {

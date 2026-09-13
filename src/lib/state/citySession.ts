@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import type { Place, PlaceCategory } from '$lib/places';
 import type { Parking } from '$lib/parking';
-import type { Camera, Flight, IntelLayer, Quake, SensorLook } from '$lib/intel/types';
+import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
 import {
 	createDefaultIntelLayers,
 	createDefaultPlaceLayers,
@@ -21,8 +21,6 @@ export const placeLayers = writable<Record<PlaceCategory, boolean>>(createDefaul
 export const intelLayers = writable<Record<IntelLayer, boolean>>(createDefaultIntelLayers());
 export const showParking = writable(PARKING_LAYER.defaultVisible);
 export const openNowOnly = writable(false);
-export const sensorLook = writable<SensorLook>('normal');
-
 export const places = writable<Place[]>([]);
 export const parkings = writable<Parking[]>([]);
 export const flights = writable<Flight[]>([]);

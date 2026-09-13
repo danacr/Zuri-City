@@ -21,23 +21,31 @@ Activate the three Cursor Automations once after merge (dashboard; no create API
 
 ## Product
 
-**Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
-a **live 3D map of Zürich**. The foundation of the experience is the map itself —
-SWISSIMAGE aerial basemap, **solid OSM building massing** (opaque fill-extrusions
-that read as real volume on terrain — not translucent “ghost” boxes), **swisstopo
-terrain**, and **congestion-colored streets** on OpenMapTiles centerlines
-(**green** / **amber** / **red**). Parking from the
-[Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map as **blue
-capacity pills** (list panel optional). Place and aircraft markers use **sprites**,
-never raw MapLibre circles as the primary glyph.
+**Züri City** ([zuri.city](https://zuri.city/)) is a **living city** on a mobile-friendly
+SvelteKit map — not a static postcard. The core loop: you walk (or pan/zoom) through
+Zürich and the map reveals what’s around you — places that are **open now**, with
+**hours, phone numbers, and websites** you can open from the place sheet. POIs load
+**progressively with the viewport** so denser streets appear as you move, not only a
+fixed downtown seed list.
 
-Product voice for UI/SEO: concrete Zürich, calm confidence. Prefer “live map” /
-“Zürich · live” over vague “interactive city” filler.
+The foundation is still the map itself — SWISSIMAGE aerial, **solid OSM building
+massing** (opaque fill-extrusions that read as real volume on terrain — not
+translucent “ghost” boxes), **swisstopo terrain**, and **congestion-colored streets**
+on OpenMapTiles centerlines (**green** / **amber** / **red**). Parking from the
+[Parkleitsystem Zürich](https://www.pls-zh.ch/) starts **on** as **blue capacity
+pills** (toggleable in Layers; list panel optional). Place and aircraft markers use
+**sprites**, never raw MapLibre circles as the primary glyph. Do **not** ship
+cosmetic “sensor look” color filters that recolor the city.
 
-Zoom only changes camera distance — not which city systems are visible. Colored
+Product voice for UI/SEO: concrete Zürich, calm confidence. Prefer “living city” /
+“live map” / “Zürich · live” over vague “interactive city” filler.
+
+Zoom and movement change what you notice nearby — denser POIs as you walk —
+while city systems (massing, traffic, parking default) stay available. Colored
 street lines are the primary traffic UX; cars are secondary decoration. Prefer
 free swisstopo / OSM sources; do not require Google Photorealistic 3D Tiles or
 Cesium ion keys for the default experience.
+
 
 ### Quality bar — never ship a broken city
 
@@ -45,8 +53,8 @@ Do **not** open or update a PR as “done” while any of these fail on mobile p
 
 1. **Solid 3D massing** — buildings must read as volume on terrain at orbit and walk.
    Translucent “ghost” extrusions that disappear into the aerial are a reject.
-2. **Parking always visible** — blue/green/red pills with capacity labels after hydrate.
-   Labels-only or toggle-off parking is a reject.
+2. **Live PLS parking** — blue/green/red pills with capacity labels after hydrate; defaults on.
+   Labels-only parking is a reject. Layers may toggle visibility — do not hard-lock the switch.
 3. **Orbit ≠ Walk** — orbit inspects the basin (lower pitch, free overview). Walk is
    street immersion (locked high pitch, locomotion). Pose-only identical modes are a reject.
 4. **Sprites, not dots** — places and aircraft use icon atlas sprites. Purple CCTV
@@ -74,7 +82,7 @@ than shipping nothing. Keep iterating on **one PR** until the checklist above is
   layers but **differ in pose + interaction** (walk locks high pitch / enables look)
 - **Living traffic:** OMT `transportation` centerlines in `aerialStyle.ts` (static dashes;
   no per-frame RAF). Cars are a future accent layer
-- **Parking:** always-on pills via `map/layers/parkingLayer.ts` — not a hideable map toggle
+- **Parking:** live PLS pills via `map/layers/parkingLayer.ts` — default on, toggleable in Layers
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
   Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
@@ -179,7 +187,7 @@ Playwright acceptance covers:
 - Traffic flow layer present
 - Place + aircraft sprites registered
 - Orbit vs Walk diverge in pitch/zoom; walk shows status hint
-- Cameras default off; parking cannot be toggled off
+- Cameras default off; parking defaults on and is toggleable in Layers
 - Map remains the primary mobile surface
 
 After `quality` is green, present the **Vercel preview URL** for the PR branch. The human review should then be about the implementation look — not discovering broken parking, flat buildings, or identical Orbit/Walk.
@@ -219,10 +227,12 @@ Branch names: `cursor/<short-description>-abf9`.
   that remain present (density by viewport, not zoom buckets).
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
-- Parking stays always-visible as **blue capacity pills** (not a map-layer toggle).
+- Parking defaults on as **blue capacity pills** (toggleable in Layers).
 - Match existing MapLibre patterns; avoid reintroducing Leaflet or Cesium for the
   default city view.
 - Prefer small, focused diffs; update this file when product foundations change.
+- Treat the product as a **living city**: progressive nearby POIs with open/hours/phone/web as you move.
+- Do not reintroduce sensor “Look” color filters (NVG/FLIR/etc.) over the map.
 - **Never present a non-professional / non-working outcome as complete.** If buildings
   are flat, parking missing, icons are dots, or orbit≈walk on mobile, keep fixing the
   same PR — do not open a celebratory summary.

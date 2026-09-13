@@ -27,11 +27,9 @@
 	import { placeIconDataUrl } from '$lib/city/placeIcons';
 	import { availability, spotCount, type Parking } from '$lib/parking';
 	import {
-		SENSOR_LOOKS,
 		type Camera,
 		type Flight,
 		type IntelLayer,
-		type SensorLook,
 		type Quake
 	} from '$lib/intel/types';
 	import type { PageData } from '../../routes/$types';
@@ -52,7 +50,6 @@
 	let openNowOnly = false;
 	let showParking = PARKING_LAYER.defaultVisible;
 	let intelLayers: Record<IntelLayer, boolean> = createDefaultIntelLayers();
-	let sensorLook: SensorLook = 'normal';
 	/** Local copies so the shell can paint before streamed `hydrateCity` resolves. */
 	let places: Place[] = data.places;
 	let parkings: Parking[] = data.parkings;
@@ -234,9 +231,50 @@
 		// Enabling Aircraft only toggles markers — use “Find aircraft” to reframe.
 	}
 
-	/** Parking is always-on (product contract) — Layers HUD cannot hide map markers. */
+	
+	let placesFetchTimer: ReturnType<typeof setTimeout> | undefined;
+	let placesFetchGen = 0;
+	let lastPlacesBboxKey = '';
+
+	function mergePlaces(incoming: Place[]) {
+		if (!incoming.length) return;
+		const byId = new Map(places.map((place) => [place.id, place]));
+		for (const place of incoming) byId.set(place.id, place);
+		places = [...byId.values()];
+	}
+
+	function onViewportPlaces(
+		event: CustomEvent<{ west: number; south: number; east: number; north: number; zoom: number }>
+	) {
+		const { west, south, east, north, zoom } = event.detail;
+		if (zoom < 13) return;
+		const key = [west, south, east, north].map((n) => n.toFixed(3)).join(':');
+		if (key === lastPlacesBboxKey) return;
+		if (placesFetchTimer) clearTimeout(placesFetchTimer);
+		placesFetchTimer = setTimeout(() => {
+			lastPlacesBboxKey = key;
+			const gen = ++placesFetchGen;
+			const params = new URLSearchParams({
+				west: String(west),
+				south: String(south),
+				east: String(east),
+				north: String(north),
+				zoom: String(zoom)
+			});
+			void fetch(`/api/places?${params}`)
+				.then((response) => (response.ok ? response.json() : null))
+				.then((payload) => {
+					if (gen !== placesFetchGen || !payload?.places?.length) return;
+					mergePlaces(payload.places as Place[]);
+				})
+				.catch(() => {
+					/* Keep last-good places. */
+				});
+		}, 450);
+	}
+
 	function toggleParkingLayer() {
-		showParking = true;
+		showParking = !showParking;
 	}
 
 	function showAllPlaces() {
@@ -336,15 +374,6 @@
 		return selectedKind === 'camera' ? (value as Camera) : null;
 	}
 
-	onMount(() => {
-		const onKey = (event: KeyboardEvent) => {
-			const match = SENSOR_LOOKS.find((look) => look.key === event.key);
-			if (match) sensorLook = match.id;
-		};
-		window.addEventListener('keydown', onKey);
-		return () => window.removeEventListener('keydown', onKey);
-	});
-
 	/**
 	 * Immersive map fills the viewport. Page scroll is intentional:
 	 * two-finger vertical drag (stable span) or trackpad scroll → credits;
@@ -357,16 +386,15 @@
 	});
 </script>
 
-<div class="shell" data-sensor={sensorLook} bind:this={shellEl}>
+<div class="shell" bind:this={shellEl}>
 	<div class="map-stage" bind:this={mapStageEl}>
 		<ZurichBootSplash ready={mapReady} failed={mapFailed} />
-		<div class="sensor-veil" aria-hidden="true"></div>
 		<ZurichCity
 			bind:this={city}
 			places={visibleMapPlaces}
 			parkings={parkings}
 			{layers}
-			showParking={true}
+			{showParking}
 			{intelLayers}
 			{flights}
 			{cameras}
@@ -384,6 +412,7 @@
 			userPosition={position}
 			on:select={onSelect}
 			on:ready={onCityReady}
+			on:viewport={onViewportPlaces}
 			on:error={() => {
 				mapFailed = true;
 			}}
@@ -413,7 +442,7 @@
 		<aside class="desk-hud" aria-label="City briefing">
 			<p class="eyebrow">On the map</p>
 			<h2>See Zürich move</h2>
-			<p>Modeled street colors and always-on parking. Open Layers for places and live feeds.</p>
+			<p>A living city — walk to see what’s open nearby, tap for hours, phone, and web. Parking from live PLS.</p>
 			<div class="mode-row">
 				<button
 					type="button"
@@ -443,16 +472,6 @@
 			{#if parkingError}
 				<p class="notice" role="status">{parkingError}</p>
 			{/if}
-			<div class="sensor-row" aria-label="Sensor looks">
-				{#each SENSOR_LOOKS as look (look.id)}
-					<button
-						type="button"
-						class:active={sensorLook === look.id}
-						aria-pressed={sensorLook === look.id}
-						on:click={() => (sensorLook = look.id)}>{look.label}</button
-					>
-				{/each}
-			</div>
 		</aside>
 
 		{#if locationError}
@@ -480,20 +499,6 @@
 						onFindAircraft={findAircraft}
 						flightCount={counts.flights}
 					>
-						<div class="look-block">
-							<p class="look-title">Look</p>
-							<div class="look-grid" role="group" aria-label="Sensor looks">
-								{#each SENSOR_LOOKS as look (look.id)}
-									<button
-										type="button"
-										class="look"
-										class:on={sensorLook === look.id}
-										aria-pressed={sensorLook === look.id}
-										on:click={() => (sensorLook = look.id)}>{look.label}</button
-									>
-								{/each}
-							</div>
-						</div>
 					</LayersPanel>
 				</div>
 			{/if}
@@ -562,6 +567,12 @@
 					<p class="open-hint" class:open={place.isOpen === true} class:closed={place.isOpen === false}>{place.openHint}</p>
 					<p class="distance">{formatDistance(place)}</p>
 					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					{#if place.phone}
+						<a href={`tel:${place.phone.replace(/\s+/g, '')}`}>{place.phone}</a>
+					{/if}
+					{#if place.website}
+						<a href={place.website} rel="noopener noreferrer" target="_blank">Website ↗</a>
+					{/if}
 					<a
 						href={`https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`}
 						>Open in OSM ↗</a
@@ -649,45 +660,6 @@
 		isolation: isolate;
 		scroll-snap-align: start;
 		scroll-snap-stop: always;
-	}
-	.sensor-veil {
-		pointer-events: none;
-		position: absolute;
-		inset: 0;
-		z-index: 2;
-		mix-blend-mode: color;
-		opacity: 0;
-		transition: opacity 0.35s ease;
-	}
-	.shell[data-sensor='nvg'] .sensor-veil {
-		opacity: 1;
-		background: #1cff6a55;
-		mix-blend-mode: color;
-		box-shadow: inset 0 0 80px #003311aa;
-	}
-	.shell[data-sensor='flir'] .sensor-veil {
-		opacity: 1;
-		background: linear-gradient(180deg, #ff003388, #ffaa0044 40%, #0011ff55);
-		mix-blend-mode: hard-light;
-	}
-	.shell[data-sensor='crt'] .sensor-veil {
-		opacity: 1;
-		background: repeating-linear-gradient(
-			0deg,
-			#00ff8822 0 1px,
-			transparent 1px 3px
-		);
-		mix-blend-mode: screen;
-	}
-	.shell[data-sensor='noir'] .sensor-veil {
-		opacity: 1;
-		background: #00000055;
-		mix-blend-mode: saturation;
-	}
-	.shell[data-sensor='snow'] .sensor-veil {
-		opacity: 1;
-		background: #dfefff66;
-		mix-blend-mode: soft-light;
 	}
 
 	.topbar {
@@ -818,39 +790,6 @@
 		backdrop-filter: blur(18px);
 		box-shadow: 0 18px 44px #07152666;
 		-webkit-overflow-scrolling: touch;
-	}
-	.look-block {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		margin-top: 4px;
-	}
-	.look-title {
-		margin: 0;
-		font-size: 11px;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		font-weight: 750;
-		color: var(--muted);
-	}
-	.look-grid {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 6px;
-	}
-	.look {
-		min-height: 36px;
-		border-radius: 10px;
-		border: 1px solid var(--border);
-		background: var(--surface-muted);
-		color: var(--muted);
-		font-size: 11px;
-		font-weight: 750;
-	}
-	.look.on {
-		color: var(--text);
-		background: var(--accent-soft);
-		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 	}
 
 	.inspect {
@@ -1027,28 +966,6 @@
 			margin-top: 10px;
 			padding: 0;
 			background: transparent;
-		}
-		.sensor-row {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 8px;
-			margin-top: 10px;
-		}
-		.mode-row button,
-		.sensor-row button {
-			min-height: 40px;
-			padding: 0 12px;
-			border-radius: 12px;
-			background: var(--surface-muted);
-			color: var(--text);
-			font-weight: 700;
-			font-size: 12px;
-			border: 1px solid var(--border);
-		}
-		.mode-row button.active,
-		.sensor-row button.active {
-			background: var(--accent-button, #1260ce);
-			color: #fff;
 		}
 		.inspect {
 			left: auto;

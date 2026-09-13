@@ -56,13 +56,21 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 					['linear'],
 					['zoom'],
 					CITY_MIN_ZOOM,
-					28,
+					22,
 					14,
-					12,
+					8,
+					16,
+					2,
 					CITY_MAX_ZOOM,
-					4
+					1
 				],
-				'icon-allow-overlap': false,
+				'icon-allow-overlap': [
+					'step',
+					['zoom'],
+					false,
+					15.5,
+					true
+				],
 				'icon-ignore-placement': false,
 				'icon-optional': true,
 				'symbol-sort-key': ['get', 'sortKey'],
@@ -75,7 +83,13 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 			}
 		});
 	} else {
-		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-allow-overlap', false);
+		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-allow-overlap', [
+			'step',
+			['zoom'],
+			false,
+			15.5,
+			true
+		]);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-ignore-placement', false);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'icon-optional', true);
 		map.setLayoutProperty(PLACES_CORE_LAYER_ID, 'symbol-sort-key', ['get', 'sortKey']);

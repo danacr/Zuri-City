@@ -41,8 +41,6 @@
 	export let parkings: Parking[] = [];
 	export let layers: Record<PlaceCategory, boolean>;
 	export let showParking = PARKING_LAYER.defaultVisible;
-	// Product contract: parking markers are always on — prop kept for shell API compat.
-	$: parkingForcedOn = showParking || true;
 	export let intelLayers: Record<IntelLayer, boolean> = createDefaultIntelLayers();
 	export let flights: Flight[] = [];
 	export let cameras: Camera[] = [];
@@ -55,6 +53,7 @@
 		select: { id: string; kind: 'place' | 'parking' | 'flight' | 'camera' | 'quake' };
 		ready: void;
 		error: void;
+		viewport: { west: number; south: number; east: number; north: number; zoom: number };
 	}>();
 
 	let container: HTMLDivElement;
@@ -65,6 +64,18 @@
 	let mapError = '';
 
 	/** Same-frame splash lift whenever the style becomes usable (load or style.load). */
+	function emitViewport(mapInstance = map) {
+		if (!mapInstance) return;
+		const b = mapInstance.getBounds();
+		dispatch('viewport', {
+			west: b.getWest(),
+			south: b.getSouth(),
+			east: b.getEast(),
+			north: b.getNorth(),
+			zoom: mapInstance.getZoom()
+		});
+	}
+
 	function markStyleReady() {
 		styleReady = true;
 		document.getElementById('boot-splash-instant')?.classList.add('leaving');
@@ -80,8 +91,9 @@
 	let terrainHandle: TerrainHandle | undefined;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
-	// Parking is always on (product contract) — ignore showParking for map markers.
-	$: visibleParkings = parkings.filter((parking) => parking.coordinates !== null);
+	$: visibleParkings = showParking
+		? parkings.filter((parking) => parking.coordinates !== null)
+		: [];
 	$: visibleFlights = intelLayers.flights ? flights : [];
 	$: visibleCameras = intelLayers.cameras ? cameras : [];
 	$: visibleQuakes = intelLayers.quakes ? quakes : [];
@@ -90,12 +102,7 @@
 		(map.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
 	}
 	$: if (map?.getSource('parking')) {
-		syncParkingLayer(map, visibleParkings, true);
-	}
-	$: if (map && styleReady) {
-		for (const id of ['parking-pill', 'parking-label']) {
-			if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
-		}
+		syncParkingLayer(map, visibleParkings, showParking);
 	}
 	$: if (map?.getSource('flights')) {
 		registerFlightIcons(map, visibleFlights);
@@ -285,7 +292,7 @@
 		if (!mapInstance) return;
 		const placesSource = mapInstance.getSource('places') as GeoJSONSource | undefined;
 		placesSource?.setData(placesToGeoJSON(visiblePlaces));
-		syncParkingLayer(mapInstance, visibleParkings, true);
+		syncParkingLayer(mapInstance, visibleParkings, showParking);
 		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
 		if (flightsSource) {
 			registerFlightIcons(mapInstance, visibleFlights);
@@ -306,7 +313,7 @@
 		registerPlaceIcons(mapInstance);
 		ensureBaseIconAtlas(mapInstance);
 		syncPlacesLayer(mapInstance, visiblePlaces);
-		syncParkingLayer(mapInstance, visibleParkings, true);
+		syncParkingLayer(mapInstance, visibleParkings, showParking);
 
 		// parking-pill + parking-label owned by syncParkingLayer (always on)
 
@@ -806,6 +813,9 @@
 						instance.getCanvas().style.cursor = '';
 					});
 				}
+				instance.on('moveend', () => emitViewport(instance));
+				instance.on('zoomend', () => emitViewport(instance));
+				instance.once('idle', () => emitViewport(instance));
 				instance.on('pitch', guardWalkPitch);
 				const canvas = instance.getCanvas();
 				canvas.addEventListener('mousedown', onWalkMouseDown, true);

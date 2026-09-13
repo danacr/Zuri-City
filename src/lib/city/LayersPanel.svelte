@@ -107,16 +107,16 @@
 			<li>
 				<button
 					type="button"
-					class="switch on locked" class:forced={showParking}
-					aria-pressed="true"
-					aria-disabled="true"
-					title="Parking markers are always on"
+					class="switch"
+					class:on={showParking}
+					aria-pressed={showParking}
+					title="Toggle live PLS parking markers"
 					on:click={onToggleParking}
 				>
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
 						<span class="switch-meta"
-							>{#if counts.parking > 0}{counts.parking} · always on · live PLS{:else}always on · loading PLS…{/if}</span
+							>{#if counts.parking > 0}{counts.parking} · live PLS{:else}live PLS{/if}</span
 						>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
@@ -392,28 +392,6 @@
 	.switch.on .knob::after {
 		transform: translateX(14px);
 		background: #fff;
-	}
-	.switch.locked,
-	.switch.forced {
-		cursor: not-allowed;
-		opacity: 1;
-	}
-	.switch.locked .knob,
-	.switch.forced .knob {
-		background: #1c7ed6;
-		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-	}
-	.switch.locked .knob::after,
-	.switch.forced .knob::after {
-		content: '';
-		transform: translateX(14px);
-		background: #fff
-			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%231c7ed6' d='M6 1a2.5 2.5 0 0 0-2.5 2.5V5h5V3.5A2.5 2.5 0 0 0 6 1zm-3.5 4v1.2A1.8 1.8 0 0 0 4.3 8h3.4A1.8 1.8 0 0 0 9.5 6.2V5z'/%3E%3C/svg%3E")
-			center / 10px 10px no-repeat;
-	}
-	.switch.locked .switch-meta::after,
-	.switch.forced .switch-meta::after {
-		content: ' · locked';
 	}
 
 	.traffic-legend {

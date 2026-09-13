@@ -16,15 +16,15 @@ const OVERPASS_ENDPOINTS = [
 ];
 
 /** ~3.8 km around Zürich HB — dense nearby coverage of the city core. */
-const AROUND_NEAR = `around:3800,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
+const AROUND_NEAR = `around:6500,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 /** Slightly wider ring for sights / parks / hotels. */
-const AROUND_WIDE = `around:5200,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
+const AROUND_WIDE = `around:9000,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 
 /**
  * Cap POI density so first orbit reads as a city, not sticker soup.
  * Collision + label minzoom handle the rest; seeds still merge via dedupe.
  */
-const MAX_PER_CATEGORY = 16;
+const MAX_PER_CATEGORY = 48;
 
 type OverpassElement = {
 	type: string;
@@ -212,6 +212,8 @@ function fromElement(element: OverpassElement): Place | null {
 		openingHours,
 		isOpen,
 		openHint,
+		phone: tags.phone || tags['contact:phone'] || null,
+		website: tags.website || tags['contact:website'] || tags.url || null,
 		tags: [
 			category,
 			tags.amenity,
@@ -317,4 +319,85 @@ export async function loadCityPlaces(fetchFn: typeof fetch): Promise<{
 		source: 'fallback',
 		error: 'Live places timed out — showing curated Zürich highlights.'
 	};
+}
+
+
+export type PlacesBbox = { west: number; south: number; east: number; north: number };
+
+function bboxClause(bbox: PlacesBbox): string {
+	return `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`;
+}
+
+function bboxQueryBundles(bbox: PlacesBbox): string[] {
+	const b = bboxClause(bbox);
+	return [
+		`
+[out:json][timeout:20];
+(
+  node["amenity"~"restaurant|fast_food|biergarten|food_court|cafe|ice_cream|bar|pub|nightclub"](${b});
+  node["shop"~"bakery|pastry|coffee|chocolate|confectionery"](${b});
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub"](${b});
+  way["shop"~"bakery|pastry|coffee"](${b});
+);
+out center 800;
+`.trim(),
+		`
+[out:json][timeout:20];
+(
+  node["shop"~"hairdresser|beauty|nails|massage|cosmetics|perfumery|tattoo|piercing|clothes|shoes|books|jewelry|gift|electronics|fashion_accessories|department_store|mall|bicycle|sports|florist|furniture|optician|mobile_phone|computer|toys|music|convenience|supermarket|chemist|kiosk|greengrocer|butcher|dairy"](${b});
+  node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water|marketplace|theatre|cinema|arts_centre|library|community_centre|place_of_worship|fountain|public_bath|beauty_salon"](${b});
+  node["craft"="hairdresser"](${b});
+  node["beauty"](${b});
+);
+out center 900;
+`.trim(),
+		`
+[out:json][timeout:20];
+(
+  node["tourism"~"attraction|museum|viewpoint|gallery|artwork|zoo|theme_park|hotel|hostel|apartment"](${b});
+  node["historic"~"monument|castle|memorial|ruins|archaeological_site"](${b});
+  node["leisure"~"park|garden|nature_reserve|swimming_area|marina|playground|sports_centre|fitness_centre|swimming_pool|sauna|beach_resort"](${b});
+  way["leisure"~"park|garden|nature_reserve"](${b});
+  way["tourism"~"attraction|museum"](${b});
+);
+out center 700;
+`.trim()
+	];
+}
+
+/**
+ * Progressive viewport load — denser POIs for the current map bbox.
+ * Caps grow with zoom so walking the streets reveals shops next to you.
+ */
+export async function loadPlacesInBbox(
+	fetchFn: typeof fetch,
+	bbox: PlacesBbox,
+	zoom = 15
+): Promise<{ places: Place[]; source: 'overpass' | 'empty'; error: string }> {
+	const perCategory = zoom >= 16 ? 120 : zoom >= 14.5 ? 80 : zoom >= 13 ? 48 : 24;
+	const queries = bboxQueryBundles(bbox);
+	for (const endpoint of OVERPASS_ENDPOINTS) {
+		try {
+			const batches = await Promise.all(
+				queries.map((query) => fetchBundle(fetchFn, endpoint, query).catch(() => [] as OverpassElement[]))
+			);
+			const mapped = batches
+				.flat()
+				.map(fromElement)
+				.filter((item): item is Place => item !== null);
+			if (!mapped.length) continue;
+			const origin: [number, number] = [
+				(bbox.west + bbox.east) / 2,
+				(bbox.south + bbox.north) / 2
+			];
+			return {
+				places: balance(rankNearbyOpen(dedupe(mapped), origin), perCategory),
+				source: 'overpass',
+				error: ''
+			};
+		} catch {
+			/* next mirror */
+		}
+	}
+	return { places: [], source: 'empty', error: 'Viewport places unavailable' };
 }

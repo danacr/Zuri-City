@@ -34,10 +34,10 @@ export function parkingsToGeoJSON(items: Parking[]) {
 }
 
 /**
- * Always-on parking POIs: tone-colored "P" sprites + capacity labels.
- * Product contract: parking is never a map-layer toggle — always visible.
+ * Live PLS parking POIs: tone-colored "P" sprites + capacity labels.
+ * Defaults on; Layers can hide/show markers.
  */
-export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
+export function ensureParkingLayer(map: MapLibreMap, visible = true) {
 	if (!map.getSource(PARKING_SOURCE_ID)) {
 		map.addSource(PARKING_SOURCE_ID, {
 			type: 'geojson',
@@ -59,7 +59,7 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 			type: 'symbol',
 			source: PARKING_SOURCE_ID,
 			layout: {
-				visibility: 'visible',
+				visibility: visible ? 'visible' : 'none',
 				'icon-image': ['coalesce', ['get', 'icon'], 'parking-blue'],
 				'icon-size': [
 					'interpolate',
@@ -91,7 +91,7 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 			}
 		});
 	} else {
-		map.setLayoutProperty(PARKING_PILL_LAYER_ID, 'visibility', 'visible');
+		map.setLayoutProperty(PARKING_PILL_LAYER_ID, 'visibility', visible ? 'visible' : 'none');
 	}
 
 	if (!map.getLayer(PARKING_LABEL_LAYER_ID)) {
@@ -101,7 +101,7 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 			source: PARKING_SOURCE_ID,
 			minzoom: 13,
 			layout: {
-				visibility: 'visible',
+				visibility: visible ? 'visible' : 'none',
 				'text-field': ['get', 'label'],
 				'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 15, 12, 17, 14],
 				'text-font': ['Noto Sans Bold'],
@@ -127,13 +127,17 @@ export function ensureParkingLayer(map: MapLibreMap, _visible = true) {
 			}
 		});
 	} else {
-		map.setLayoutProperty(PARKING_LABEL_LAYER_ID, 'visibility', 'visible');
+		map.setLayoutProperty(PARKING_LABEL_LAYER_ID, 'visibility', visible ? 'visible' : 'none');
 	}
 }
 
-/** Parking is always on — `visible` is ignored so callers cannot blank the layer. */
-export function syncParkingLayer(map: MapLibreMap, parkings: Parking[], _visible = true) {
-	ensureParkingLayer(map, true);
+export function syncParkingLayer(map: MapLibreMap, parkings: Parking[], visible = true) {
+	ensureParkingLayer(map, visible);
 	const source = map.getSource(PARKING_SOURCE_ID) as GeoJSONSource | undefined;
 	source?.setData(parkingsToGeoJSON(parkings));
+	for (const id of [PARKING_PILL_LAYER_ID, PARKING_LABEL_LAYER_ID]) {
+		if (map.getLayer(id)) {
+			map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+		}
+	}
 }
