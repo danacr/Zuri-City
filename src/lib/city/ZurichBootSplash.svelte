@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 
-	/** Keep splash visible at least this long so it feels intentional. */
-	export let minMs = 400;
-	/** Hard cap so a stalled map never traps the user (Google/HERE are under ~2s). */
-	export let maxMs = 2500;
+	/** Brief intentional flash — map-ready should win within a beat. */
+	export let minMs = 200;
+	/** Hard cap so a stalled map never traps the user. */
+	export let maxMs = 1800;
 	export let ready = false;
 	export let failed = false;
 
@@ -27,11 +27,10 @@
 		const elapsed = performance.now() - mountedAt;
 		const wait = Math.max(0, minMs - elapsed);
 		const el = splashEl();
+		// Drop hit-testing immediately so the ready map is usable under the fade.
+		el?.classList.add('leaving');
 		leaveTimer = setTimeout(() => {
-			if (el) {
-				el.classList.add('leaving');
-				window.setTimeout(() => el.remove(), 480);
-			}
+			if (el) window.setTimeout(() => el.remove(), 320);
 			visible = false;
 			dispatch('done');
 		}, wait);

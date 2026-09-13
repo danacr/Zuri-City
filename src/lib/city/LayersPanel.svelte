@@ -116,7 +116,7 @@
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
 						<span class="switch-meta"
-							>{counts.parking} · always on · live PLS</span
+							>{#if counts.parking > 0}{counts.parking} · always on · live PLS{:else}always on · loading PLS…{/if}</span
 						>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
