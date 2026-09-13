@@ -7,6 +7,9 @@
  *
  * Replaces ASTRA DATEX counters (required a free but mandatory API key).
  * Severity maps onto free / slow / jam for the existing traffic overlay.
+ *
+ * Keep feeds under a hard time budget — with `ssr = false`, hydrateCity awaits
+ * intel before the map shell mounts, so a hung Overpass mirror must not block boot.
  */
 import type { TrafficSegment } from '$lib/intel/types';
 
@@ -21,6 +24,9 @@ const OVERPASS_MIRRORS = [
 
 /** Greater Zürich bowl — drop cantonal sites outside the city map. */
 const ZH_BBOX = { west: 8.35, south: 47.28, east: 8.72, north: 47.48 };
+
+/** Hard ceiling so hydrateCity cannot stall on a slow mirror. */
+const FEED_BUDGET_MS = 8_000;
 
 type CacheBox<T> = { at: number; value: T };
 let cache: CacheBox<TrafficSegment[]> | null = null;
@@ -67,7 +73,9 @@ function geometryToLines(geometry: GjGeometry): [number, number][][] {
 		case 'MultiLineString':
 			return geometry.coordinates.map(ringToLine).filter((l) => l.length >= 2);
 		case 'Polygon':
-			return geometry.coordinates[0] ? [ringToLine(geometry.coordinates[0])].filter((l) => l.length >= 2) : [];
+			return geometry.coordinates[0]
+				? [ringToLine(geometry.coordinates[0])].filter((l) => l.length >= 2)
+				: [];
 		case 'MultiPolygon':
 			return geometry.coordinates
 				.map((poly) => (poly[0] ? ringToLine(poly[0]) : []))
@@ -167,6 +175,22 @@ function parseOverpass(payload: {
 	return out;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+		promise.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(error) => {
+				clearTimeout(timer);
+				reject(error);
+			}
+		);
+	});
+}
+
 async function fetchKtzh(fetchFn: typeof fetch): Promise<TrafficSegment[]> {
 	const response = await fetchFn(KTZH_WFS, {
 		headers: { accept: 'application/json', 'user-agent': 'ZuriCity/1.0 (https://zuri.city)' },
@@ -177,37 +201,36 @@ async function fetchKtzh(fetchFn: typeof fetch): Promise<TrafficSegment[]> {
 	return parseKtzh(json);
 }
 
+async function fetchOverpassMirror(
+	fetchFn: typeof fetch,
+	url: string,
+	query: string
+): Promise<TrafficSegment[]> {
+	const response = await fetchFn(url, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+			'user-agent': 'ZuriCity/1.0 (https://zuri.city)'
+		},
+		body: `data=${encodeURIComponent(query)}`,
+		cache: 'no-store'
+	});
+	if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+	return parseOverpass((await response.json()) as Parameters<typeof parseOverpass>[0]);
+}
+
 async function fetchOverpass(fetchFn: typeof fetch): Promise<TrafficSegment[]> {
 	const query = `
-[out:json][timeout:25];
+[out:json][timeout:8];
 (
   way["highway"="construction"](${ZH_BBOX.south},${ZH_BBOX.west},${ZH_BBOX.north},${ZH_BBOX.east});
   way["highway"]["construction"](${ZH_BBOX.south},${ZH_BBOX.west},${ZH_BBOX.north},${ZH_BBOX.east});
 );
 out geom;`.trim();
 
-	let lastError = 'Overpass unavailable';
-	for (const url of OVERPASS_MIRRORS) {
-		try {
-			const response = await fetchFn(url, {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
-					'user-agent': 'ZuriCity/1.0 (https://zuri.city)'
-				},
-				body: `data=${encodeURIComponent(query)}`,
-				cache: 'no-store'
-			});
-			if (!response.ok) {
-				lastError = `Overpass HTTP ${response.status}`;
-				continue;
-			}
-			return parseOverpass((await response.json()) as Parameters<typeof parseOverpass>[0]);
-		} catch (error) {
-			lastError = error instanceof Error ? error.message : 'Overpass failed';
-		}
-	}
-	throw new Error(lastError);
+	// Race mirrors — first success wins; don't walk them sequentially.
+	const raced = OVERPASS_MIRRORS.map((url) => fetchOverpassMirror(fetchFn, url, query));
+	return await Promise.any(raced);
 }
 
 function dedupe(segments: TrafficSegment[]): TrafficSegment[] {
@@ -232,13 +255,23 @@ export async function loadSwissTraffic(fetchFn: typeof fetch): Promise<{
 		return { traffic: cache.value, source: 'zh-roadworks', error: '' };
 	}
 
-	const settled = await Promise.allSettled([fetchKtzh(fetchFn), fetchOverpass(fetchFn)]);
+	const settled = await Promise.allSettled([
+		withTimeout(fetchKtzh(fetchFn), FEED_BUDGET_MS, 'KTZH Baustellen'),
+		withTimeout(fetchOverpass(fetchFn), FEED_BUDGET_MS, 'Overpass construction')
+	]);
 	const chunks: TrafficSegment[] = [];
 	const errors: string[] = [];
 
 	for (const result of settled) {
 		if (result.status === 'fulfilled') chunks.push(...result.value);
-		else errors.push(result.reason instanceof Error ? result.reason.message : 'feed failed');
+		else {
+			const reason = result.reason;
+			if (reason instanceof AggregateError) {
+				errors.push(reason.errors[0] instanceof Error ? reason.errors[0].message : 'Overpass failed');
+			} else {
+				errors.push(reason instanceof Error ? reason.message : 'feed failed');
+			}
+		}
 	}
 
 	const traffic = dedupe(chunks);
