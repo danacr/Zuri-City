@@ -6,28 +6,59 @@ legacy Codex-specific notes.
 ## Product
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
-**the interactive city**, a walkable **3D map of Zürich**. The foundation of the experience is
-the living map — SWISSIMAGE aerial basemap, **swisstopo swissBUILDINGS3D**
-meshes (continuous LOD), **swisstopo terrain**, and **congestion-colored streets**
-on OpenMapTiles centerlines (**green** / **amber** / **red**), with cars present
-across the city zoom range. Parking from the
-[Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map in **blue**
-(list panel optional).
+a **live 3D map of Zürich**. The foundation of the experience is the map itself —
+SWISSIMAGE aerial basemap, **solid OSM building massing** (opaque fill-extrusions
+that read as real volume on terrain — not translucent “ghost” boxes), **swisstopo
+terrain**, and **congestion-colored streets** on OpenMapTiles centerlines
+(**green** / **amber** / **red**). Parking from the
+[Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map as **blue
+capacity pills** (list panel optional). Place and aircraft markers use **sprites**,
+never raw MapLibre circles as the primary glyph.
+
+Product voice for UI/SEO: concrete Zürich, calm confidence. Prefer “live map” /
+“Zürich · live” over vague “interactive city” filler.
 
 Zoom only changes camera distance — not which city systems are visible. Colored
 street lines are the primary traffic UX; cars are secondary decoration. Prefer
 free swisstopo / OSM sources; do not require Google Photorealistic 3D Tiles or
 Cesium ion keys for the default experience.
 
+### Quality bar — never ship a broken city
+
+Do **not** open or update a PR as “done” while any of these fail on mobile preview:
+
+1. **Solid 3D massing** — buildings must read as volume on terrain at orbit and walk.
+   Translucent “ghost” extrusions that disappear into the aerial are a reject.
+2. **Parking always visible** — blue/green/red pills with capacity labels after hydrate.
+   Labels-only or toggle-off parking is a reject.
+3. **Orbit ≠ Walk** — orbit inspects the basin (lower pitch, free overview). Walk is
+   street immersion (locked high pitch, locomotion). Pose-only identical modes are a reject.
+4. **Sprites, not dots** — places and aircraft use icon atlas sprites. Purple CCTV
+   circles must not dominate the first viewport (cameras default off; sprite when on).
+5. **Traffic on OMT centerlines** — thin enough to read as streets, not thick ribbons
+   floating off the aerial.
+6. **Terrain/aerial stability** — no mid-screen tile tears from overzoomed DEM; idle RAF = 0.
+7. **One MapLibre engine** — no Cesium / dual-WebGL experiments on the default path.
+
+Failed Cesium and “ghost massing” rebuilds taught this: a half-working 3D stack is worse
+than shipping nothing. Keep iterating on **one PR** until the checklist above is green.
+
 ## Stack
 
 - **Runtime:** Node.js **24.x** (see `.nvmrc`, `.node-version`, `package.json`)
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
-- **Map:** CesiumJS (Workers/Assets via `static/cesiumStatic` from `npm run cesium:assets`) — one engine for SWISSIMAGE tiles, swissBUILDINGS3D, and terrain (`src/lib/city/ZurichCity.svelte`, `src/lib/map/cesiumCity.ts`)
-- **swisstopo sources:** `src/lib/map/swissSources.ts` (no Cesium ion key)
-- **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only; Cesium converts zoom → height)
-- **Traffic:** Cesium corridor polylines in `src/lib/map/zurichArteries.ts` (congestion colors; no per-frame dash RAF)
-- **Overlays:** `src/lib/map/layers/cesiumOverlays.ts` (places, parking, flights, cameras, quakes)
+- **Map:** MapLibre GL — one engine for aerial, terrain, massing, traffic, and overlays.
+  Style builder: `src/lib/map/aerialStyle.ts`
+- **Icons:** `src/lib/map/iconAtlas.ts` pre-registers place + aircraft + CCTV sprites
+  before symbol layers paint; `src/lib/intel/aircraftIcons.ts` draws planform silhouettes
+- **Continuous swisstopo:** `swissSources.ts`, `swissTerrain.ts` (quantized-mesh;
+  Terrarium DEM fallback). **swissBUILDINGS3D** is phase-2 (`PUBLIC_SWISS_BUILDINGS=1`,
+  `swissBuildingsLayer.ts`) — off by default; default massing is solid OSM extrusions
+- **Camera contract:** city min/max zoom in `swissSources.ts`. Orbit and walk share
+  layers but **differ in pose + interaction** (walk locks high pitch / enables look)
+- **Living traffic:** OMT `transportation` centerlines in `aerialStyle.ts` (static dashes;
+  no per-frame RAF). Cars are a future accent layer
+- **Parking:** always-on pills via `map/layers/parkingLayer.ts` — not a hideable map toggle
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
   Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
@@ -84,8 +115,7 @@ See **`src/lib/ARCHITECTURE.md`** for the scalable package layout and “how to 
 | Live intel (ADS-B, CCTV, quakes) | `src/lib/intel/*`, `src/lib/server/intel.ts` |
 | Layer toggle registry | `src/lib/city/layerRegistry.ts` |
 
-Intel layer **Live streets** (`traffic`) toggles colored road lines (and optional cars).
-`traffic-roads-query` supports the car accent.
+Intel layer **Live streets** (`traffic`) toggles colored OMT centerline overlays.
 
 **Scalability rules:** keep routes thin; put new overlays in `map/layers/`; keep domain
 types out of the map host; prefer `citySession` stores when multiple UI surfaces share
@@ -109,6 +139,34 @@ npx playwright install chromium
 npm test
 npm run format
 ```
+
+### Quality gate — required before presenting ready
+
+Do **not** tell the user a preview is ready until this passes locally:
+
+```bash
+npm run quality
+```
+
+That runs, in order:
+
+1. `npm run check` — types / Svelte
+2. `npm run quality:unit` — unit + acceptance contract tests (buildings, parking, sprites, cameras-off, orbit≠walk)
+3. `npm run build` — production build
+4. `npm run quality:e2e` — Playwright **mobile-first** acceptance (`tests/acceptance.spec.ts`)
+
+Playwright acceptance covers:
+
+- Map boots `data-map-ready=true` on iPhone viewport (390×844)
+- Solid OSM buildings layer + opacity ≥ 0.7
+- Parking pills + labels present after hydrate
+- Traffic flow layer present
+- Place + aircraft sprites registered
+- Orbit vs Walk diverge in pitch/zoom; walk shows status hint
+- Cameras default off; parking cannot be toggled off
+- Map remains the primary mobile surface
+
+After `quality` is green, present the **Vercel preview URL** for the PR branch. The human review should then be about the implementation look — not discovering broken parking, flat buildings, or identical Orbit/Walk.
 
 Production:
 
@@ -145,6 +203,12 @@ Branch names: `cursor/<short-description>-abf9`.
   that remain present (density by viewport, not zoom buckets).
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
-- Parking stays always-visible in blue (not a map-layer toggle).
-- Keep CesiumJS as the sole map engine; do not reintroduce MapLibre/Three.js for city massing.
+- Parking stays always-visible as **blue capacity pills** (not a map-layer toggle).
+- Match existing MapLibre patterns; avoid reintroducing Leaflet or Cesium for the
+  default city view.
 - Prefer small, focused diffs; update this file when product foundations change.
+- **Never present a non-professional / non-working outcome as complete.** If buildings
+  are flat, parking missing, icons are dots, or orbit≈walk on mobile, keep fixing the
+  same PR — do not open a celebratory summary.
+- **Always run `npm run quality` before presenting a preview as ready.** Human review
+  should only need to judge the implementation — not rediscover broken features.

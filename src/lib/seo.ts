@@ -1,6 +1,7 @@
-export const title = 'Züri City – The Interactive City';
+/** Product voice: concrete Zürich, calm confidence — never “interactive city” filler. */
+export const title = 'Züri City — Live map of Zürich';
 export const description =
-	'Explore Zürich as the interactive city: traffic on real roads, 3D buildings, open places, aircraft, CCTV, and live parking availability on the map.';
+	'Zürich on a live 3D map: traffic on real streets, solid buildings, open places, aircraft overhead, and parking capacity always visible.';
 
 export function structuredData(siteUrl: string) {
 	return JSON.stringify({
@@ -10,7 +11,7 @@ export function structuredData(siteUrl: string) {
 				'@type': 'WebSite',
 				'@id': `${siteUrl}#website`,
 				name: 'Züri City',
-				alternateName: ['Züri City Map'],
+				alternateName: ['Züri City Map', 'Live map of Zürich'],
 				url: siteUrl,
 				inLanguage: 'en',
 				description
@@ -24,7 +25,7 @@ export function structuredData(siteUrl: string) {
 				applicationCategory: 'TravelApplication',
 				operatingSystem: 'Any',
 				browserRequirements:
-					'Requires an internet connection. Location features require HTTPS and location permission when used.',
+					'Requires an internet connection. Location features need HTTPS and permission when used.',
 				author: { '@type': 'Person', name: 'dan.cv', url: 'https://dan.cv' },
 				isPartOf: { '@id': `${siteUrl}#website` }
 			}

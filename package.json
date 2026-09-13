@@ -3,17 +3,21 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"cesium:assets": "node scripts/copy-cesium-assets.mjs",
-		"dev": "npm run cesium:assets && vite dev --host 0.0.0.0",
-		"build": "npm run cesium:assets && vite build",
+		"dev": "vite dev --host 0.0.0.0",
+		"build": "vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
+		"test:acceptance": "playwright test tests/acceptance.spec.ts",
+		"test:unit": "vitest",
+		"test:unit:run": "vitest run",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"test:unit": "vitest",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"prepare": "svelte-kit sync && npm run cesium:assets"
+		"prepare": "svelte-kit sync",
+		"quality:unit": "vitest run",
+		"quality:e2e": "playwright test tests/acceptance.spec.ts",
+		"quality": "npm run check && npm run quality:unit && npm run build && npm run quality:e2e"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -24,6 +28,7 @@
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/geojson": "^7946.0.16",
 		"@types/node": "^24.0.0",
+		"@types/three": "^0.186.0",
 		"eslint": "^10.10.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",
@@ -40,8 +45,12 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"cesium": "^1.145.0",
-		"rss-parser": "^3.13.0"
+		"@here/quantized-mesh-decoder": "^1.2.8",
+		"3d-tiles-renderer": "^0.5.2",
+		"maplibre-gl": "^6.9.0",
+		"maplibre-gl-3dtiles-terrain": "^0.1.0",
+		"rss-parser": "^3.13.0",
+		"three": "^0.186.0"
 	},
 	"engines": {
 		"node": "24.x"

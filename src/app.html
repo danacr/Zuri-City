@@ -2,6 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<title>Züri City</title>
 		<meta name="color-scheme" content="dark" />
 		<meta name="theme-color" content="#07131f" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
@@ -12,10 +13,6 @@
 		<link rel="manifest" href="%sveltekit.assets%/site.webmanifest" />
 		<link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<!-- Cesium workers/assets must resolve before the Viewer module evaluates. -->
-		<script>
-			window.CESIUM_BASE_URL = '/cesiumStatic/';
-		</script>
 		<style>
 			/* Instant boot splash — before Kit CSS so first paint is not blocked. */
 			#boot-splash-instant {
@@ -170,9 +167,9 @@
 				</g>
 			</svg>
 			<div class="brand">
-				<p class="kicker">The interactive city</p>
+				<p class="kicker">Zürich · live</p>
 				<h1>Züri City</h1>
-				<p class="tag">Opening the living city</p>
+				<p class="tag">Finding the lake</p>
 				<div class="progress" aria-hidden="true"><span class="bar"></span></div>
 			</div>
 		</div>

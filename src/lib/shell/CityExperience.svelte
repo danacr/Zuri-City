@@ -227,8 +227,9 @@
 		// Enabling Aircraft only toggles markers — use “Find aircraft” to reframe.
 	}
 
+	/** Parking is always-on (product contract) — Layers HUD cannot hide map markers. */
 	function toggleParkingLayer() {
-		showParking = !showParking;
+		showParking = true;
 	}
 
 	function showAllPlaces() {
@@ -349,7 +350,7 @@
 			places={visibleMapPlaces}
 			parkings={parkings}
 			{layers}
-			{showParking}
+			showParking={true}
 			{intelLayers}
 			{flights}
 			{cameras}
@@ -374,7 +375,7 @@
 			<a class="brand" href={resolve('/')} aria-label="Züri City home" on:click={home}>
 				<img src="/favicon.svg" alt="" width="32" height="32" />
 				<div>
-					<p class="brand-kicker">Interactive city</p>
+					<p class="brand-kicker">Zürich · live</p>
 					<h1>Züri City</h1>
 				</div>
 			</a>
@@ -392,9 +393,9 @@
 
 		<!-- Desktop left briefing -->
 		<aside class="desk-hud" aria-label="City briefing">
-			<p class="eyebrow">Map</p>
-			<h2>Interactive city</h2>
-			<p>Traffic colors the streets. Open Layers to choose places and live feeds.</p>
+			<p class="eyebrow">On the map</p>
+			<h2>See Zürich move</h2>
+			<p>Traffic paints the streets. Parking stays on. Open Layers for places and live feeds.</p>
 			<div class="mode-row">
 				<button
 					type="button"
@@ -505,6 +506,10 @@
 					}}>Layers</button
 				>
 			</nav>
+			{#if mode === 'walk'}
+				<p class="walk-hint" role="status">Walk · drag to look · WASD / arrows to move</p>
+			{/if}
+
 		</div>
 
 		<aside class="desk-layers" aria-label="Desktop map layers">
@@ -999,5 +1004,21 @@
 			width: min(320px, calc(100vw - 32px));
 			bottom: calc(24px + env(safe-area-inset-bottom));
 		}
+	}
+	.walk-hint {
+		position: absolute;
+		left: 50%;
+		bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+		transform: translateX(-50%);
+		z-index: 6;
+		margin: 0;
+		padding: 0.35rem 0.75rem;
+		border-radius: 999px;
+		background: rgba(8, 14, 24, 0.72);
+		color: #f2efe8;
+		font-size: 0.72rem;
+		letter-spacing: 0.02em;
+		pointer-events: none;
+		white-space: nowrap;
 	}
 </style>

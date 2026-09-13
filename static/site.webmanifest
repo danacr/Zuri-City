@@ -1,6 +1,13 @@
 {
-	"name": "Z\u00fcri City",
-	"short_name": "Z\u00fcri City",
+	"name": "Züri City",
+	"short_name": "Züri City",
+	"description": "Live 3D map of Zürich — traffic, places, aircraft, and parking on the streets.",
+	"start_url": "/",
+	"scope": "/",
+	"id": "/",
+	"display": "standalone",
+	"background_color": "#07131f",
+	"theme_color": "#07131f",
 	"icons": [
 		{
 			"src": "/android-chrome-192x192.png",
@@ -12,12 +19,5 @@
 			"sizes": "512x512",
 			"type": "image/png"
 		}
-	],
-	"theme_color": "#07131f",
-	"background_color": "#07131f",
-	"display": "standalone",
-	"id": "/",
-	"start_url": "/",
-	"scope": "/",
-	"description": "Walk a 3D Z\u00fcrich city map of open stores, restaurants and attractions \u2014 with live parking on the map."
+	]
 }

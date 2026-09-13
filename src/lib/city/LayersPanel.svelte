@@ -37,8 +37,8 @@
 <div class="hud" role="region" aria-label="Map layers">
 	<header class="hud-head">
 		<div>
-			<p class="eyebrow">Map layers</p>
-			<h2>What you see</h2>
+			<p class="eyebrow">Layers</p>
+			<h2>On the map</h2>
 			<p class="status">{placesOn}/{PLACE_CATEGORIES.length} places · {feedsOn} feeds</p>
 		</div>
 		{#if dismissible}
@@ -51,11 +51,11 @@
 	<section class="master" aria-label="Places master toggle">
 		<button type="button" class="master-btn" on:click={onShowAllPlaces}>
 			<span class="master-label">All places</span>
-			<span class="master-hint">Show every POI</span>
+			<span class="master-hint">Everything open nearby</span>
 		</button>
 		<button type="button" class="master-btn ghost" on:click={onHideAllPlaces}>
 			<span class="master-label">None</span>
-			<span class="master-hint">Clear the map</span>
+			<span class="master-hint">Clear places only</span>
 		</button>
 	</section>
 
@@ -107,14 +107,15 @@
 			<li>
 				<button
 					type="button"
-					class="switch"
-					class:on={showParking}
-					aria-pressed={showParking}
+					class="switch on locked" class:forced={showParking}
+					aria-pressed="true"
+					aria-disabled="true"
+					title="Parking markers are always on"
 					on:click={onToggleParking}
 				>
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
-						<span class="switch-meta">{counts.parking} · open + free / capacity</span>
+						<span class="switch-meta">{counts.parking} · always on · free / capacity</span>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
 				</button>

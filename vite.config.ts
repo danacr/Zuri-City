@@ -3,29 +3,28 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 import { localHttps } from './config/https.ts';
 
-/**
- * Cesium Workers/Assets are copied into `static/cesiumStatic` by
- * `scripts/copy-cesium-assets.mjs` (predev/prebuild) so SvelteKit/Vercel
- * serve them at `/cesiumStatic/...`.
- */
 export default defineConfig(({ command, mode }) => {
 	const https = command === 'serve' && mode !== 'test' ? localHttps() : undefined;
 	return {
 		plugins: [tailwindcss(), sveltekit()],
-		define: {
-			CESIUM_BASE_URL: JSON.stringify('/cesiumStatic/')
-		},
 		ssr: {
-			noExternal: ['cesium']
+			noExternal: ['maplibre-gl', 'three', '3d-tiles-renderer', 'maplibre-gl-3dtiles-terrain']
 		},
 		optimizeDeps: {
-			include: ['cesium']
-		},
-		build: {
-			chunkSizeWarningLimit: 5000
+			include: [
+				'maplibre-gl',
+				'three',
+				'three/addons/loaders/DRACOLoader.js',
+				'3d-tiles-renderer',
+				'3d-tiles-renderer/three',
+				'3d-tiles-renderer/three/plugins',
+				'maplibre-gl-3dtiles-terrain',
+				'@here/quantized-mesh-decoder'
+			]
 		},
 		server: {
 			https,
+			// Keep local HTTPS on HTTP/1.1 for consistent browser and test behavior.
 			proxy: {},
 			fs: { deny: ['.env', '.env.*', '*.{crt,pem,key}', '**/.git/**', '**/.certs/**'] }
 		},
