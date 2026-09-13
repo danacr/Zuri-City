@@ -50,7 +50,7 @@ export type LayerCounts = Record<PlaceCategory, number> & {
 	parking: number;
 	flights: number;
 	cameras: number;
-	traffic: number | string;
+	traffic: number;
 	quakes: number;
 };
 

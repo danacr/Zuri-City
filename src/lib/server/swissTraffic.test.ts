@@ -18,7 +18,7 @@ describe('loadSwissTraffic', () => {
 		const result = await loadSwissTraffic(vi.fn() as unknown as typeof fetch);
 		expect(result.source).toBe('unavailable');
 		expect(result.traffic).toEqual([]);
-		expect(result.error).toMatch(/OPENTRANSPORTDATA_API_KEY/);
+		expect(result.error).toMatch(/Traffic unavailable/i);
 	});
 
 	it('parses Zürich-bbox sites and speed → free/slow/jam', async () => {

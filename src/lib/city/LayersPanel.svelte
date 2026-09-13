@@ -143,7 +143,13 @@
 						<span class="switch-copy">
 							<span class="switch-label">{INTEL_LAYER_LABEL[key]}</span>
 							{#if key !== 'detection'}
-								<span class="switch-meta">{counts[key]}</span>
+								<span class="switch-meta"
+									>{#if key === 'traffic'}
+										{counts.traffic > 0 ? counts.traffic : 'unavailable'}
+									{:else}
+										{counts[key]}
+									{/if}</span
+								>
 							{/if}
 						</span>
 						<span class="knob" aria-hidden="true"></span>
@@ -151,7 +157,7 @@
 				</li>
 			{/each}
 		</ul>
-		{#if intelLayers.traffic}
+		{#if intelLayers.traffic && counts.traffic > 0}
 			<div class="traffic-legend" aria-label="Traffic colors">
 				{#each TRAFFIC_LEGEND as item (item.label)}
 					<span><i style:background={item.color}></i>{item.label}</span>

@@ -194,8 +194,7 @@ export async function loadSwissTraffic(fetchFn: typeof fetch): Promise<{
 		return {
 			traffic: [],
 			source: 'unavailable',
-			error:
-				'Set OPENTRANSPORTDATA_API_KEY (free at api-manager.opentransportdata.swiss) for live ASTRA traffic.'
+			error: 'Traffic unavailable.'
 		};
 	}
 

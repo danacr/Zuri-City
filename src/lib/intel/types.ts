@@ -63,7 +63,7 @@ export type IntelSnapshot = {
 export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 	flights: 'Aircraft',
 	cameras: 'Cameras',
-	traffic: 'Traffic (ASTRA)',
+	traffic: 'Traffic',
 	quakes: 'Quakes',
 	detection: 'Camera cones'
 };

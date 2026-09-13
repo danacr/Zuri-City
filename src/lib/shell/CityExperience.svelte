@@ -444,8 +444,8 @@
 		{#if locationError}
 			<p class="mobile-alert" role="alert">{locationError}</p>
 		{/if}
-		{#if placesError || intelNotes[0]}
-			<p class="desk-status" role="status">{placesError || intelNotes[0]}</p>
+		{#if placesError}
+			<p class="desk-status" role="status">{placesError}</p>
 		{/if}
 		{#if parkingError}
 			<p class="desk-status" role="status">{parkingError}</p>
