@@ -15,14 +15,15 @@ Well-architected gates so a human only reviews **implementation look and product
         │                   │                    │
         └─────────┬─────────┴────────────────────┘
                   ▼
-        ┌───────────────────┐
-        │ Cursor Automation │
-        │ UI visual review  │  ← only if UI paths / label `ui`
-        │ (computer use +   │
-        │  structured note) │
-        └─────────┬─────────┘
-                  ▼
-        Human reviews look / product
+        ┌───────────────────┐     ┌──────────────────────────┐
+        │ Cursor Automation │     │ Cursor Automation        │
+        │ UI contract review│     │ Maps power-user review   │
+        │ (acceptance bar)  │     │ (beat Google / HERE)     │
+        │ label `ui` / UI   │     │ label `ui` / UI paths    │
+        └─────────┬─────────┘     └────────────┬─────────────┘
+                  └────────────┬───────────────┘
+                               ▼
+                     Human reviews look / product
 ```
 
 ## Layers
@@ -32,16 +33,23 @@ Well-architected gates so a human only reviews **implementation look and product
 | **1. Path label** | `.github/workflows/label-ui-prs.yml` + `labeler.yml` | Stamp `ui` when user-facing files change |
 | **2. Quality CI** | `.github/workflows/quality.yml` | Required check: `npm run quality` (types, unit acceptance, build, Playwright mobile) |
 | **3. Code review bot** | Cursor Bugbot (dashboard) | Logic / security / regressions in the diff |
-| **4. Visual review bot** | `.cursor/automations/ui-pr-review.md` | Mobile map UX checklist + screenshots before humans look |
-| **5. Policy** | `AGENTS.md` | Agents must not present a preview as ready until quality (and UI bot when applicable) is green |
+| **4a. UI contract review** | [`ui-pr-review.md`](./ui-pr-review.md) | Mobile map **acceptance** checklist + screenshots |
+| **4b. Maps power-user review** | [`maps-power-user-review.md`](./maps-power-user-review.md) | Critical Google/HERE user — must feel **better than both** for Zürich |
+| **5. Policy** | `AGENTS.md` | Agents must not present a preview as ready until quality (and UI bots when applicable) are addressed |
+
+Layers **4a** and **4b** are complementary: 4a = “does the city contract hold?”; 4b = “would a Google/HERE power-user switch?”
 
 ## Activate (one-time)
 
-1. Ensure GitHub label **`ui`** exists (Actions labeler creates comments only; create the label once in the repo if missing).
+1. Ensure GitHub label **`ui`** exists (create once in the repo if missing).
 2. Merge this PR so workflows land on the integration branch.
 3. In repo **Settings → Branches**, require status check **`Quality`** on the product branch (once the workflow has run once).
 4. Enable **Bugbot** on the repo in Cursor.
-5. Create the Cursor Automation from [`ui-pr-review.md`](./ui-pr-review.md) (dashboard → Automations → New). Cursor has no public create-automation API.
+5. Create **two** Cursor Automations (dashboard → Automations → New; no public create API):
+   - Paste [`ui-pr-review.md`](./ui-pr-review.md) — contract / acceptance
+   - Paste [`maps-power-user-review.md`](./maps-power-user-review.md) — competitive UX  
+   Both: comment + computer use **on**; create PRs **off**; prefer Team Owned.  
+   Prefer trigger on label **`ui`** (opened/pushed as backup).
 
 ## Local / agent fallback
 
@@ -49,4 +57,4 @@ Well-architected gates so a human only reviews **implementation look and product
 npm run quality
 ```
 
-Never tell a human a preview is ready until that passes. For UI PRs, prefer waiting for the automation comment (or run the same checklist yourself).
+Never tell a human a preview is ready until that passes. For UI PRs, prefer waiting for **both** UI automation comments (or run the same checklists yourself).

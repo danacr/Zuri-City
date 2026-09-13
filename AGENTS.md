@@ -175,9 +175,10 @@ Full diagram + activation: [`.cursor/automations/README.md`](.cursor/automations
 | 1. Path label | [`.github/workflows/label-ui-prs.yml`](.github/workflows/label-ui-prs.yml) → `ui` |
 | 2. Quality CI | [`.github/workflows/quality.yml`](.github/workflows/quality.yml) → `npm run quality` |
 | 3. Code bot | Cursor Bugbot (dashboard) |
-| 4. Visual bot | [`.cursor/automations/ui-pr-review.md`](.cursor/automations/ui-pr-review.md) — activate once in Cursor Automations |
+| 4a. UI contract | [`.cursor/automations/ui-pr-review.md`](.cursor/automations/ui-pr-review.md) — acceptance checklist |
+| 4b. Maps power-user | [`.cursor/automations/maps-power-user-review.md`](.cursor/automations/maps-power-user-review.md) — beat Google / HERE |
 
-**Activate Cursor UI review (one-time):** open the Automations “new” page, paste the prompt from `ui-pr-review.md`, enable comment + computer use, disable create-PR, prefer Team Owned. Triggers: PR opened, PR pushed, optional label `ui`.
+**Activate Cursor automations (one-time each):** Automations → New → paste each prompt file. Enable comment + computer use; disable create-PR; prefer Team Owned. Prefer trigger on label `ui` (opened/pushed as backup).
 
 PR template [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) lists the same gates.
 
