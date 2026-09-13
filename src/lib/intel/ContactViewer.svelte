@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { planeInfoUrl } from './flightLinks';
 	import type { Camera, Flight } from './types';
 
 	export let camera: Camera | null = null;
@@ -16,6 +17,7 @@
 		minute: '2-digit',
 		second: '2-digit'
 	});
+	$: flightLink = flight ? planeInfoUrl(flight) : null;
 	$: liveImage =
 		camera?.imageUrl && !camera.modeled
 			? `${camera.imageUrl}${camera.imageUrl.includes('?') ? '&' : '?'}t=${bust}`
@@ -87,6 +89,12 @@
 				<div><dt>Position</dt><dd>{flight.lat.toFixed(4)}, {flight.lon.toFixed(4)}</dd></div>
 				<div><dt>Stamp</dt><dd>{stamp}</dd></div>
 			</dl>
+			{#if flightLink}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+				<a class="plane-link" href={flightLink} rel="noopener noreferrer" target="_blank"
+					>Open plane details ↗</a
+				>
+			{/if}
 		{/if}
 	</aside>
 {/if}
@@ -206,6 +214,23 @@
 	dd {
 		font-variant-numeric: tabular-nums;
 		margin: 1px 0 0;
+	}
+	.plane-link {
+		display: block;
+		margin-top: 2px;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: #8fd0ff18;
+		border: 1px solid #8fd0ff44;
+		color: #8fd0ff;
+		font-size: 12px;
+		font-weight: 750;
+		text-align: center;
+		text-decoration: none;
+	}
+	.plane-link:hover {
+		background: #8fd0ff28;
+		text-decoration: underline;
 	}
 	@media (max-width: 859px) {
 		.viewer {

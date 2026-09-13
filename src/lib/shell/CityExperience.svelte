@@ -475,6 +475,9 @@
 					</LayersPanel>
 				</div>
 			{/if}
+			{#if mode === 'walk'}
+				<p class="walk-hint" role="status">Walk · drag to look · hold to move</p>
+			{/if}
 			<nav class="dock-bar" aria-label="Map modes">
 				<button
 					type="button"
@@ -502,9 +505,6 @@
 					}}>Layers</button
 				>
 			</nav>
-			{#if mode === 'walk'}
-				<p class="walk-hint" role="status">Walk · drag to look · hold to move</p>
-			{/if}
 
 		</div>
 
@@ -730,6 +730,23 @@
 	}
 	.dock-bar button.active {
 		background: var(--accent-button);
+	}
+	.walk-hint {
+		align-self: center;
+		margin: 0;
+		padding: 8px 14px;
+		border-radius: 999px;
+		background: color-mix(in srgb, #0b1a2a 92%, transparent);
+		border: 1px solid #ffffff28;
+		backdrop-filter: blur(12px);
+		box-shadow: 0 10px 24px #03101855;
+		color: #e8f2ff;
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.01em;
+		line-height: 1.3;
+		text-align: center;
+		pointer-events: none;
 	}
 	.layer-sheet {
 		flex: 1 1 auto;
