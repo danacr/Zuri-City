@@ -137,10 +137,11 @@
 				createSwissBuildingsLayer(maplibregl, {
 					onFirstContent: () => {
 						if (disposed || !mapInstance.getLayer('osm-buildings-3d')) return;
+						// Soften OSM under mesh, but stay ≥0.7 so orbit never goes ghost.
 						mapInstance.setPaintProperty(
 							'osm-buildings-3d',
 							'fill-extrusion-opacity',
-							0.35
+							0.72
 						);
 					}
 				})
@@ -516,8 +517,8 @@
 		const zoom = map.getZoom();
 		const bearing = map.getBearing();
 		const rad = (bearing * Math.PI) / 180;
-		// Phone hold-to-walk must feel like locomotion, not a 7m nudge.
-		const step = zoom > 17 ? 0.00009 : 0.00016;
+		// ~25–40 m/frame at 60fps — street locomotion, not a plaza nudge.
+		const step = zoom > 17 ? 0.00022 : 0.00036;
 		map.jumpTo({
 			center: [center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step],
 			bearing,
@@ -530,15 +531,16 @@
 
 	function onWalkPointerDown(event: PointerEvent) {
 		if (mode !== 'walk' || event.isPrimary === false) return;
-		// Two-finger / right-click reserved for map gestures; primary hold walks forward.
-		if (event.pointerType === 'touch' && (event as PointerEvent & { touches?: unknown }).pressure === 0)
-			return;
+		// Right-click / non-primary reserved for map gestures.
+		if (event.button !== 0) return;
 		walkPointerActive = false;
 		const timer = window.setTimeout(() => {
 			if (mode !== 'walk') return;
 			walkPointerActive = true;
+			// Disable drag-pan while hold-walking so the gesture is not stolen.
+			map?.dragPan.disable();
 			if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
-		}, 160);
+		}, 140);
 		const clear = () => {
 			window.clearTimeout(timer);
 			walkPointerActive = false;
@@ -546,6 +548,7 @@
 				cancelAnimationFrame(walkPointerRaf);
 				walkPointerRaf = 0;
 			}
+			if (mode === 'walk') map?.dragPan.enable();
 			window.removeEventListener('pointerup', clear);
 			window.removeEventListener('pointercancel', clear);
 		};
@@ -568,7 +571,7 @@
 		}
 		const center = map.getCenter();
 		const zoom = map.getZoom();
-		const step = (zoom > 17 ? 0.000018 : 0.00003) * (keys.has('shift') ? 2.4 : 1);
+		const step = (zoom > 17 ? 0.00012 : 0.0002) * (keys.has('shift') ? 2.4 : 1);
 		let bearing = map.getBearing();
 		let dLng = 0;
 		let dLat = 0;

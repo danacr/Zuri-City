@@ -33,15 +33,16 @@ function fadedLineOpacity(peak: number): ExpressionSpecification {
 		['linear'],
 		['zoom'],
 		13,
-		peak * 0.9,
+		peak * 0.95,
 		14.5,
-		peak * 0.82,
+		peak * 0.9,
 		15.5,
-		peak * 0.45,
+		peak * 0.7,
 		16.5,
-		peak * 0.18,
+		peak * 0.48,
 		17.5,
-		peak * 0.08
+		// Readable floor at walk — still thinner than a highway overlay.
+		peak * 0.4
 	];
 }
 
@@ -75,10 +76,10 @@ const congestionColor: ExpressionSpecification = [
 		3
 	],
 	0,
-	'#6f8f72',
+	'#5f8f62',
 	1,
-	'#b08a4a',
-	'#a35a5a'
+	'#c49a3a',
+	'#b54a4a'
 ];
 
 /**
@@ -206,15 +207,15 @@ export function zurichAerialStyle(): StyleSpecification {
 						['linear'],
 						['coalesce', ['get', 'render_height'], ['get', 'height'], 16],
 						0,
-						'#c4b8a4',
+						'#b9a994',
 						12,
-						'#a89882',
+						'#9e8e78',
 						28,
-						'#8a7a66',
+						'#7e6e5c',
 						55,
-						'#6b5d4c',
+						'#5f5144',
 						90,
-						'#4a4036'
+						'#3f372f'
 					],
 					'fill-extrusion-height': [
 						'coalesce',
@@ -228,8 +229,23 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'min_height'],
 						0
 					],
-					/** Solid from first orbit paint — never ghost into SWISSIMAGE. */
-					'fill-extrusion-opacity': 0.95,
+					/**
+					 * Solid (≥0.7) always — slightly open at orbit so SWISSIMAGE
+					 * streets read through the massing; denser at walk street scale.
+					 */
+					'fill-extrusion-opacity': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						13,
+						0.72,
+						14.6,
+						0.8,
+						16,
+						0.9,
+						17.5,
+						0.95
+					],
 					'fill-extrusion-vertical-gradient': true
 				}
 			},
