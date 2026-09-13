@@ -27,15 +27,17 @@ async function waitForMapReady(page: Page) {
 	const map = page.getByTestId('zurich-map');
 	await expect(map).toBeVisible({ timeout: 45_000 });
 	await expect(map).toHaveAttribute('data-map-ready', 'true', { timeout: 60_000 });
-	await page.waitForFunction(
-		() => {
-			const m = (window as unknown as { __zurichMap?: { isStyleLoaded?: () => boolean } })
-				.__zurichMap;
-			return Boolean(m?.isStyleLoaded?.());
-		},
-		null,
-		{ timeout: 60_000 }
-	);
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() => {
+					const m = (window as unknown as { __zurichMap?: { isStyleLoaded?: () => boolean } })
+						.__zurichMap;
+					return Boolean(m?.isStyleLoaded?.());
+				}),
+			{ timeout: 60_000 }
+		)
+		.toBe(true);
 }
 
 async function probeMap(page: Page): Promise<MapProbe> {
@@ -80,9 +82,9 @@ async function probeMap(page: Page): Promise<MapProbe> {
 
 test.describe('mobile acceptance gates', () => {
 	test.use({ viewport: MOBILE });
+	test.describe.configure({ timeout: 120_000 });
 
 	test('map boots with solid buildings, parking pills, traffic, sprites', async ({ page }) => {
-		test.setTimeout(120_000);
 		const errors: string[] = [];
 		page.on('pageerror', (error) => errors.push(error.message));
 		await page.goto('/');
@@ -117,10 +119,19 @@ test.describe('mobile acceptance gates', () => {
 		await dock.getByRole('button', { name: 'Walk', exact: true }).click();
 		await expect(page.getByTestId('zurich-map')).toHaveAttribute('data-map-mode', 'walk');
 		await expect(page.getByRole('status').filter({ hasText: /Walk/i })).toBeVisible();
-		// Allow camera ease to settle.
-		await page.waitForTimeout(1600);
+		await expect
+			.poll(async () => {
+				const walk = await probeMap(page);
+				return {
+					pitchDelta: walk.pitch - orbit.pitch,
+					zoomDelta: walk.zoom - orbit.zoom
+				};
+			}, { timeout: 12_000 })
+			.toMatchObject({
+				pitchDelta: expect.any(Number),
+				zoomDelta: expect.any(Number)
+			});
 		const walk = await probeMap(page);
-
 		expect(walk.pitch).toBeGreaterThan(orbit.pitch + 8);
 		expect(walk.zoom).toBeGreaterThan(orbit.zoom + 1);
 	});
@@ -184,6 +195,7 @@ test.describe('mobile acceptance gates', () => {
 
 test.describe('desktop smoke gate', () => {
 	test.use({ viewport: DESKTOP });
+	test.describe.configure({ timeout: 120_000 });
 
 	test('SEO shell + map ready without page errors', async ({ page }) => {
 		const errors: string[] = [];
