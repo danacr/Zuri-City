@@ -87,11 +87,12 @@ function geometryToLines(geometry: GjGeometry): [number, number][][] {
 		case 'Point': {
 			const [lon, lat] = geometry.coordinates;
 			if (!inBbox(lon, lat)) return [];
-			// ~180 m stub so a point site still reads as a corridor flash.
+			// ~25 m east–west stub — long diagonals were painting across the Limmat.
+			const dLon = 0.00018;
 			return [
 				[
-					[lon - 0.0012, lat - 0.00055],
-					[lon + 0.0012, lat + 0.00055]
+					[lon - dLon, lat],
+					[lon + dLon, lat]
 				]
 			];
 		}

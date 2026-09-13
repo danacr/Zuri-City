@@ -86,6 +86,39 @@ describe('loadSwissTraffic', () => {
 		expect(result.traffic[0].coordinates.length).toBeGreaterThanOrEqual(2);
 	});
 
+	it('keeps point sites as short stubs (no river-spanning diagonals)', async () => {
+		const ktzh = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					id: 'pt-1',
+					properties: {
+						strassenname: 'Quaibrücke',
+						gemeindename: 'Zürich',
+						verkehrsfuehrung: 'Baustelle',
+						beschreibung: 'Punkt'
+					},
+					geometry: { type: 'Point', coordinates: [8.543, 47.367] }
+				}
+			]
+		};
+		const fetchFn = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('maps.zh.ch')) {
+				return { ok: true, status: 200, json: async () => ktzh };
+			}
+			return { ok: false, status: 503, json: async () => ({}) };
+		}) as unknown as typeof fetch;
+
+		const result = await loadSwissTraffic(fetchFn);
+		expect(result.traffic).toHaveLength(1);
+		const [a, b] = result.traffic[0].coordinates;
+		const spanM =
+			Math.hypot((b[0] - a[0]) * 85_000, (b[1] - a[1]) * 111_320);
+		expect(spanM).toBeLessThan(50);
+		expect(a[1]).toBeCloseTo(b[1], 6);
+	});
+
 	it('merges OSM construction ways when Overpass responds', async () => {
 		const fetchFn = vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
