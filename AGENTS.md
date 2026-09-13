@@ -72,18 +72,27 @@ If you see `ERR_SSL_PROTOCOL_ERROR`, stop any old HTTP server and restart with
 
 ## Architecture (map-first)
 
+See **`src/lib/ARCHITECTURE.md`** for the scalable package layout and “how to add a layer”.
+
 | Area | Location |
 | --- | --- |
-| City map UI | `src/lib/city/ZurichCity.svelte` |
-| Places | `src/lib/city/places.ts` |
-| Car simulation | `src/lib/city/trafficCars.ts` |
-| Aerial / 3D style | `src/lib/map/aerialStyle.ts` |
-| Parking feed + panel | `src/lib/parking*`, `src/lib/ParkingPanel.svelte` |
+| Route (thin) | `src/routes/+page.svelte` → `CityExperience` |
+| Immersive shell / HUD | `src/lib/shell/CityExperience.svelte` |
+| Session stores | `src/lib/state/citySession.ts` |
+| Map host | `src/lib/city/ZurichCity.svelte` |
+| Map overlay plugins | `src/lib/map/layers/*` |
+| Places domain | `src/lib/places/` (`$lib/city/places` re-exports) |
+| Parking domain | `src/lib/parking/` (`$lib/parking` barrel) |
+| Aerial / terrain / buildings | `src/lib/map/*` |
 | Live intel (ADS-B, CCTV, quakes) | `src/lib/intel/*`, `src/lib/server/intel.ts` |
-| Page shell / HUD | `src/routes/+page.svelte` |
+| Layer toggle registry | `src/lib/city/layerRegistry.ts` |
 
 Intel layer **Live streets** (`traffic`) toggles colored road lines (and optional cars).
 `traffic-roads-query` supports the car accent.
+
+**Scalability rules:** keep routes thin; put new overlays in `map/layers/`; keep domain
+types out of the map host; prefer `citySession` stores when multiple UI surfaces share
+state.
 
 ## Parking data
 

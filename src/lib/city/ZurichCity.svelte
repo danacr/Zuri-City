@@ -13,7 +13,8 @@
 		type Place,
 		type PlaceCategory
 	} from './places';
-	import { parkingMapLabel, parkingTone, type Parking } from '$lib/parking';
+	import { type Parking } from '$lib/parking';
+	import { syncParkingLayer, syncPlacesLayer } from '$lib/map/layers';
 	import {
 		cameraViewshedsGeoJSON,
 		camerasToGeoJSON,
@@ -89,7 +90,7 @@
 		(map.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
 	}
 	$: if (map?.getSource('parking')) {
-		(map.getSource('parking') as GeoJSONSource).setData(parkingsToGeoJSON(visibleParkings));
+		syncParkingLayer(map, visibleParkings, showParking);
 	}
 	$: if (map && styleReady) {
 		const visibility = showParking ? 'visible' : 'none';
@@ -132,25 +133,7 @@
 	$: if (map && selectedId) focusSelection(selectedId);
 	$: if (map && userPosition) syncUserMarker(userPosition);
 
-	function parkingsToGeoJSON(items: Parking[]) {
-		return {
-			type: 'FeatureCollection' as const,
-			features: items.map((parking) => ({
-				type: 'Feature' as const,
-				id: parking.id || parking.name,
-				properties: {
-					id: parking.id || parking.name,
-					name: parking.name,
-					label: parkingMapLabel(parking),
-					tone: parkingTone(parking)
-				},
-				geometry: {
-					type: 'Point' as const,
-					coordinates: [parking.coordinates![1], parking.coordinates![0]]
-				}
-			}))
-		};
-	}
+	// parkings GeoJSON: $lib/map/layers/parkingLayer
 
 	/**
 	 * swissBUILDINGS3D mesh is temporarily not mounted: the shared-context Three.js
@@ -243,8 +226,7 @@
 		if (!mapInstance) return;
 		const placesSource = mapInstance.getSource('places') as GeoJSONSource | undefined;
 		placesSource?.setData(placesToGeoJSON(visiblePlaces));
-		const parkingSource = mapInstance.getSource('parking') as GeoJSONSource | undefined;
-		parkingSource?.setData(parkingsToGeoJSON(visibleParkings));
+		syncParkingLayer(mapInstance, visibleParkings, showParking);
 		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
 		if (flightsSource) {
 			registerAircraftIcons(mapInstance, visibleFlights);
@@ -263,6 +245,8 @@
 
 	function ensureLayers(mapInstance: MapLibreMap) {
 		ensurePlaceIcons(mapInstance);
+		syncPlacesLayer(mapInstance, visiblePlaces);
+		syncParkingLayer(mapInstance, visibleParkings, showParking);
 		if (!mapInstance.getSource('places')) {
 			mapInstance.addSource('places', {
 				type: 'geojson',

@@ -47,12 +47,31 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 		}
 	} as unknown as Parameters<typeof load>[0];
 
-	const first = await load(event);
-	expect(first?.parkings).toHaveLength(36);
+	type Shell = {
+		parkings: unknown[];
+		hydrateCity: Promise<{
+			parkings: Array<{
+				id: string;
+				free: number | null;
+				capacity: number | null;
+				coordinates: [number, number] | null;
+				status: string;
+			}>;
+			error: string;
+		}>;
+	};
+
+	const firstShell = (await load(event)) as Shell;
+	// Sync shell stays empty so the map paints immediately; live PLS data streams in.
+	expect(firstShell.parkings).toHaveLength(0);
+	const first = await firstShell.hydrateCity;
+	expect(first.parkings).toHaveLength(36);
+
 	garageCount = 43;
 	latitude = 47.5;
 	metadataRequests.length = 0;
-	const refreshed = await load(event);
+	const refreshedShell = (await load(event)) as Shell;
+	const refreshed = await refreshedShell.hydrateCity;
 	expect(refreshed?.error).toBe('');
 	expect(refreshed?.parkings).toHaveLength(43);
 	expect(refreshed?.parkings[42]).toMatchObject({

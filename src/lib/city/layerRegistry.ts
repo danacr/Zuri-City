@@ -3,7 +3,7 @@ import {
 	CATEGORY_LABEL,
 	PLACE_CATEGORIES,
 	type PlaceCategory
-} from './places';
+} from '$lib/places';
 import {
 	INTEL_LAYER_COLOR,
 	INTEL_LAYER_LABEL,
