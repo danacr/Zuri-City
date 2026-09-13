@@ -1,0 +1,22 @@
+name: Label UI PRs
+
+# Optional: stamps `ui` for humans/filters. Automations detect UI from the diff and do not require this label.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply ui label from path changes
+        uses: actions/labeler@v5
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: false
+        continue-on-error: true
