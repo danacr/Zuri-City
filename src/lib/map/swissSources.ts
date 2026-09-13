@@ -1,6 +1,7 @@
 /** Shared swisstopo endpoints and camera contract for the continuous city view. */
 
-export const CITY_MIN_ZOOM = 12;
+/** City framing — low enough to take in the basin, high enough to keep Zürich readable. */
+export const CITY_MIN_ZOOM = 11;
 export const CITY_MAX_ZOOM = 18;
 
 /** Default orbit camera — same layers as walk; only pose changes. */

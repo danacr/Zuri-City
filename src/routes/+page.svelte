@@ -9,6 +9,7 @@
 	import ZurichBootSplash from '$lib/city/ZurichBootSplash.svelte';
 	import LayersPanel from '$lib/city/LayersPanel.svelte';
 	import ContactViewer from '$lib/intel/ContactViewer.svelte';
+	import { attachMapShellGestures } from '$lib/city/mapShellGestures';
 	import {
 		CATEGORY_LABEL,
 		PLACE_CATEGORIES,
@@ -68,6 +69,7 @@
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
 	const intelKeys: IntelLayer[] = INTEL_LAYER_IDS;
+	let shellEl: HTMLElement | undefined;
 	let footerEl: HTMLElement | undefined;
 	let mapStageEl: HTMLElement | undefined;
 
@@ -235,7 +237,15 @@
 	}
 
 	function scrollToAbout() {
+		if (shellEl && footerEl) {
+			shellEl.scrollTo({ top: footerEl.offsetTop, behavior: 'smooth' });
+			return;
+		}
 		footerEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	function scrollToMap() {
+		shellEl?.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	function onSelect(
@@ -315,41 +325,15 @@
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
-	/** Two-finger vertical drag on the map stage scrolls the page (leaves pinch to MapLibre). */
+	/**
+	 * Immersive map fills the viewport. Page scroll is intentional:
+	 * two-finger vertical drag (stable span) or trackpad scroll → credits;
+	 * pinch still zooms the map.
+	 */
 	onMount(() => {
 		const stage = mapStageEl;
 		if (!stage) return;
-		let lastY = 0;
-		let active = false;
-		const onStart = (event: TouchEvent) => {
-			if (event.touches.length !== 2) {
-				active = false;
-				return;
-			}
-			active = true;
-			lastY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-		};
-		const onMove = (event: TouchEvent) => {
-			if (!active || event.touches.length !== 2) return;
-			const y = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-			const dy = lastY - y;
-			lastY = y;
-			if (Math.abs(dy) < 0.5) return;
-			window.scrollBy({ top: dy, left: 0, behavior: 'auto' });
-		};
-		const onEnd = () => {
-			active = false;
-		};
-		stage.addEventListener('touchstart', onStart, { passive: true });
-		stage.addEventListener('touchmove', onMove, { passive: true });
-		stage.addEventListener('touchend', onEnd, { passive: true });
-		stage.addEventListener('touchcancel', onEnd, { passive: true });
-		return () => {
-			stage.removeEventListener('touchstart', onStart);
-			stage.removeEventListener('touchmove', onMove);
-			stage.removeEventListener('touchend', onEnd);
-			stage.removeEventListener('touchcancel', onEnd);
-		};
+		return attachMapShellGestures(stage, () => shellEl);
 	});
 </script>
 
@@ -373,7 +357,7 @@
 	{@html jsonLd}
 </svelte:head>
 
-<div class="shell" data-sensor={sensorLook}>
+<div class="shell" data-sensor={sensorLook} bind:this={shellEl}>
 	<div class="map-stage" bind:this={mapStageEl}>
 		<ZurichBootSplash ready={mapReady} failed={mapFailed} />
 		<div class="sensor-veil" aria-hidden="true"></div>
@@ -411,7 +395,13 @@
 					<h1>Züri City</h1>
 				</div>
 			</a>
-			<button type="button" class="about-btn" on:click={scrollToAbout} aria-label="About and credits">
+			<button
+				type="button"
+				class="about-btn"
+				on:click={scrollToAbout}
+				aria-label="About and credits"
+				title="About — or two-finger swipe down on the map"
+			>
 				About
 				<span aria-hidden="true">↓</span>
 			</button>
@@ -586,21 +576,28 @@
 	</div>
 
 	<footer class="credits" id="about" bind:this={footerEl}>
+		<button type="button" class="back-map" on:click={scrollToMap}>↑ Back to map</button>
 		<span>SWISSIMAGE · OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich</span>
 		<span class="dot">·</span>
 		<InstallApp />
 		<span class="dot">·</span>
 		<a href="https://github.com/danacr/Zuri-City">GitHub</a>
+		<p class="gesture-hint">Tip: two-finger swipe on the map, or trackpad scroll, reaches credits. Pinch still zooms.</p>
 	</footer>
 </div>
 
 <style>
 	.shell {
-		position: relative;
-		min-height: 100dvh;
-		min-height: 100svh;
+		/* Fixed immersive viewport — map fills the screen; shell alone scrolls to credits. */
+		position: fixed;
+		inset: 0;
+		height: 100dvh;
+		height: 100svh;
 		overflow-x: hidden;
 		overflow-y: auto;
+		overscroll-behavior-y: contain;
+		-webkit-overflow-scrolling: touch;
+		scroll-snap-type: y proximity;
 		background: #07131f;
 		color: var(--text);
 		font-family: 'Quicksand', 'Avenir Next', 'Segoe UI', sans-serif;
@@ -611,6 +608,8 @@
 		height: 100svh;
 		overflow: hidden;
 		isolation: isolate;
+		scroll-snap-align: start;
+		scroll-snap-stop: always;
 	}
 	.sensor-veil {
 		pointer-events: none;
@@ -892,9 +891,30 @@
 		color: #c9d8e8;
 		background: linear-gradient(180deg, #0a1828, #07131f);
 		border-top: 1px solid #1c2f44;
+		scroll-snap-align: end;
 	}
 	.credits a {
 		color: #9dceff;
+	}
+	.back-map {
+		flex: 1 0 100%;
+		margin: 0 0 4px;
+		padding: 8px 12px;
+		border: 1px solid #2a415c;
+		border-radius: 999px;
+		background: #132536;
+		color: #e8f2ff;
+		font: inherit;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.gesture-hint {
+		flex: 1 0 100%;
+		margin: 6px 0 0;
+		text-align: center;
+		font-size: 11px;
+		line-height: 1.4;
+		color: #8ea6bd;
 	}
 	.dot {
 		opacity: 0.45;

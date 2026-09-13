@@ -841,6 +841,10 @@
 				if (import.meta.env.DEV) {
 					(window as unknown as { __zurichMap?: typeof instance }).__zurichMap = instance;
 				}
+				// Wheel without ctrl is intercepted by the page shell (credits scroll).
+				// Ctrl/meta wheel (trackpad pinch) still reaches MapLibre scrollZoom.
+				// Disable two-finger pitch so vertical two-finger drags can scroll to credits.
+				instance.touchPitch.disable();
 				instance.addControl(
 					new maplibregl.AttributionControl({ compact: true }),
 					'bottom-right'
