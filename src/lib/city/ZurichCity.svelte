@@ -61,7 +61,18 @@
 	let map: MapLibreMap | undefined;
 	let disposed = false;
 	let styleReady = false;
+	let readyDispatched = false;
 	let mapError = '';
+
+	/** Same-frame splash lift whenever the style becomes usable (load or style.load). */
+	function markStyleReady() {
+		styleReady = true;
+		document.getElementById('boot-splash-instant')?.classList.add('leaving');
+		if (!readyDispatched) {
+			readyDispatched = true;
+			dispatch('ready');
+		}
+	}
 	let userMarker: Marker | undefined;
 	let keys = new Set<string>();
 	let raf = 0;
@@ -744,7 +755,7 @@
 					'bottom-right'
 				);
 				instance.on('load', () => {
-					styleReady = true;
+					markStyleReady();
 					ensureLayers(instance);
 					lastAppliedMode = mode;
 					applyMode(mode, false);
@@ -763,14 +774,11 @@
 						refreshOverlaySources(instance);
 						instance.triggerRepaint();
 					})();
-					// Lift splash the same frame as data-map-ready (pointer-events none immediately).
-					document.getElementById('boot-splash-instant')?.classList.add('leaving');
-					dispatch('ready');
 				});
 				attachIconAtlasResolver(instance);
 				ensureBaseIconAtlas(instance);
 				instance.on('style.load', () => {
-					styleReady = true;
+					markStyleReady();
 					attachIconAtlasResolver(instance);
 					ensureBaseIconAtlas(instance);
 					ensureLayers(instance);
