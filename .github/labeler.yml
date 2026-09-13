@@ -1,4 +1,4 @@
-# Paths that should receive the `ui` label (triggers / filters UI review automation).
+# Paths that receive the `ui` label (routes Cursor UI review + signals humans).
 ui:
   - changed-files:
       - any-glob-to-any-file:
@@ -17,3 +17,5 @@ ui:
           - 'tests/**'
           - 'playwright.config.*'
           - '.cursor/automations/**'
+          - 'src/lib/seo.ts'
+          - 'src/lib/InstallApp.svelte'

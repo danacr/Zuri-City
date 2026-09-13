@@ -1,8 +1,7 @@
 name: Label UI PRs
 
-# Applies the `ui` label when a PR touches user-facing surfaces.
-# Pair with the Cursor automation in `.cursor/automations/ui-pr-review.md`
-# (trigger on pull_request opened/pushed and/or label `ui`).
+# Layer 1 — stamp `ui` when user-facing paths change.
+# Pairs with Cursor automation `.cursor/automations/ui-pr-review.md`.
 
 on:
   pull_request_target:

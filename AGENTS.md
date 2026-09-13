@@ -165,18 +165,21 @@ Playwright acceptance covers:
 
 After `quality` is green, present the **Vercel preview URL** for the PR branch. The human review should then be about the implementation look — not discovering broken parking, flat buildings, or identical Orbit/Walk.
 
-### UI PR review automation (pre-human)
+### Pre-human MR review (architecture)
 
-For any PR that touches the UI, a Cursor Automation should review the preview
-**before** a human does. Source of truth + paste-ready prompt:
+Humans should only judge **look / product judgment** after automated layers run.
+Full diagram + activation: [`.cursor/automations/README.md`](.cursor/automations/README.md).
 
-- [`.cursor/automations/ui-pr-review.md`](.cursor/automations/ui-pr-review.md)
-- Activate at [cursor.com/automations/new](https://cursor.com/automations/new)
-- GitHub Action [`.github/workflows/label-ui-prs.yml`](.github/workflows/label-ui-prs.yml) applies the `ui` label when UI paths change
+| Layer | Mechanism |
+| --- | --- |
+| 1. Path label | [`.github/workflows/label-ui-prs.yml`](.github/workflows/label-ui-prs.yml) → `ui` |
+| 2. Quality CI | [`.github/workflows/quality.yml`](.github/workflows/quality.yml) → `npm run quality` |
+| 3. Code bot | Cursor Bugbot (dashboard) |
+| 4. Visual bot | [`.cursor/automations/ui-pr-review.md`](.cursor/automations/ui-pr-review.md) — activate once in Cursor Automations |
 
-Triggers: PR opened + PR pushed (optional: label `ui`). Tools: comment on PR +
-computer use; do **not** let the automation open code PRs. Keep Bugbot for code
-defects; this automation covers mobile visual acceptance.
+**Activate Cursor UI review (one-time):** open the Automations “new” page, paste the prompt from `ui-pr-review.md`, enable comment + computer use, disable create-PR, prefer Team Owned. Triggers: PR opened, PR pushed, optional label `ui`.
+
+PR template [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) lists the same gates.
 
 Production:
 
