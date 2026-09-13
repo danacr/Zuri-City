@@ -187,20 +187,26 @@
 		applyModeInteractions(next);
 	}
 
-	/** Orbit = inspect basin (no pitch drag). Walk = street look + locked high pitch. */
+	/** Orbit = basin inspect. Walk = we own the pointer (hold=move, drag=look). */
 	function applyModeInteractions(next: 'orbit' | 'walk') {
 		if (!map) return;
 		if (next === 'walk') {
-			map.touchPitch.enable();
-			map.dragRotate.enable();
+			// MapLibre drag/pitch handlers steal the same pointer as hold-to-walk — disable them.
+			map.dragPan.disable();
+			map.dragRotate.disable();
+			map.touchPitch.disable();
+			map.touchZoomRotate.disableRotation();
 			map.setMinPitch(WALK_CAMERA.minPitch);
 			map.setMaxPitch(WALK_CAMERA.maxPitch);
-			// Keep walk pitch from collapsing toward flat aerial.
 			if (map.getPitch() < WALK_CAMERA.minPitch) {
 				map.setPitch(WALK_CAMERA.pitch);
 			}
 		} else {
+			stopWalkHold();
+			map.dragPan.enable();
+			map.dragRotate.enable();
 			map.touchPitch.disable();
+			map.touchZoomRotate.enableRotation();
 			map.setMinPitch(0);
 			map.setMaxPitch(80);
 		}
@@ -511,24 +517,18 @@
 	let walkPointerActive = false;
 	let walkPointerRaf = 0;
 	let walkHoldPointerId: number | null = null;
-	let walkHoldTimer = 0;
+	let walkLookLastX = 0;
+	let walkLookLastY = 0;
 
 	function stopWalkHold() {
-		if (walkHoldTimer) {
-			window.clearTimeout(walkHoldTimer);
-			walkHoldTimer = 0;
-		}
 		walkPointerActive = false;
 		walkHoldPointerId = null;
 		if (walkPointerRaf) {
 			cancelAnimationFrame(walkPointerRaf);
 			walkPointerRaf = 0;
 		}
+		window.removeEventListener('pointermove', onWalkPointerMove, true);
 		window.removeEventListener('pointerup', onWalkPointerUp, true);
-		if (mode === 'walk') {
-			map?.dragPan.enable();
-			map?.touchPitch.enable();
-		}
 	}
 
 	function walkForwardStep() {
@@ -538,46 +538,56 @@
 		const zoom = map.getZoom();
 		const bearing = map.getBearing();
 		const rad = (bearing * Math.PI) / 180;
-		// ~14–22 m/s — a city block in ~3–5s of continuous hold.
-		const metersPerSec = zoom > 17 ? 14 : 22;
+		// ~18–28 m/s — a city block in ~3–4s of continuous hold.
+		const metersPerSec = zoom > 17 ? 18 : 28;
 		const step = metersPerSec / 60 / 111_320;
-		// setCenter (not jumpTo) — jumpTo can synthesize pointercancel mid-hold.
 		map.setCenter([center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step]);
 		if (map.getPitch() < WALK_CAMERA.minPitch) map.setPitch(WALK_CAMERA.minPitch);
 		walkBearing = bearing;
 		walkPointerRaf = requestAnimationFrame(walkForwardStep);
 	}
 
+	function onWalkPointerMove(event: PointerEvent) {
+		if (!map || walkHoldPointerId === null || event.pointerId !== walkHoldPointerId) return;
+		const dx = event.clientX - walkLookLastX;
+		const dy = event.clientY - walkLookLastY;
+		walkLookLastX = event.clientX;
+		walkLookLastY = event.clientY;
+		if (dx === 0 && dy === 0) return;
+		// Drag while held = look (bearing + pitch); forward walk continues on RAF.
+		map.setBearing(map.getBearing() - dx * 0.28);
+		const nextPitch = Math.min(
+			WALK_CAMERA.maxPitch,
+			Math.max(WALK_CAMERA.minPitch, map.getPitch() + dy * 0.22)
+		);
+		map.setPitch(nextPitch);
+		walkBearing = map.getBearing();
+	}
+
 	function onWalkPointerUp(event: PointerEvent) {
 		if (walkHoldPointerId !== null && event.pointerId !== walkHoldPointerId) return;
-		window.removeEventListener('pointerup', onWalkPointerUp, true);
 		stopWalkHold();
 	}
 
 	function onWalkPointerDown(event: PointerEvent) {
 		if (mode !== 'walk' || event.isPrimary === false) return;
-		// Right-click / non-primary reserved for map gestures.
 		if (event.button !== 0) return;
+		// Ignore duplicate pointerdowns (touch+mouse synth) while already holding.
+		if (walkHoldPointerId !== null) return;
 		event.preventDefault();
-		stopWalkHold();
+		event.stopPropagation();
 		walkHoldPointerId = event.pointerId;
-		const canvas = map?.getCanvas();
+		walkLookLastX = event.clientX;
+		walkLookLastY = event.clientY;
+		walkPointerActive = true;
 		try {
-			canvas?.setPointerCapture?.(event.pointerId);
+			map?.getCanvas()?.setPointerCapture?.(event.pointerId);
 		} catch {
 			/* optional */
 		}
-		// Kill pan/pitch-drag for this hold so MapLibre does not own the pointer.
-		map?.dragPan.disable();
-		map?.touchPitch.disable();
-		// Only pointerup ends the hold — never pointercancel (disable/setCenter emit it).
+		window.addEventListener('pointermove', onWalkPointerMove, true);
 		window.addEventListener('pointerup', onWalkPointerUp, true);
-		walkHoldTimer = window.setTimeout(() => {
-			walkHoldTimer = 0;
-			if (mode !== 'walk' || walkHoldPointerId !== event.pointerId) return;
-			walkPointerActive = true;
-			if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
-		}, 90);
+		if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
 	}
 
 	function guardWalkPitch() {
@@ -731,7 +741,9 @@
 					});
 				}
 				instance.on('pitch', guardWalkPitch);
-				instance.getCanvas().addEventListener('pointerdown', onWalkPointerDown);
+				instance.getCanvas().addEventListener('pointerdown', onWalkPointerDown, {
+					capture: true
+				});
 				instance.on('rotate', () => {
 					if (mode === 'walk') walkBearing = instance.getBearing();
 				});
