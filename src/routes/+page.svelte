@@ -436,10 +436,7 @@
 		<aside class="desk-hud" aria-label="City briefing">
 			<p class="eyebrow">Map</p>
 			<h2>Interactive city</h2>
-			<p>
-				Green / amber / red streets show traffic. Toggle places and live feeds in the layers panel.
-				Parking shows free / capacity on the map.
-			</p>
+			<p>Traffic colors the streets. Open Layers to choose places and live feeds.</p>
 			<div class="mode-row">
 				<button
 					type="button"
@@ -458,7 +455,7 @@
 				>
 			</div>
 			{#if mode === 'walk'}
-				<p class="hint">Move with WASD or arrows · Q/E turn · Shift hurry</p>
+				<p class="hint">WASD or arrows · Q/E turn · Shift hurry</p>
 			{/if}
 			{#if locationError}
 				<p class="notice error" role="alert">{locationError}</p>
@@ -479,9 +476,6 @@
 					>
 				{/each}
 			</div>
-			<button type="button" class="find-aircraft" on:click={findAircraft}>
-				Find aircraft · {counts.flights}
-			</button>
 		</aside>
 
 		{#if locationError}
@@ -490,7 +484,7 @@
 
 		<div class="dock" aria-label="Map controls">
 			{#if layersOpen}
-				<div id="layer-sheet" class="layer-sheet">
+				<div id="layer-sheet" class="layer-sheet" role="dialog" aria-label="Map layers">
 					<LayersPanel
 						placeLayers={layers}
 						{intelLayers}
@@ -509,33 +503,24 @@
 						onFindAircraft={findAircraft}
 						flightCount={counts.flights}
 					>
-						<p class="sheet-title">View mode</p>
-						<div class="sensor-chip-row" role="group" aria-label="Sensor looks">
-							{#each SENSOR_LOOKS as look (look.id)}
-								<button
-									type="button"
-									class="sensor-chip"
-									class:on={sensorLook === look.id}
-									aria-pressed={sensorLook === look.id}
-									on:click={() => (sensorLook = look.id)}>{look.label}</button
-								>
-							{/each}
+						<div class="look-block">
+							<p class="look-title">Look</p>
+							<div class="look-grid" role="group" aria-label="Sensor looks">
+								{#each SENSOR_LOOKS as look (look.id)}
+									<button
+										type="button"
+										class="look"
+										class:on={sensorLook === look.id}
+										aria-pressed={sensorLook === look.id}
+										on:click={() => (sensorLook = look.id)}>{look.label}</button
+									>
+								{/each}
+							</div>
 						</div>
 					</LayersPanel>
 				</div>
-			{:else}
-				<div class="layer-summary" aria-label="Layer summary">
-					<span
-						>{activePlaceCount}/{PLACE_CATEGORIES.length} place types on · {activeFeedCount} feeds</span
-					>
-					<button type="button" on:click={showAllPlaces}>All</button>
-					<button type="button" on:click={hideAllPlaces}>None</button>
-					<button type="button" class="open-layers" on:click={() => (layersOpen = true)}
-						>Layers</button
-					>
-				</div>
 			{/if}
-			<div class="dock-modes">
+			<nav class="dock-bar" aria-label="Map modes">
 				<button
 					type="button"
 					class:active={mode === 'orbit'}
@@ -561,10 +546,9 @@
 						layersOpen = !layersOpen;
 					}}>Layers</button
 				>
-			</div>
+			</nav>
 		</div>
 
-		<!-- Desktop layer rail -->
 		<aside class="desk-layers" aria-label="Desktop map layers">
 			<LayersPanel
 				placeLayers={layers}
@@ -579,6 +563,8 @@
 				onToggleOpenNow={() => (openNowOnly = !openNowOnly)}
 				onShowAllPlaces={showAllPlaces}
 				onHideAllPlaces={hideAllPlaces}
+				onFindAircraft={findAircraft}
+				flightCount={counts.flights}
 			/>
 		</aside>
 
@@ -797,7 +783,7 @@
 		box-shadow: 0 10px 28px #07152644;
 	}
 
-	/* Mobile-first dock — map remains the primary surface */
+	/* Mobile dock — one bar + optional layers sheet (no horizontal chrome) */
 	.dock {
 		position: absolute;
 		z-index: 28;
@@ -808,26 +794,26 @@
 		flex-direction: column;
 		justify-content: flex-end;
 		gap: 8px;
-		max-height: min(58vh, 460px);
+		max-height: min(72vh, 560px);
 		pointer-events: none;
 	}
 	.dock > * {
 		pointer-events: auto;
 	}
-	.dock-modes {
+	.dock-bar {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 6px;
 		padding: 8px;
-		border-radius: 16px;
-		background: color-mix(in srgb, #0b1a2a 88%, transparent);
-		border: 1px solid #ffffff28;
+		border-radius: 14px;
+		background: color-mix(in srgb, #0b1a2a 90%, transparent);
+		border: 1px solid #ffffff22;
 		backdrop-filter: blur(14px);
 		box-shadow: 0 12px 32px #03101855;
 		flex: 0 0 auto;
 	}
-	.dock-modes button {
-		min-height: 40px;
+	.dock-bar button {
+		min-height: 42px;
 		border-radius: 11px;
 		background: #ffffff12;
 		color: #f4f7fb;
@@ -835,83 +821,54 @@
 		font-size: 12px;
 		border: none;
 	}
-	.dock-modes button.active {
-		background: #1260ce;
+	.dock-bar button.active {
+		background: var(--accent-button);
 	}
-
 	.layer-sheet {
 		flex: 1 1 auto;
 		min-height: 0;
-		max-height: min(42vh, 360px);
+		max-height: min(58vh, 480px);
 		overflow: auto;
-		padding: 10px 10px 12px;
-		border-radius: 14px;
-		background: color-mix(in srgb, var(--surface) 94%, transparent);
+		padding: 12px;
+		border-radius: 16px;
+		background: color-mix(in srgb, var(--surface) 96%, transparent);
 		border: 1px solid var(--border);
-		backdrop-filter: blur(16px);
-		box-shadow: 0 16px 40px #07152655;
+		backdrop-filter: blur(18px);
+		box-shadow: 0 18px 44px #07152666;
 		-webkit-overflow-scrolling: touch;
 	}
-	.layer-summary {
+	.look-block {
 		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 8px 10px;
-		border-radius: 14px;
-		background: color-mix(in srgb, #0b1a2a 88%, transparent);
-		border: 1px solid #ffffff28;
-		backdrop-filter: blur(14px);
-		color: #d7e4f2;
+		flex-direction: column;
+		gap: 8px;
+		margin-top: 4px;
+	}
+	.look-title {
+		margin: 0;
 		font-size: 11px;
-		font-weight: 700;
-	}
-	.layer-summary span {
-		flex: 1 1 auto;
-		min-width: 0;
-		opacity: 0.9;
-	}
-	.layer-summary button {
-		min-height: 30px;
-		padding: 0 10px;
-		border-radius: 999px;
-		border: none;
-		background: #ffffff14;
-		color: #f4f7fb;
-		font-size: 11px;
-		font-weight: 750;
-	}
-	.layer-summary .open-layers {
-		background: var(--accent-soft);
-		color: var(--accent);
-	}
-	.sheet-title {
-		font-size: 10px;
-		letter-spacing: 0.1em;
+		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		font-weight: 750;
 		color: var(--muted);
-		margin: 10px 0 4px;
 	}
-	.sensor-chip-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 5px;
+	.look-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 6px;
 	}
-	.sensor-chip {
-		min-height: 30px;
-		padding: 0 10px;
-		border-radius: 999px;
-		border: none;
+	.look {
+		min-height: 36px;
+		border-radius: 10px;
+		border: 1px solid var(--border);
 		background: var(--surface-muted);
-		color: var(--text);
+		color: var(--muted);
 		font-size: 11px;
-		font-weight: 700;
-		opacity: 0.55;
+		font-weight: 750;
 	}
-	.sensor-chip.on {
-		opacity: 1;
+	.look.on {
+		color: var(--text);
 		background: var(--accent-soft);
-		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 	}
 
 	.inspect {
@@ -1059,29 +1016,19 @@
 		}
 		.desk-layers {
 			left: 16px;
-			top: calc(268px + env(safe-area-inset-top));
-			max-height: calc(100dvh - 300px);
+			top: calc(248px + env(safe-area-inset-top));
+			width: min(320px, calc(100vw - 32px));
+			max-height: calc(100dvh - 270px);
 			overflow: auto;
 			align-content: start;
-		}
-		.mode-row,
-		.find-aircraft {
-			margin-top: 10px;
-			min-height: 40px;
-			width: 100%;
-			border-radius: 12px;
-			background: #f0b429;
-			color: #1a1303;
-			font-weight: 800;
-			font-size: 12px;
-			border: none;
 		}
 		.mode-row {
 			display: grid;
 			grid-template-columns: repeat(3, minmax(0, 1fr));
 			gap: 6px;
-			background: transparent;
+			margin-top: 10px;
 			padding: 0;
+			background: transparent;
 		}
 		.sensor-row {
 			display: flex;
@@ -1098,7 +1045,7 @@
 			color: var(--text);
 			font-weight: 700;
 			font-size: 12px;
-			border: none;
+			border: 1px solid var(--border);
 		}
 		.mode-row button.active,
 		.sensor-row button.active {
