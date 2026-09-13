@@ -64,6 +64,7 @@
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let hydrateGen = 0;
 	let lastHydrate: PageData['hydrateCity'] | undefined;
+	let lastHydratePlaces: PageData['hydratePlaces'] | undefined;
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
 	const intelKeys: IntelLayer[] = INTEL_LAYER_IDS;
@@ -78,11 +79,20 @@
 		placesError = data.placesError;
 		parkingError = data.error;
 		refreshedAt = data.refreshedAt;
-		flights = data.intel?.flights ?? [];
-		cameras = data.intel?.cameras ?? [];
-		quakes = data.intel?.quakes ?? [];
-		intelNotes = data.intel?.notes ?? [];
+		flights = data.intel?.flights?.length ? data.intel.flights : flights;
+		cameras = data.intel?.cameras?.length ? data.intel.cameras : cameras;
+		quakes = data.intel?.quakes?.length ? data.intel.quakes : quakes;
+		intelNotes = data.intel?.notes ?? intelNotes;
 		if (!browser) break $;
+		// Late Overpass must merge even after hydrateCity already resolved with fallback places.
+		if (data.hydratePlaces && data.hydratePlaces !== lastHydratePlaces) {
+			lastHydratePlaces = data.hydratePlaces;
+			void Promise.resolve(data.hydratePlaces).then((city) => {
+				if (!city?.places?.length) return;
+				mergePlaces(city.places);
+				placesError = city.error || '';
+			});
+		}
 		if (data.hydrateCity === lastHydrate) break $;
 		lastHydrate = data.hydrateCity;
 		const gen = ++hydrateGen;
@@ -101,11 +111,11 @@
 			placesError = live.placesError;
 			parkingError = live.error;
 			refreshedAt = live.refreshedAt;
-			flights = live.intel?.flights ?? [];
-			cameras = live.intel?.cameras ?? [];
-			quakes = live.intel?.quakes ?? [];
-			intelNotes = live.intel?.notes ?? [];
-			// Keep last-good traffic if intel omits / returns empty (504 soft-fail).
+			// Keep last-good intel when soft-timeout EMPTY_INTEL arrives after a live poll.
+			if (live.intel?.flights?.length) flights = live.intel.flights;
+			if (live.intel?.cameras?.length) cameras = live.intel.cameras;
+			if (live.intel?.quakes?.length) quakes = live.intel.quakes;
+			if (live.intel?.notes?.length) intelNotes = live.intel.notes;
 			if (Array.isArray(live.intel?.traffic) && live.intel.traffic.length) {
 				traffic = live.intel.traffic;
 			}

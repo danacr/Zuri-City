@@ -106,22 +106,40 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		refreshedAt: null as string | null,
 		error: '',
 		intel: EMPTY_INTEL,
-		// Places + parking first; soft-timeout intel so slow roadworks never blank PLS or splash.
-		hydrateCity: Promise.all([placesPromise, parkingsPromise]).then(async ([city, parking]) => {
-			const intel = await Promise.race([
-				intelPromise,
-				new Promise<IntelSnapshot>((resolve) =>
-					setTimeout(
-						() =>
-							resolve({
-								...EMPTY_INTEL,
-								fetchedAt: new Date().toISOString(),
-								notes: ['Live intel still loading — traffic will fill in shortly.']
-							}),
-						4_000
+		/**
+		 * Resolve as soon as PLS is ready. Do not await dense Overpass here —
+		 * places soft-seed from fallback and merge later via `hydratePlaces`.
+		 */
+		hydrateCity: (async () => {
+			const [parking, intel] = await Promise.all([
+				parkingsPromise,
+				Promise.race([
+					intelPromise,
+					new Promise<IntelSnapshot>((resolve) =>
+						setTimeout(
+							() =>
+								resolve({
+									...EMPTY_INTEL,
+									fetchedAt: new Date().toISOString(),
+									notes: ['Live intel still loading — traffic will fill in shortly.']
+								}),
+							4_000
+						)
 					)
-				)
+				])
 			]);
+			// Peek places only if already resolved; never delay PLS for Overpass.
+			const peeked = await Promise.race([
+				placesPromise,
+				Promise.resolve(null as Awaited<typeof placesPromise> | null)
+			]);
+			const city =
+				peeked ??
+				({
+					places: FALLBACK_PLACES,
+					source: 'fallback' as const,
+					error: ''
+				} satisfies Awaited<typeof placesPromise>);
 			return {
 				places: city.places,
 				placesSource: city.source,
@@ -131,6 +149,8 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 				error: parking.error,
 				intel
 			};
-		})
+		})(),
+		/** Full Overpass city load — merges after PLS paints. */
+		hydratePlaces: placesPromise
 	};
 };
