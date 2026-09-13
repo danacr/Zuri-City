@@ -41,7 +41,8 @@ export async function attachSwissTerrain(
 		const dataset = await loadQuantizedMeshDataset(SWISS_TERRAIN_LAYER, {
 			attribution: 'Terrain: © swisstopo',
 			boundsOverride: { west: 5.6, south: 45.5, east: 11.0, north: 48.2 },
-			maxZoom: 14
+			// Match walk zoom better — overzooming z14 DEM at walk ~16.8 causes seams.
+			maxZoom: 15
 		});
 		const { sourceSpec, unregister } = registerQuantizedMeshTerrain(maplibregl, {
 			dataset,
@@ -55,7 +56,8 @@ export async function attachSwissTerrain(
 			map.removeSource(TERRAIN_SOURCE_ID);
 		}
 		map.addSource(TERRAIN_SOURCE_ID, sourceSpec as never);
-		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.05 });
+		// Exaggeration 1.0 — avoid amplifying DEM stair-steps against SWISSIMAGE.
+		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1 });
 		return { unregister };
 	} catch (error) {
 		console.warn('swisstopo terrain unavailable — using Terrarium fallback', error);
@@ -77,7 +79,7 @@ function attachFallbackTerrain(map: MapLibreMap): TerrainHandle {
 			maxzoom: 15,
 			attribution: 'Mapzen / AWS Terrain Tiles'
 		});
-		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.05 });
+		map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1 });
 	} catch (error) {
 		console.warn('terrain fallback failed', error);
 	}

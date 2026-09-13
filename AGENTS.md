@@ -7,17 +7,38 @@ legacy Codex-specific notes.
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
 **the interactive city**, a walkable **3D map of Zürich**. The foundation of the experience is
-the living map — SWISSIMAGE aerial basemap, **ghost OSM building massing**
-(desaturated extrusions over the orthophoto), **swisstopo terrain**, and
-**congestion-colored streets** on OpenMapTiles centerlines (**green** / **amber** /
-**red**). Parking from the
-[Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map in **blue**
-(list panel optional).
+the living map — SWISSIMAGE aerial basemap, **solid OSM building massing**
+(opaque fill-extrusions that read as real volume on terrain — not translucent
+“ghost” boxes), **swisstopo terrain**, and **congestion-colored streets** on
+OpenMapTiles centerlines (**green** / **amber** / **red**). Parking from the
+[Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map as **blue
+capacity pills** (list panel optional). Place and aircraft markers use **sprites**,
+never raw MapLibre circles as the primary glyph.
 
 Zoom only changes camera distance — not which city systems are visible. Colored
 street lines are the primary traffic UX; cars are secondary decoration. Prefer
 free swisstopo / OSM sources; do not require Google Photorealistic 3D Tiles or
 Cesium ion keys for the default experience.
+
+### Quality bar — never ship a broken city
+
+Do **not** open or update a PR as “done” while any of these fail on mobile preview:
+
+1. **Solid 3D massing** — buildings must read as volume on terrain at orbit and walk.
+   Translucent “ghost” extrusions that disappear into the aerial are a reject.
+2. **Parking always visible** — blue/green/red pills with capacity labels after hydrate.
+   Labels-only or toggle-off parking is a reject.
+3. **Orbit ≠ Walk** — orbit inspects the basin (lower pitch, free overview). Walk is
+   street immersion (locked high pitch, locomotion). Pose-only identical modes are a reject.
+4. **Sprites, not dots** — places and aircraft use icon atlas sprites. Purple CCTV
+   circles must not dominate the first viewport (cameras default off; sprite when on).
+5. **Traffic on OMT centerlines** — thin enough to read as streets, not thick ribbons
+   floating off the aerial.
+6. **Terrain/aerial stability** — no mid-screen tile tears from overzoomed DEM; idle RAF = 0.
+7. **One MapLibre engine** — no Cesium / dual-WebGL experiments on the default path.
+
+Failed Cesium and “ghost massing” rebuilds taught this: a half-working 3D stack is worse
+than shipping nothing. Keep iterating on **one PR** until the checklist above is green.
 
 ## Stack
 
@@ -25,14 +46,16 @@ Cesium ion keys for the default experience.
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
 - **Map:** MapLibre GL — one engine for aerial, terrain, massing, traffic, and overlays.
   Style builder: `src/lib/map/aerialStyle.ts`
-- **Icons:** `src/lib/map/iconAtlas.ts` pre-registers place + aircraft sprites before
-  symbol layers paint; `src/lib/intel/aircraftIcons.ts` draws planform silhouettes
+- **Icons:** `src/lib/map/iconAtlas.ts` pre-registers place + aircraft + CCTV sprites
+  before symbol layers paint; `src/lib/intel/aircraftIcons.ts` draws planform silhouettes
 - **Continuous swisstopo:** `swissSources.ts`, `swissTerrain.ts` (quantized-mesh;
   Terrarium DEM fallback). **swissBUILDINGS3D** is phase-2 (`PUBLIC_SWISS_BUILDINGS=1`,
-  `swissBuildingsLayer.ts`) — off by default
-- **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only)
+  `swissBuildingsLayer.ts`) — off by default; default massing is solid OSM extrusions
+- **Camera contract:** city min/max zoom in `swissSources.ts`. Orbit and walk share
+  layers but **differ in pose + interaction** (walk locks high pitch / enables look)
 - **Living traffic:** OMT `transportation` centerlines in `aerialStyle.ts` (static dashes;
   no per-frame RAF). Cars are a future accent layer
+- **Parking:** always-on pills via `map/layers/parkingLayer.ts` — not a hideable map toggle
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
   Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
@@ -149,6 +172,10 @@ Branch names: `cursor/<short-description>-abf9`.
   that remain present (density by viewport, not zoom buckets).
 - Prefer free OSM / OpenFreeMap / swisstopo sources over paid live-traffic APIs
   unless the product owner asks otherwise.
-- Parking stays always-visible in blue (not a map-layer toggle).
-- Match existing MapLibre patterns; avoid reintroducing Leaflet for the city view.
+- Parking stays always-visible as **blue capacity pills** (not a map-layer toggle).
+- Match existing MapLibre patterns; avoid reintroducing Leaflet or Cesium for the
+  default city view.
 - Prefer small, focused diffs; update this file when product foundations change.
+- **Never present a non-professional / non-working outcome** as complete. If buildings
+  are flat, parking missing, icons are dots, or orbit≈walk on mobile, keep fixing the
+  same PR — do not open a celebratory summary.

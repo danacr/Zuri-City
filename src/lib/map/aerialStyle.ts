@@ -11,8 +11,7 @@ const TRAFFIC_CLASSES = [
 	'primary',
 	'secondary',
 	'tertiary',
-	'minor',
-	'service'
+	'minor'
 ] as const;
 
 const trafficClassFilter: ExpressionSpecification = [
@@ -125,7 +124,7 @@ function trafficWidth(scale: number): ExpressionSpecification {
 
 /**
  * MapLibre-first Zürich basemap.
- * SWISSIMAGE + ghost OSM massing + OMT traffic centerlines.
+ * SWISSIMAGE + solid OSM massing + OMT traffic centerlines.
  * swissBUILDINGS3D is phase-2 (feature-flagged), not part of this style.
  */
 export function zurichAerialStyle(): StyleSpecification {
@@ -156,19 +155,21 @@ export function zurichAerialStyle(): StyleSpecification {
 				paint: {
 					'raster-opacity': 1,
 					'raster-saturation': -0.04,
-					'raster-contrast': 0.06
+					'raster-contrast': 0.06,
+					'raster-fade-duration': 300
 				}
 			},
 			/**
-			 * Ghost massing — desaturated façades + partial opacity so aerial roofs
-			 * remain the primary surface. Pitch/zoom only changes camera, not systems.
+			 * Solid city massing — opaque enough to read as real volume on terrain.
+			 * Warm stone façades sit with SWISSIMAGE; roofs stay secondary to extrusion.
+			 * Never ship translucent "ghost" boxes that look like flat aerial.
 			 */
 			{
 				id: 'osm-buildings-3d',
 				type: 'fill-extrusion',
 				source: 'openmaptiles',
 				'source-layer': 'building',
-				minzoom: 14,
+				minzoom: 13,
 				maxzoom: CITY_MAX_ZOOM + 1,
 				filter: ['!=', ['get', 'hide_3d'], true],
 				paint: {
@@ -177,19 +178,21 @@ export function zurichAerialStyle(): StyleSpecification {
 						['linear'],
 						['coalesce', ['get', 'render_height'], ['get', 'height'], 16],
 						0,
-						'#5a6570',
-						16,
-						'#4a545e',
-						32,
-						'#3a434c',
-						64,
-						'#2c343c'
+						'#c4b8a4',
+						12,
+						'#a89882',
+						28,
+						'#8a7a66',
+						55,
+						'#6b5d4c',
+						90,
+						'#4a4036'
 					],
 					'fill-extrusion-height': [
 						'coalesce',
 						['get', 'render_height'],
 						['get', 'height'],
-						16
+						14
 					],
 					'fill-extrusion-base': [
 						'coalesce',
@@ -201,12 +204,12 @@ export function zurichAerialStyle(): StyleSpecification {
 						'interpolate',
 						['linear'],
 						['zoom'],
-						14,
-						0.28,
-						15.5,
-						0.42,
-						17,
-						0.55
+						13,
+						0.72,
+						14.5,
+						0.84,
+						16,
+						0.92
 					],
 					'fill-extrusion-vertical-gradient': true
 				}
@@ -227,7 +230,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				paint: {
 					'line-color': '#0a121c',
 					'line-opacity': 0.38,
-					'line-width': trafficWidth(1.35)
+					'line-width': trafficWidth(0.85)
 				}
 			},
 			{
@@ -254,7 +257,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						0.55,
 						0.88
 					],
-					'line-width': trafficWidth(1)
+					'line-width': trafficWidth(0.65)
 				}
 			},
 			{
@@ -282,7 +285,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				paint: {
 					'line-color': '#ffffff',
 					'line-opacity': 0.22,
-					'line-width': trafficWidth(0.45),
+					'line-width': trafficWidth(0.32),
 					'line-dasharray': [1.2, 3.6]
 				}
 			},

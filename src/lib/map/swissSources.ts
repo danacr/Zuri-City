@@ -4,16 +4,23 @@
 export const CITY_MIN_ZOOM = 11;
 export const CITY_MAX_ZOOM = 18;
 
-/** Default orbit camera — same layers as walk; only pose changes. */
+/**
+ * Orbit = city inspection from altitude (read the basin).
+ * Walk = street-level immersion (locked high pitch, locomotion).
+ * Layers stay identical — pose + interaction model change.
+ */
 export const ORBIT_CAMERA = {
-	zoom: 14.6,
-	pitch: 58,
-	bearing: -18
+	zoom: 14.2,
+	pitch: 52,
+	bearing: -22
 } as const;
 
 export const WALK_CAMERA = {
-	zoom: 17.4,
-	pitch: 72
+	zoom: 16.8,
+	pitch: 68,
+	/** Eye-height feel: keep pitch high; do not drift toward orbit. */
+	minPitch: 55,
+	maxPitch: 78
 } as const;
 
 export const SWISSIMAGE_TILES =
@@ -30,9 +37,10 @@ export const FALLBACK_TERRAIN_TILES =
 	'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 
 /**
- * Phase-2 swissBUILDINGS3D mesh (Three.js custom layer). Off by default —
- * ghost OSM extrusions in aerialStyle are the reliable city massing path.
- * Set `PUBLIC_SWISS_BUILDINGS=1` to opt in when the mesh layer is stable.
+ * Phase-2 swissBUILDINGS3D mesh (Three.js custom layer). Off by default until
+ * the shared-GL path is stable on mobile. Default massing is **solid OSM
+ * fill-extrusion** in aerialStyle — never ship flat aerial-only "ghost" city.
+ * Set `PUBLIC_SWISS_BUILDINGS=1` to opt in to the mesh layer.
  */
 export const SWISS_BUILDINGS_ENABLED =
 	import.meta.env.PUBLIC_SWISS_BUILDINGS === '1' ||

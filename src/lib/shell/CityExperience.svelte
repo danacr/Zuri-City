@@ -222,8 +222,9 @@
 		// Enabling Aircraft only toggles markers — use “Find aircraft” to reframe.
 	}
 
+	/** Parking is always-on (product contract) — Layers HUD cannot hide map markers. */
 	function toggleParkingLayer() {
-		showParking = !showParking;
+		showParking = true;
 	}
 
 	function showAllPlaces() {
@@ -344,7 +345,7 @@
 			places={visibleMapPlaces}
 			parkings={parkings}
 			{layers}
-			{showParking}
+			showParking={true}
 			{intelLayers}
 			{flights}
 			{cameras}
@@ -500,6 +501,10 @@
 					}}>Layers</button
 				>
 			</nav>
+			{#if mode === 'walk'}
+				<p class="walk-hint" role="status">Walk · drag to look · WASD / arrows to move</p>
+			{/if}
+
 		</div>
 
 		<aside class="desk-layers" aria-label="Desktop map layers">
@@ -994,5 +999,21 @@
 			width: min(320px, calc(100vw - 32px));
 			bottom: calc(24px + env(safe-area-inset-bottom));
 		}
+	}
+	.walk-hint {
+		position: absolute;
+		left: 50%;
+		bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+		transform: translateX(-50%);
+		z-index: 6;
+		margin: 0;
+		padding: 0.35rem 0.75rem;
+		border-radius: 999px;
+		background: rgba(8, 14, 24, 0.72);
+		color: #f2efe8;
+		font-size: 0.72rem;
+		letter-spacing: 0.02em;
+		pointer-events: none;
+		white-space: nowrap;
 	}
 </style>

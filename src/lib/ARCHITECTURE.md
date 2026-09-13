@@ -24,15 +24,15 @@ src/
     parking/                   # PLS parking domain
       model.ts                 # Parse, availability, map labels
     map/
-      aerialStyle.ts           # SWISSIMAGE + ghost OSM massing + OMT traffic
-      iconAtlas.ts             # Pre-register place/aircraft MapLibre sprites
+      aerialStyle.ts           # SWISSIMAGE + solid OSM massing + OMT traffic
+      iconAtlas.ts             # Pre-register place/aircraft/CCTV MapLibre sprites
       swissSources.ts          # Zoom contract + swisstopo endpoints
       swissTerrain.ts
       swissBuildingsLayer.ts   # Phase-2 (PUBLIC_SWISS_BUILDINGS=1)
       layers/                  # Overlay plugins (ensure/sync)
         types.ts               # CityLayerPlugin contract
         placesLayer.ts
-        parkingLayer.ts
+        parkingLayer.ts        # Always-on blue capacity pills
     city/                      # Map host + HUD widgets (legacy path, shrinking)
       ZurichCity.svelte        # MapLibre host; delegates overlays to map/layers
       LayersPanel.svelte
@@ -47,16 +47,19 @@ src/
 1. **Routes stay thin.** Load data, set SEO, render `CityExperience`.
 2. **Domain packages own data.** Places, parking, and intel types/helpers live under
    their package — not in the map host.
-3. **One map engine: MapLibre GL.** Aerial, terrain, ghost OSM massing, traffic, and
+3. **One map engine: MapLibre GL.** Aerial, terrain, solid OSM massing, traffic, and
    overlays share one Viewer. Icon sprites register via `iconAtlas.ts` before symbol
    layers paint. swissBUILDINGS3D is phase-2 and off by default.
 4. **Map overlays are plugins.** Each feed implements idempotent `ensure` + `sync`
    under `map/layers/`. `ZurichCity` is a host (camera, style, click routing).
-5. **Shared UI state uses `state/citySession`.** Prefer stores over growing another
+5. **Orbit ≠ Walk.** Same layers; different pose + interaction (walk locks high pitch).
+6. **Acceptance bar.** Do not ship flat/ghost buildings, missing parking pills, circle
+   dots as primary icons, or identical orbit/walk on mobile — see `AGENTS.md`.
+7. **Shared UI state uses `state/citySession`.** Prefer stores over growing another
    1k-line component `let` block when multiple surfaces need the same toggles.
-6. **Server code stays in `lib/server`.** Never import server modules from client
+8. **Server code stays in `lib/server`.** Never import server modules from client
    components.
-7. **Compatibility shims.** `$lib/city/places` and `$lib/parking.ts` re-export the
+9. **Compatibility shims.** `$lib/city/places` and `$lib/parking.ts` re-export the
    new packages so existing imports keep working during migration.
 
 ## Data flow
@@ -74,7 +77,7 @@ CityExperience
 ZurichCity
   ├─ aerial style + terrain
   ├─ map/layers/* ensure+sync
-  └─ orbit/walk camera
+  └─ orbit/walk camera (+ walk pitch lock / look)
 ```
 
 ## Adding a layer

@@ -41,6 +41,8 @@
 	export let parkings: Parking[] = [];
 	export let layers: Record<PlaceCategory, boolean>;
 	export let showParking = PARKING_LAYER.defaultVisible;
+	// Product contract: parking markers are always on — prop kept for shell API compat.
+	$: parkingForcedOn = showParking || true;
 	export let intelLayers: Record<IntelLayer, boolean> = createDefaultIntelLayers();
 	export let flights: Flight[] = [];
 	export let cameras: Camera[] = [];
@@ -67,9 +69,8 @@
 	let terrainHandle: TerrainHandle | undefined;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
-	$: visibleParkings = showParking
-		? parkings.filter((parking) => parking.coordinates !== null)
-		: [];
+	// Parking is always on (product contract) — ignore showParking for map markers.
+	$: visibleParkings = parkings.filter((parking) => parking.coordinates !== null);
 	$: visibleFlights = intelLayers.flights ? flights : [];
 	$: visibleCameras = intelLayers.cameras ? cameras : [];
 	$: visibleQuakes = intelLayers.quakes ? quakes : [];
@@ -78,12 +79,11 @@
 		(map.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
 	}
 	$: if (map?.getSource('parking')) {
-		syncParkingLayer(map, visibleParkings, showParking);
+		syncParkingLayer(map, visibleParkings, true);
 	}
 	$: if (map && styleReady) {
-		const visibility = showParking ? 'visible' : 'none';
-		if (map.getLayer('parking-label')) {
-			map.setLayoutProperty('parking-label', 'visibility', visibility);
+		for (const id of ['parking-pill', 'parking-label']) {
+			if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
 		}
 	}
 	$: if (map?.getSource('flights')) {
@@ -134,7 +134,7 @@
 			if (disposed || mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) return;
 			mapInstance.addLayer(createSwissBuildingsLayer(maplibregl));
 			if (mapInstance.getLayer('osm-buildings-3d')) {
-				mapInstance.setPaintProperty('osm-buildings-3d', 'fill-extrusion-opacity', 0.18);
+				mapInstance.setPaintProperty('osm-buildings-3d', 'fill-extrusion-opacity', 0.35);
 			}
 		} catch (error) {
 			console.warn('swissBUILDINGS3D unavailable', error);
@@ -159,6 +159,26 @@
 				  };
 		if (animate) map.easeTo({ ...camera, duration: 1400 });
 		else map.jumpTo(camera);
+		applyModeInteractions(next);
+	}
+
+	/** Orbit = inspect basin (no pitch drag). Walk = street look + locked high pitch. */
+	function applyModeInteractions(next: 'orbit' | 'walk') {
+		if (!map) return;
+		if (next === 'walk') {
+			map.touchPitch.enable();
+			map.dragRotate.enable();
+			map.setMinPitch(WALK_CAMERA.minPitch);
+			map.setMaxPitch(WALK_CAMERA.maxPitch);
+			// Keep walk pitch from collapsing toward flat aerial.
+			if (map.getPitch() < WALK_CAMERA.minPitch) {
+				map.setPitch(WALK_CAMERA.pitch);
+			}
+		} else {
+			map.touchPitch.disable();
+			map.setMinPitch(0);
+			map.setMaxPitch(80);
+		}
 	}
 
 	function focusSelection(id: string) {
@@ -168,7 +188,7 @@
 			map.easeTo({
 				center: [place.lon, place.lat],
 				zoom: Math.max(map.getZoom(), 16.5),
-				pitch: mode === 'walk' ? 72 : 62,
+				pitch: mode === 'walk' ? WALK_CAMERA.pitch : ORBIT_CAMERA.pitch,
 				duration: 900
 			});
 			return;
@@ -223,7 +243,7 @@
 		if (!mapInstance) return;
 		const placesSource = mapInstance.getSource('places') as GeoJSONSource | undefined;
 		placesSource?.setData(placesToGeoJSON(visiblePlaces));
-		syncParkingLayer(mapInstance, visibleParkings, showParking);
+		syncParkingLayer(mapInstance, visibleParkings, true);
 		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
 		if (flightsSource) {
 			registerFlightIcons(mapInstance, visibleFlights);
@@ -244,55 +264,9 @@
 		registerPlaceIcons(mapInstance);
 		ensureBaseIconAtlas(mapInstance);
 		syncPlacesLayer(mapInstance, visiblePlaces);
-		syncParkingLayer(mapInstance, visibleParkings, showParking);
+		syncParkingLayer(mapInstance, visibleParkings, true);
 
-		if (!mapInstance.getSource('parking')) {
-			mapInstance.addSource('parking', {
-				type: 'geojson',
-				data: { type: 'FeatureCollection', features: [] }
-			});
-			mapInstance.addLayer({
-				id: 'parking-label',
-				type: 'symbol',
-				source: 'parking',
-				layout: {
-					visibility: showParking ? 'visible' : 'none',
-					'text-field': ['get', 'label'],
-					'text-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						12,
-						11,
-						15,
-						13,
-						17,
-						15
-					],
-					'text-font': ['Noto Sans Bold'],
-					'text-anchor': 'center',
-					'text-allow-overlap': true,
-					'text-ignore-placement': true,
-					'text-padding': 2
-				},
-				paint: {
-					'text-color': [
-						'match',
-						['get', 'tone'],
-						'green',
-						'#1b6b2e',
-						'red',
-						'#a61e1e',
-						'#1c4d7a'
-					],
-					'text-halo-color': '#ffffff',
-					'text-halo-width': 2.4,
-					'text-halo-blur': 0.2
-				}
-			});
-		} else if (mapInstance.getLayer('parking-pill')) {
-			mapInstance.removeLayer('parking-pill');
-		}
+		// parking-pill + parking-label owned by syncParkingLayer (always on)
 
 		// Viewsheds / cameras / flights sit above the basemap; cars are ensured at the end.
 
@@ -323,13 +297,24 @@
 			});
 			mapInstance.addLayer({
 				id: 'cameras-core',
-				type: 'circle',
+				type: 'symbol',
 				source: 'cameras',
+				layout: {
+					'icon-image': 'camera-cctv',
+					'icon-size': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						12,
+						0.55,
+						16,
+						0.75
+					],
+					'icon-allow-overlap': true,
+					'icon-ignore-placement': true
+				},
 				paint: {
-					'circle-radius': 7,
-					'circle-color': '#7c5cff',
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ffffff'
+					'icon-opacity': 0.92
 				}
 			});
 			mapInstance.addLayer({
@@ -475,6 +460,7 @@
 
 
 	function kindFromLayer(layerId: string) {
+		if (layerId.startsWith('parking')) return 'parking' as const;
 		if (layerId.startsWith('flights')) return 'flight' as const;
 		if (layerId.startsWith('cameras') || layerId === 'detection-cameras') return 'camera' as const;
 		if (layerId.startsWith('quakes')) return 'quake' as const;
@@ -488,6 +474,61 @@
 		const id = feature?.properties?.id;
 		if (id == null) return;
 		dispatch('select', { id: String(id), kind: kindFromLayer(feature?.layer?.id || '') });
+	}
+
+
+
+	let walkPointerActive = false;
+	let walkPointerRaf = 0;
+
+	function walkForwardStep() {
+		walkPointerRaf = 0;
+		if (!map || disposed || mode !== 'walk' || !walkPointerActive) return;
+		const center = map.getCenter();
+		const zoom = map.getZoom();
+		const bearing = map.getBearing();
+		const rad = (bearing * Math.PI) / 180;
+		const step = zoom > 17 ? 0.000012 : 0.000022;
+		map.jumpTo({
+			center: [center.lng + Math.sin(rad) * step, center.lat + Math.cos(rad) * step],
+			bearing,
+			pitch: Math.max(map.getPitch(), WALK_CAMERA.minPitch),
+			zoom
+		});
+		walkBearing = bearing;
+		walkPointerRaf = requestAnimationFrame(walkForwardStep);
+	}
+
+	function onWalkPointerDown(event: PointerEvent) {
+		if (mode !== 'walk' || event.isPrimary === false) return;
+		// Two-finger / right-click reserved for map gestures; primary long-hold walks.
+		if (event.pointerType === 'touch' && (event as PointerEvent & { touches?: unknown }).pressure === 0) return;
+		walkPointerActive = false;
+		const timer = window.setTimeout(() => {
+			if (mode !== 'walk') return;
+			walkPointerActive = true;
+			if (!walkPointerRaf) walkPointerRaf = requestAnimationFrame(walkForwardStep);
+		}, 280);
+		const clear = () => {
+			window.clearTimeout(timer);
+			walkPointerActive = false;
+			if (walkPointerRaf) {
+				cancelAnimationFrame(walkPointerRaf);
+				walkPointerRaf = 0;
+			}
+			window.removeEventListener('pointerup', clear);
+			window.removeEventListener('pointercancel', clear);
+		};
+		window.addEventListener('pointerup', clear);
+		window.addEventListener('pointercancel', clear);
+	}
+
+	function guardWalkPitch() {
+		if (!map || mode !== 'walk') return;
+		const pitch = map.getPitch();
+		if (pitch < WALK_CAMERA.minPitch) map.setPitch(WALK_CAMERA.minPitch);
+		if (pitch > WALK_CAMERA.maxPitch) map.setPitch(WALK_CAMERA.maxPitch);
+		walkBearing = map.getBearing();
 	}
 
 	function stepWalk() {
@@ -568,8 +609,7 @@
 				}
 				// Wheel without ctrl is intercepted by the page shell (credits scroll).
 				// Ctrl/meta wheel (trackpad pinch) still reaches MapLibre scrollZoom.
-				// Disable two-finger pitch so vertical two-finger drags can scroll to credits.
-				instance.touchPitch.disable();
+				// touchPitch is mode-gated in applyModeInteractions (off in orbit, on in walk).
 				instance.addControl(
 					new maplibregl.AttributionControl({ compact: true }),
 					'bottom-right'
@@ -620,6 +660,7 @@
 				});
 				for (const layer of [
 					'places-core',
+					'parking-pill',
 					'flights-core',
 					'cameras-core',
 					'quakes-core'
@@ -632,6 +673,11 @@
 						instance.getCanvas().style.cursor = '';
 					});
 				}
+				instance.on('pitch', guardWalkPitch);
+				instance.getCanvas().addEventListener('pointerdown', onWalkPointerDown);
+				instance.on('rotate', () => {
+					if (mode === 'walk') walkBearing = instance.getBearing();
+				});
 				resizeObserver = new ResizeObserver(() => instance.resize());
 				resizeObserver.observe(container);
 			} catch {
@@ -693,7 +739,7 @@
 		map?.easeTo({
 			center: [lon, lat],
 			zoom,
-			pitch: mode === 'walk' ? 72 : 60,
+			pitch: mode === 'walk' ? WALK_CAMERA.pitch : ORBIT_CAMERA.pitch,
 			duration: 1000
 		});
 	}

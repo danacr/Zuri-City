@@ -107,14 +107,15 @@
 			<li>
 				<button
 					type="button"
-					class="switch"
-					class:on={showParking}
-					aria-pressed={showParking}
+					class="switch on locked" class:forced={showParking}
+					aria-pressed="true"
+					aria-disabled="true"
+					title="Parking markers are always on"
 					on:click={onToggleParking}
 				>
 					<span class="switch-copy">
 						<span class="switch-label">{PARKING_LAYER.label}</span>
-						<span class="switch-meta">{counts.parking} · open + free / capacity</span>
+						<span class="switch-meta">{counts.parking} · always on · free / capacity</span>
 					</span>
 					<span class="knob" aria-hidden="true"></span>
 				</button>

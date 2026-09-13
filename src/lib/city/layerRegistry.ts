@@ -24,13 +24,17 @@ export const DEFAULT_PLACE_LAYERS: Record<PlaceCategory, boolean> = Object.fromE
 	PLACE_CATEGORIES.map((id) => [id, true])
 ) as Record<PlaceCategory, boolean>;
 
-/** Live-feed defaults (quakes off — denser overlays stay opt-in). */
+/**
+ * Live-feed defaults.
+ * Cameras / detection start off so the city isn't a purple-dot field —
+ * users opt in from Layers. Flights + traffic stay on.
+ */
 export const DEFAULT_INTEL_LAYERS: Record<IntelLayer, boolean> = {
 	flights: true,
-	cameras: true,
+	cameras: false,
 	traffic: true,
 	quakes: false,
-	detection: true
+	detection: false
 };
 
 export const PARKING_LAYER = {

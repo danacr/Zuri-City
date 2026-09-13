@@ -69,11 +69,62 @@ export function registerFlightIcons(map: MapLibreMap, flights: Flight[]) {
 	}
 }
 
-/** Ensure the full base atlas exists (places + generic aircraft). */
+/** Compact CCTV sprite — not a raw circle “dot”. */
+export function drawCameraIcon(pixelSize = 96): ImageData | null {
+	const canvas = document.createElement('canvas');
+	canvas.width = pixelSize;
+	canvas.height = pixelSize;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return null;
+	const u = pixelSize / 64;
+	ctx.clearRect(0, 0, pixelSize, pixelSize);
+	ctx.translate(pixelSize / 2, pixelSize / 2);
+
+	ctx.fillStyle = 'rgba(10, 16, 28, 0.3)';
+	ctx.beginPath();
+	ctx.arc(1.2 * u, 2 * u, 20 * u, 0, Math.PI * 2);
+	ctx.fill();
+
+	ctx.fillStyle = '#5b4fcf';
+	ctx.beginPath();
+	ctx.arc(0, 0, 19 * u, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.strokeStyle = '#ffffff';
+	ctx.lineWidth = 2.2 * u;
+	ctx.stroke();
+
+	ctx.fillStyle = '#ffffff';
+	// Camera body
+	ctx.beginPath();
+	ctx.moveTo(-10 * u, -4 * u);
+	ctx.lineTo(4 * u, -6 * u);
+	ctx.lineTo(4 * u, 6 * u);
+	ctx.lineTo(-10 * u, 4 * u);
+	ctx.closePath();
+	ctx.fill();
+	// Lens
+	ctx.beginPath();
+	ctx.arc(8 * u, 0, 5.5 * u, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.fillStyle = '#5b4fcf';
+	ctx.beginPath();
+	ctx.arc(8 * u, 0, 2.4 * u, 0, Math.PI * 2);
+	ctx.fill();
+
+	return ctx.getImageData(0, 0, pixelSize, pixelSize);
+}
+
+export function registerCameraIcon(map: MapLibreMap) {
+	if (map.hasImage('camera-cctv')) return;
+	addImageSafe(map, 'camera-cctv', drawCameraIcon(96));
+}
+
+/** Ensure the full base atlas exists (places + aircraft + camera). */
 export function ensureBaseIconAtlas(map: MapLibreMap) {
 	if (!map.isStyleLoaded()) return;
 	registerPlaceIcons(map);
 	registerGenericAircraftIcons(map);
+	registerCameraIcon(map);
 }
 
 function paintFromPlaneImageId(id: string): AircraftPaint | null {
@@ -119,6 +170,10 @@ export function attachIconAtlasResolver(map: MapLibreMap) {
 	map.setMissingStyleImageResolver((id) => {
 		if (id.startsWith('place-')) {
 			registerPlaceIcons(map);
+			return;
+		}
+		if (id === 'camera-cctv') {
+			registerCameraIcon(map);
 			return;
 		}
 		if (id.startsWith('plane-')) {
