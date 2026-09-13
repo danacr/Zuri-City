@@ -310,8 +310,10 @@
 						16,
 						0.75
 					],
-					'icon-allow-overlap': true,
-					'icon-ignore-placement': true
+					'icon-allow-overlap': false,
+					'icon-ignore-placement': false,
+					'icon-optional': true,
+					'icon-padding': 8
 				},
 				paint: {
 					'icon-opacity': 0.92
@@ -321,11 +323,14 @@
 				id: 'cameras-label',
 				type: 'symbol',
 				source: 'cameras',
+				minzoom: 15,
 				layout: {
 					'text-field': 'CCTV',
 					'text-size': 9,
 					'text-offset': [0, 1.3],
-					'text-font': ['Noto Sans Bold']
+					'text-font': ['Noto Sans Bold'],
+					'text-allow-overlap': false,
+					'text-optional': true
 				},
 				paint: {
 					'text-color': '#4c3d99',
