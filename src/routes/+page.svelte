@@ -861,12 +861,6 @@
 		font-size: 13px;
 		text-decoration: none;
 	}
-	.inspect-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 12px;
-		margin-top: 4px;
-	}
 	.close {
 		position: absolute;
 		top: 6px;
