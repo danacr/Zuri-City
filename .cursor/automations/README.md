@@ -2,9 +2,12 @@
 
 Merge this PR as **automation-only** infrastructure. No product/UI code changes.
 Activate the Cursor Automations in the dashboard once (there is no create-automation API).
+**Re-paste prompts** from these files whenever they change — the dashboard does not sync from git.
+
+Review bots **skip merged/closed PRs** (no comment). Remediation may still triage a review left on a merged PR by fixing the **open product head** when the finding still applies.
 
 ```text
-                    PR opened / pushed  (any PR — no label required)
+                    PR opened / pushed  (open PRs only — no label required)
                             │
         ┌───────────────────┼───────────────────┐
         ▼                   ▼                   ▼
