@@ -507,7 +507,7 @@
 
 
 	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
-		// OMT traffic-case = neutral road skeleton only. Congestion color is ASTRA.
+		// OMT traffic-case = neutral road skeleton only. Disruption color is KTZH/OSM roadworks.
 		// Never unhide traffic-flow / traffic-pulse (kept in style for contract IDs).
 		const caseVisibility = on ? 'visible' : 'none';
 		if (mapInstance.getLayer('traffic-case')) {

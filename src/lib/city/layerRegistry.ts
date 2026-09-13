@@ -28,7 +28,7 @@ export const DEFAULT_PLACE_LAYERS: Record<PlaceCategory, boolean> = Object.fromE
  * Live-feed defaults.
  * Cameras / detection start off so the city isn't a purple-dot field —
  * users opt in from Layers. Flights stay on. Traffic stays off until
- * ASTRA counters actually arrive (CityExperience enables it then).
+ * live roadworks arrive (CityExperience enables it then).
  */
 export const DEFAULT_INTEL_LAYERS: Record<IntelLayer, boolean> = {
 	flights: true,

@@ -37,7 +37,7 @@ export type TrafficSegment = {
 	/** LineString positions as [lon, lat]. */
 	coordinates: [number, number][];
 	level: 'free' | 'slow' | 'jam';
-	/** True only for synthetic placeholders — live ASTRA DATEX is false. */
+	/** True only for synthetic placeholders — live roadworks are false. */
 	modeled: boolean;
 };
 
@@ -68,11 +68,10 @@ export const INTEL_LAYER_LABEL: Record<IntelLayer, string> = {
 	detection: 'Camera cones'
 };
 
-/** Legend for live ASTRA DATEX counter speeds (not a road-name hash). */
+/** Legend for live roadworks / disruptions (not a road-name hash or fake speeds). */
 export const TRAFFIC_LEGEND: { label: string; color: string }[] = [
-	{ label: 'Free', color: '#1faa5b' },
-	{ label: 'Slow', color: '#e0a21b' },
-	{ label: 'Jam', color: '#e03131' }
+	{ label: 'Restricted', color: '#e0a21b' },
+	{ label: 'Closed', color: '#e03131' }
 ];
 
 export const INTEL_LAYER_COLOR: Record<IntelLayer, string> = {

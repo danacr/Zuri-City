@@ -1,67 +1,127 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('$env/dynamic/private', () => ({
-	env: {} as Record<string, string>
-}));
-
-import { env } from '$env/dynamic/private';
 import { loadSwissTraffic, resetSwissTrafficCacheForTests } from './swissTraffic';
 
 describe('loadSwissTraffic', () => {
 	beforeEach(() => {
-		for (const key of Object.keys(env)) delete env[key];
 		resetSwissTrafficCacheForTests();
 		vi.restoreAllMocks();
 	});
 
-	it('returns unavailable without an API key (no fake segments)', async () => {
-		const result = await loadSwissTraffic(vi.fn() as unknown as typeof fetch);
+	it('returns unavailable when both keyless feeds fail (no fake segments)', async () => {
+		const fetchFn = vi.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+		const result = await loadSwissTraffic(fetchFn);
 		expect(result.source).toBe('unavailable');
 		expect(result.traffic).toEqual([]);
-		expect(result.error).toMatch(/Traffic unavailable/i);
+		expect(result.error).toMatch(/offline|feed|roadworks/i);
 	});
 
-	it('parses Zürich-bbox sites and speed → free/slow/jam', async () => {
-		env.OPENTRANSPORTDATA_API_KEY = 'test-key';
-		const sitesXml = `<?xml version="1.0"?>
-		<root>
-		  <measurementSiteRecord id="CH.ZH.1">
-		    <measurementSiteName><value>Nordring</value></measurementSiteName>
-		    <latitude>47.41</latitude><longitude>8.55</longitude>
-		  </measurementSiteRecord>
-		  <measurementSiteRecord id="CH.BE.1">
-		    <measurementSiteName><value>Bern skip</value></measurementSiteName>
-		    <latitude>46.95</latitude><longitude>7.45</longitude>
-		  </measurementSiteRecord>
-		</root>`;
-		const dataXml = `<?xml version="1.0"?>
-		<root>
-		  <siteMeasurements>
-		    <measurementSiteReference id="CH.ZH.1"/>
-		    <speed>72.5</speed>
-		  </siteMeasurements>
-		</root>`;
+	it('parses KTZH Baustellen polygons in the Zürich bowl', async () => {
+		const ktzh = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					id: 'zh-1',
+					properties: {
+						strassenname: 'Hardbrücke',
+						gemeindename: 'Zürich',
+						verkehrsfuehrung: 'Vollsperrung Richtung Norden',
+						beschreibung: 'Baustelle'
+					},
+					geometry: {
+						type: 'Polygon',
+						coordinates: [
+							[
+								[8.52, 47.39],
+								[8.53, 47.39],
+								[8.53, 47.391],
+								[8.52, 47.391],
+								[8.52, 47.39]
+							]
+						]
+					}
+				},
+				{
+					id: 'be-skip',
+					properties: {
+						strassenname: 'Bern skip',
+						gemeindename: 'Bern',
+						verkehrsfuehrung: 'Einspurig'
+					},
+					geometry: {
+						type: 'Polygon',
+						coordinates: [
+							[
+								[7.44, 46.94],
+								[7.45, 46.94],
+								[7.45, 46.95],
+								[7.44, 46.95],
+								[7.44, 46.94]
+							]
+						]
+					}
+				}
+			]
+		};
 
-		const fetchFn = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				status: 200,
-				text: async () => sitesXml
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				status: 200,
-				text: async () => dataXml
-			}) as unknown as typeof fetch;
+		const fetchFn = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('maps.zh.ch')) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ktzh
+				};
+			}
+			// Overpass fails — KTZH alone is enough.
+			return { ok: false, status: 503, json: async () => ({}) };
+		}) as unknown as typeof fetch;
 
 		const result = await loadSwissTraffic(fetchFn);
-		expect(result.source).toBe('astra-datex');
+		expect(result.source).toBe('zh-roadworks');
 		expect(result.error).toBe('');
 		expect(result.traffic).toHaveLength(1);
-		expect(result.traffic[0].level).toBe('free');
+		expect(result.traffic[0].name).toBe('Hardbrücke');
+		expect(result.traffic[0].level).toBe('jam');
 		expect(result.traffic[0].modeled).toBe(false);
-		expect(result.traffic[0].name).toBe('Nordring');
 		expect(result.traffic[0].coordinates.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('merges OSM construction ways when Overpass responds', async () => {
+		const fetchFn = vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			if (url.includes('maps.zh.ch')) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({ type: 'FeatureCollection', features: [] })
+				};
+			}
+			if (init?.method === 'POST' || url.includes('overpass')) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({
+						elements: [
+							{
+								type: 'way',
+								id: 99,
+								tags: { highway: 'construction', name: 'Teststrasse', construction: 'primary' },
+								geometry: [
+									{ lat: 47.37, lon: 8.54 },
+									{ lat: 47.371, lon: 8.541 }
+								]
+							}
+						]
+					})
+				};
+			}
+			return { ok: false, status: 404, json: async () => ({}) };
+		}) as unknown as typeof fetch;
+
+		const result = await loadSwissTraffic(fetchFn);
+		expect(result.source).toBe('zh-roadworks');
+		expect(result.traffic).toHaveLength(1);
+		expect(result.traffic[0].id).toBe('osm-99');
+		expect(result.traffic[0].level).toBe('slow');
 	});
 });

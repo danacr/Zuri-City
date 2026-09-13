@@ -127,8 +127,8 @@ export async function loadIntelSnapshot(fetchFn: typeof fetch): Promise<IntelSna
 		loadSwissTraffic(fetchFn)
 	]);
 	const trafficNote =
-		trafficResult.source === 'astra-datex' && trafficResult.traffic.length
-			? `Live traffic: ${trafficResult.traffic.length} ASTRA DATEX counters in the Zürich bowl (opentransportdata.swiss).`
+		trafficResult.source === 'zh-roadworks' && trafficResult.traffic.length
+			? `Live traffic: ${trafficResult.traffic.length} roadworks / disruptions (Kanton Zürich Baustellen + OSM construction — no API key).`
 			: '';
 	// Visitor-facing notes only — never put env-var / deploy instructions on the map toast.
 	const notes = [

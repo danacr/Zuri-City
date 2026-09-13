@@ -12,17 +12,17 @@ describe('swissTrafficLayer', () => {
 	it('builds LineString features only for segments with coordinates', () => {
 		const segments: TrafficSegment[] = [
 			{
-				id: 'astra-1',
-				name: 'ZH Nord',
+				id: 'works-1',
+				name: 'Hardbrücke',
 				coordinates: [
 					[8.5, 47.4],
 					[8.51, 47.41]
 				],
-				level: 'free',
+				level: 'slow',
 				modeled: false
 			},
 			{
-				id: 'astra-empty',
+				id: 'works-empty',
 				name: 'skip',
 				coordinates: [[8.5, 47.4]],
 				level: 'jam',
@@ -31,7 +31,7 @@ describe('swissTrafficLayer', () => {
 		];
 		const geo = trafficToGeoJSON(segments);
 		expect(geo.features).toHaveLength(1);
-		expect(geo.features[0].properties?.level).toBe('free');
+		expect(geo.features[0].properties?.level).toBe('slow');
 		expect(geo.features[0].properties?.modeled).toBe(false);
 	});
 });

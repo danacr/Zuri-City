@@ -34,8 +34,8 @@ export function trafficToGeoJSON(segments: TrafficSegment[]) {
 }
 
 /**
- * Live ASTRA DATEX corridors — thick, high-contrast green/amber/red.
- * Only paints real Swiss measurements (never the old OMT name-hash).
+ * Live roadworks / disruptions — thick amber/red corridors.
+ * Kanton Zürich Baustellen + OSM construction (never a road-name hash).
  */
 export function ensureSwissTrafficLayer(map: MapLibreMap, segments: TrafficSegment[], visible = true) {
 	if (!map.getSource(SWISS_TRAFFIC_SOURCE_ID)) {

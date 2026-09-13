@@ -20,6 +20,11 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 				headers: { 'content-type': 'application/json' }
 			});
 		}
+		if (url.includes('maps.zh.ch')) {
+			return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+				headers: { 'content-type': 'application/json' }
+			});
+		}
 		if (url.endsWith('/plsFeed/rss')) {
 			feedRequests++;
 			const items = Array.from(

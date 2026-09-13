@@ -4,7 +4,7 @@ import { CITY_MAX_ZOOM, CITY_MIN_ZOOM, SWISSIMAGE_TILES } from './swissSources';
 /**
  * Major + local OMT transportation classes so the neutral road skeleton
  * sits on the same centerlines as SWISSIMAGE (not a sparse arterial-only graph).
- * Live congestion color comes from ASTRA DATEX (`swiss-traffic-*`), never a hash.
+ * Live disruption color comes from KTZH/OSM roadworks (`swiss-traffic-*`), never a hash.
  */
 const TRAFFIC_CLASSES = [
 	'motorway',
@@ -236,8 +236,8 @@ export function zurichAerialStyle(): StyleSpecification {
 			},
 			{
 				/**
-				 * Neutral OMT centerline guide only — congestion color comes from
-				 * live ASTRA DATEX (`swiss-traffic-*` layers), never a road-name hash.
+				 * Neutral OMT centerline guide only — disruption color comes from
+				 * live roadworks (`swiss-traffic-*` layers), never a road-name hash.
 				 */
 				id: 'traffic-flow',
 				type: 'line',
@@ -258,7 +258,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				}
 			},
 			{
-				/** Kept for style contract / toggle list — hidden; live color is ASTRA. */
+				/** Kept for style contract / toggle list — hidden; live color is roadworks. */
 				id: 'traffic-pulse',
 				type: 'line',
 				source: 'openmaptiles',

@@ -53,7 +53,7 @@ describe('zurichAerialStyle — product acceptance contracts', () => {
 		const opacity = JSON.stringify(flow.paint?.['line-opacity']);
 		expect(opacity).toContain('interpolate');
 		expect(opacity).not.toMatch(/\["\*",/);
-		// Congestion is ASTRA GeoJSON — OMT flow stays hidden + neutral (no name/hash paint).
+		// Disruptions are KTZH/OSM GeoJSON — OMT flow stays hidden + neutral (no name/hash paint).
 		expect(flow.layout?.visibility).toBe('none');
 		expect(typeof flow.paint?.['line-color']).toBe('string');
 		const paintJson = JSON.stringify(flow.paint);

@@ -144,10 +144,10 @@
 	let didRevealFlights = false;
 	let mapReady = false;
 	let mapFailed = false;
-	/** One-shot: enable Traffic when the first ASTRA segments arrive. */
+	/** One-shot: enable Traffic when the first live roadworks arrive. */
 	let trafficAutoEnabled = false;
 
-	/** Turn Traffic on once when ASTRA counters first land — stay off while empty. */
+	/** Turn Traffic on once when segments first land — stay off while empty. */
 	$: if (mapReady && traffic.length > 0 && !trafficAutoEnabled) {
 		trafficAutoEnabled = true;
 		if (!intelLayers.traffic) intelLayers = { ...intelLayers, traffic: true };
@@ -209,7 +209,7 @@
 		// Guarantee every place category is on so the map is never an empty orbit.
 		layers = setAllPlaceLayers(true);
 		showParking = true;
-		// Keep Traffic off until ASTRA segments exist — don't advertise an empty layer.
+		// Keep Traffic off until live roadworks exist — don't advertise an empty layer.
 		intelLayers = {
 			...createDefaultIntelLayers(),
 			...intelLayers,
@@ -594,7 +594,7 @@
 
 	<footer class="credits" id="about" bind:this={footerEl}>
 		<button type="button" class="back-map" on:click={scrollToMap}>↑ Back to map</button>
-		<span>SWISSIMAGE · OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich</span>
+		<span>SWISSIMAGE · OSM · OpenFreeMap · ADS-B · USGS · PLS Zürich · KTZH Baustellen</span>
 		<span class="dot">·</span>
 		<InstallApp />
 		<span class="dot">·</span>

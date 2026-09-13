@@ -33,14 +33,14 @@ src/
         types.ts               # CityLayerPlugin contract
         placesLayer.ts
         parkingLayer.ts        # Always-on blue capacity pills
-        swissTrafficLayer.ts   # Live ASTRA DATEX free/slow/jam
+        swissTrafficLayer.ts   # Live roadworks (KTZH + OSM) restricted/closed
     city/                      # Map host + HUD widgets (legacy path, shrinking)
       ZurichCity.svelte        # MapLibre host; delegates overlays to map/layers
       LayersPanel.svelte
       mapShellGestures.ts
       layerRegistry.ts
     intel/                     # Flights, cameras, quakes, icons
-    server/                    # Node-only loaders (Overpass, PLS, ADS-B, ASTRA DATEX)
+    server/                    # Node-only loaders (Overpass, PLS, ADS-B, KTZH Baustellen)
 ```
 
 ## Rules
