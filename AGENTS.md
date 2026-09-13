@@ -6,14 +6,17 @@ legacy Codex-specific notes.
 ## Product
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
-**the interactive city**, a walkable **3D map of Zürich**. The foundation of the experience is
-the living map — SWISSIMAGE aerial basemap, **solid OSM building massing**
-(opaque fill-extrusions that read as real volume on terrain — not translucent
-“ghost” boxes), **swisstopo terrain**, and **congestion-colored streets** on
-OpenMapTiles centerlines (**green** / **amber** / **red**). Parking from the
+a **live 3D map of Zürich**. The foundation of the experience is the map itself —
+SWISSIMAGE aerial basemap, **solid OSM building massing** (opaque fill-extrusions
+that read as real volume on terrain — not translucent “ghost” boxes), **swisstopo
+terrain**, and **congestion-colored streets** on OpenMapTiles centerlines
+(**green** / **amber** / **red**). Parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map as **blue
 capacity pills** (list panel optional). Place and aircraft markers use **sprites**,
 never raw MapLibre circles as the primary glyph.
+
+Product voice for UI/SEO: concrete Zürich, calm confidence. Prefer “live map” /
+“Zürich · live” over vague “interactive city” filler.
 
 Zoom only changes camera distance — not which city systems are visible. Colored
 street lines are the primary traffic UX; cars are secondary decoration. Prefer

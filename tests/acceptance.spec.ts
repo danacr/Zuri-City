@@ -159,7 +159,7 @@ test.describe('mobile acceptance gates', () => {
 			.getByRole('button', { name: 'Layers' })
 			.click();
 		const parking = page.getByRole('dialog', { name: 'Map layers' }).getByRole('button', {
-			name: /Parking/i
+			name: /^Parking\b/i
 		});
 		await expect(parking).toHaveAttribute('aria-pressed', 'true');
 		await expect(parking).toHaveAttribute('aria-disabled', 'true');

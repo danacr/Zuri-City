@@ -1,25 +1,18 @@
 # Züri City
 
-Explore Zürich as **the interactive city**. [Züri City](https://zuri.city/) is a mobile-friendly
-SvelteKit app: a walkable MapLibre city map with SWISSIMAGE aerials, 3D buildings,
-with **traffic-colored streets** and moving cars. Open stores, restaurants and attractions
-are pinned on the map. Live parking from the
-[Parkleitsystem Zürich](https://www.pls-zh.ch/) is a one-tap overlay — not the main
-product.
+[Züri City](https://zuri.city/) is a live 3D map of Zürich — traffic on real streets, solid buildings, open places, aircraft overhead, and parking capacity always on the map.
 
 ## What it does
 
-- Opens Zürich as **the interactive city** from orbit, then lets you walk street-level with WASD / arrow keys.
-- Colors major streets green / amber / red by modeled congestion, with glowing streaks that slide along the roads.
-- Pins open attractions, restaurants and shops on a 3D building map (SWISSIMAGE + OpenFreeMap).
-- Shows live PLS parking pins on the map in blue, with a garage list from Layers.
-- Can be added to your home screen as a web app (dark city chrome).
+- Opens Zürich from orbit, then lets you walk street-level with WASD / arrow keys.
+- Colors major streets green / amber / red by congestion, with motion along the roads.
+- Pins open attractions, restaurants, and shops on SWISSIMAGE + OpenFreeMap.
+- Keeps PLS parking pills visible on the map (not a hideable overlay).
+- Installs as a home-screen web app with dark city chrome.
 
 ## How it started
 
-What started as a parking-focused phone browser for the PLS feed grew into a
-city-first experience. The homepage is the living map of Zürich; parking remains
-a first-class feature overlay.
+A parking-focused phone browser for the PLS feed grew into a city-first map. The homepage is Zürich itself; parking stays a first-class, always-on layer.
 
 ## Developing
 
@@ -30,18 +23,11 @@ npm ci
 npm run dev
 ```
 
-The development server uses HTTPS and is exposed on your local network, so you can
-try it on your phone. Follow the certificate setup in [AGENTS.md](AGENTS.md) to
-trust the local connection and enable location access.
+The development server uses HTTPS on your local network so you can try it on your phone. Follow the certificate setup in [AGENTS.md](AGENTS.md) to trust the connection and enable location.
 
 ## Building
-
-Create and preview a production build:
 
 ```bash
 npm run build
 npm run preview
 ```
-
-For detailed setup, checks, deployment notes, and implementation guidance for
-coding agents, see [AGENTS.md](AGENTS.md).
