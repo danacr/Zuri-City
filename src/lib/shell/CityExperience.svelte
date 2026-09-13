@@ -64,6 +64,7 @@
 	let quakes: Quake[] = data.intel?.quakes ?? [];
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let hydrateGen = 0;
+	let lastHydrate: PageData['hydrateCity'] | undefined;
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
 	const intelKeys: IntelLayer[] = INTEL_LAYER_IDS;
@@ -72,8 +73,9 @@
 	let mapStageEl: HTMLElement | undefined;
 
 	$: {
-		places = data.places;
-		parkings = data.parkings;
+		places = data.places.length ? data.places : places;
+		// Never clobber a landed PLS set with the empty sync seed.
+		if (data.parkings.length) parkings = data.parkings;
 		placesError = data.placesError;
 		parkingError = data.error;
 		refreshedAt = data.refreshedAt;
@@ -82,6 +84,8 @@
 		quakes = data.intel?.quakes ?? [];
 		intelNotes = data.intel?.notes ?? [];
 		if (!browser) break $;
+		if (data.hydrateCity === lastHydrate) break $;
+		lastHydrate = data.hydrateCity;
 		const gen = ++hydrateGen;
 		void Promise.resolve(data.hydrateCity).then((live) => {
 			if (gen !== hydrateGen || !live) return;
@@ -91,8 +95,10 @@
 				for (const place of live.places) byId.set(place.id, place);
 				places = [...byId.values()];
 			}
-			// Always replace — sync shell starts empty; never keep a stale seed set.
-			if (Array.isArray(live.parkings)) parkings = live.parkings;
+			// Apply non-empty PLS; keep last-good markers if the next stream is empty.
+			if (Array.isArray(live.parkings) && live.parkings.length) {
+				parkings = live.parkings;
+			}
 			placesError = live.placesError;
 			parkingError = live.error;
 			refreshedAt = live.refreshedAt;

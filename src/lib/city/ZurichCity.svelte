@@ -132,10 +132,19 @@
 				'$lib/map/swissBuildingsLayer'
 			);
 			if (disposed || mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) return;
-			mapInstance.addLayer(createSwissBuildingsLayer(maplibregl));
-			if (mapInstance.getLayer('osm-buildings-3d')) {
-				mapInstance.setPaintProperty('osm-buildings-3d', 'fill-extrusion-opacity', 0.35);
-			}
+			// Keep OSM solid (≥0.7) until swiss mesh actually paints — addLayer ≠ content.
+			mapInstance.addLayer(
+				createSwissBuildingsLayer(maplibregl, {
+					onFirstContent: () => {
+						if (disposed || !mapInstance.getLayer('osm-buildings-3d')) return;
+						mapInstance.setPaintProperty(
+							'osm-buildings-3d',
+							'fill-extrusion-opacity',
+							0.35
+						);
+					}
+				})
+			);
 		} catch (error) {
 			console.warn('swissBUILDINGS3D unavailable', error);
 		}

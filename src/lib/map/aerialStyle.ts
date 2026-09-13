@@ -22,22 +22,28 @@ const trafficClassFilter: ExpressionSpecification = [
 	['!=', ['coalesce', ['get', 'ramp'], 0], 1]
 ];
 
-/** Fade modeled strokes past z15 — overzoomed OMT centerlines drift vs aerial. */
-const trafficFadeOpacity: ExpressionSpecification = [
-	'interpolate',
-	['linear'],
-	['zoom'],
-	13,
-	0.9,
-	14.5,
-	0.82,
-	15.5,
-	0.45,
-	16.5,
-	0.18,
-	17.5,
-	0.08
-];
+/**
+ * Bake peak × fade into one top-level interpolate.
+ * MapLibre rejects `['*', peak, ['interpolate', …, ['zoom'], …]]` — zoom may only
+ * feed a top-level step/interpolate.
+ */
+function fadedLineOpacity(peak: number): ExpressionSpecification {
+	return [
+		'interpolate',
+		['linear'],
+		['zoom'],
+		13,
+		peak * 0.9,
+		14.5,
+		peak * 0.82,
+		15.5,
+		peak * 0.45,
+		16.5,
+		peak * 0.18,
+		17.5,
+		peak * 0.08
+	];
+}
 
 /** Pseudo congestion from stable road identity (ref/name/class) — green / amber / red. */
 const congestionColor: ExpressionSpecification = [
@@ -242,11 +248,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': '#0a121c',
-					'line-opacity': [
-						'*',
-						0.32,
-						trafficFadeOpacity
-					],
+					'line-opacity': fadedLineOpacity(0.32),
 					'line-width': trafficWidth(0.72)
 				}
 			},
@@ -265,19 +267,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': congestionColor,
-					'line-opacity': [
-						'*',
-						[
-							'match',
-							['get', 'class'],
-							'minor',
-							0.78,
-							'service',
-							0.55,
-							0.95
-						],
-						trafficFadeOpacity
-					],
+					'line-opacity': fadedLineOpacity(0.88),
 					'line-width': trafficWidth(0.55)
 				}
 			},
@@ -306,7 +296,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				},
 				paint: {
 					'line-color': '#ffffff',
-					'line-opacity': ['*', 0.2, trafficFadeOpacity],
+					'line-opacity': fadedLineOpacity(0.2),
 					'line-width': trafficWidth(0.28),
 					'line-dasharray': [1.2, 3.6]
 				}

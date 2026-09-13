@@ -45,8 +45,13 @@ describe('zurichAerialStyle — product acceptance contracts', () => {
 		expect(omt.maxzoom).toBe(14);
 		const flow = style.layers.find((item) => item.id === 'traffic-flow') as {
 			filter?: unknown[];
+			paint?: Record<string, unknown>;
 		};
 		expect(JSON.stringify(flow.filter)).toContain('ramp');
+		// Zoom must only feed top-level interpolate — never nest inside `*`.
+		const opacity = JSON.stringify(flow.paint?.['line-opacity']);
+		expect(opacity).toContain('interpolate');
+		expect(opacity).not.toMatch(/\["\*",/);
 	});
 
 	it('stays within the city zoom contract', () => {

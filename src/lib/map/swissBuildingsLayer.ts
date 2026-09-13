@@ -149,10 +149,22 @@ function createSharedRenderer(
 	});
 }
 
+export type SwissBuildingsLayerOptions = {
+	tilesetUrl?: string;
+	/** Fires once when the tileset has loaded and at least one tile model is present. */
+	onFirstContent?: () => void;
+};
+
 export function createSwissBuildingsLayer(
 	maplibregl: MapLibreModule,
-	tilesetUrl: string = SWISS_BUILDINGS_TILESET
+	tilesetUrlOrOptions: string | SwissBuildingsLayerOptions = SWISS_BUILDINGS_TILESET
 ): CustomLayerInterface & { dispose?: () => void } {
+	const options: SwissBuildingsLayerOptions =
+		typeof tilesetUrlOrOptions === 'string'
+			? { tilesetUrl: tilesetUrlOrOptions }
+			: tilesetUrlOrOptions;
+	const tilesetUrl = options.tilesetUrl ?? SWISS_BUILDINGS_TILESET;
+	const onFirstContent = options.onFirstContent;
 	let map: MapLibreMap | undefined;
 	let renderer: THREE.WebGLRenderer | undefined;
 	let scene: THREE.Scene | undefined;
@@ -261,6 +273,20 @@ export function createSwissBuildingsLayer(
 			map?.triggerRepaint();
 		};
 		tiles.addEventListener('load-tileset', onLoadTileset);
+
+		let contentNotified = false;
+		const notifyFirstContent = () => {
+			if (contentNotified || disposed) return;
+			const childCount = tiles?.group?.children?.length ?? 0;
+			if (childCount === 0) return;
+			contentNotified = true;
+			tiles?.removeEventListener('load-model', notifyFirstContent);
+			tiles?.removeEventListener('tiles-load-end', notifyFirstContent);
+			onFirstContent?.();
+		};
+		tiles.addEventListener('load-model', notifyFirstContent);
+		tiles.addEventListener('tiles-load-end', notifyFirstContent);
+
 		updateLocalTransform();
 	}
 
