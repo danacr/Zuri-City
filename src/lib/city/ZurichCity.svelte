@@ -524,6 +524,7 @@
 			cancelAnimationFrame(walkPointerRaf);
 			walkPointerRaf = 0;
 		}
+		window.removeEventListener('pointerup', onWalkPointerUp, true);
 		if (mode === 'walk') {
 			map?.dragPan.enable();
 			map?.touchPitch.enable();
