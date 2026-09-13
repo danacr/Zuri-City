@@ -1,8 +1,15 @@
 /**
- * Map overlay plugins — each city feed owns ensure/sync so ZurichCity stays a host.
- *
- * Add a new overlay by creating `layers/<name>Layer.ts` and wiring it from the map host.
+ * Map overlay plugins for the Cesium city host.
+ * Domain feeds sync through `$lib/map/layers/cesiumOverlays`.
  */
-export { ensureParkingLayer, syncParkingLayer, parkingsToGeoJSON } from './parkingLayer';
-export { ensurePlacesLayer, syncPlacesLayer } from './placesLayer';
-export type { CityLayerContext, CityLayerPlugin } from './types';
+export {
+	attachEntityClick,
+	syncCameraEntities,
+	syncFlightEntities,
+	syncParkingEntities,
+	syncPlaceEntities,
+	syncQuakeEntities,
+	syncTrafficEntities,
+	syncUserEntity,
+	type OverlayKind
+} from './cesiumOverlays';
