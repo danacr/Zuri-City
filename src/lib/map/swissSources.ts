@@ -28,3 +28,12 @@ export const SWISS_TERRAIN_LAYER =
 /** Fallback DEM when swisstopo quantized-mesh is unreachable. */
 export const FALLBACK_TERRAIN_TILES =
 	'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+
+/**
+ * Phase-2 swissBUILDINGS3D mesh (Three.js custom layer). Off by default —
+ * ghost OSM extrusions in aerialStyle are the reliable city massing path.
+ * Set `PUBLIC_SWISS_BUILDINGS=1` to opt in when the mesh layer is stable.
+ */
+export const SWISS_BUILDINGS_ENABLED =
+	import.meta.env.PUBLIC_SWISS_BUILDINGS === '1' ||
+	import.meta.env.PUBLIC_SWISS_BUILDINGS === 'true';

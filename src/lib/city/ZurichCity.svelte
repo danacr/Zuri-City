@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 	import type {
-		ExpressionSpecification,
 		GeoJSONSource,
 		Map as MapLibreMap,
 		Marker
 	} from 'maplibre-gl';
 	import {
-		categoryColorExpression,
 		ZURICH_CENTER,
 		placesToGeoJSON,
 		type Place,
@@ -22,26 +20,21 @@
 		quakesToGeoJSON
 	} from '$lib/intel/geo';
 	import type { Camera, Flight, IntelLayer, Quake } from '$lib/intel/types';
-	import {
-		aircraftIconId,
-		drawAircraftIcon,
-		GENERIC_FAMILY_ICON_IDS,
-		genericPaint,
-		paintFromFlight,
-		type AircraftFamily
-	} from '$lib/intel/aircraftIcons';
 	import { TRAFFIC_STYLE_LAYERS, zurichAerialStyle } from '$lib/map/aerialStyle';
 	import {
 		CITY_MAX_ZOOM,
 		CITY_MIN_ZOOM,
 		ORBIT_CAMERA,
+		SWISS_BUILDINGS_ENABLED,
 		WALK_CAMERA
 	} from '$lib/map/swissSources';
 	import { attachSwissTerrain, type TerrainHandle } from '$lib/map/swissTerrain';
 	import {
-		PLACE_ICON_IDS,
-		drawPlaceIcon,
-	} from '$lib/city/placeIcons';
+		attachIconAtlasResolver,
+		ensureBaseIconAtlas,
+		registerFlightIcons,
+		registerPlaceIcons
+	} from '$lib/map/iconAtlas';
 	import { createDefaultIntelLayers, PARKING_LAYER } from '$lib/city/layerRegistry';
 
 	export let places: Place[];
@@ -72,11 +65,6 @@
 	let raf = 0;
 	let walkBearing = -20;
 	let terrainHandle: TerrainHandle | undefined;
-	let trafficRaf = 0;
-	let trafficPulsePhase = 0;
-	let lastTrafficTs = 0;
-	
-	let placeIconsReady = false;
 
 	$: visiblePlaces = places.filter((place) => layers[place.category]);
 	$: visibleParkings = showParking
@@ -99,7 +87,7 @@
 		}
 	}
 	$: if (map?.getSource('flights')) {
-		registerAircraftIcons(map, visibleFlights);
+		registerFlightIcons(map, visibleFlights);
 		(map.getSource('flights') as GeoJSONSource).setData(flightsToGeoJSON(visibleFlights));
 	}
 	$: if (map?.getSource('cameras')) {
@@ -122,8 +110,6 @@
 	}
 	$: if (map && styleReady) {
 		syncTrafficVisibility(map, intelLayers.traffic);
-		if (intelLayers.traffic) startTrafficPulse();
-		else stopTrafficPulse();
 	}
 	let lastAppliedMode: 'orbit' | 'walk' | null = null;
 	$: if (map && mode && mode !== lastAppliedMode) {
@@ -135,13 +121,24 @@
 
 	// parkings GeoJSON: $lib/map/layers/parkingLayer
 
-	/**
-	 * swissBUILDINGS3D mesh is temporarily not mounted: the shared-context Three.js
-	 * transform draws corrupt spikes and suppresses MapLibre fill-extrusions.
-	 * OSM `osm-buildings-3d` is the reliable city massing path for now.
-	 */
-	function mountSwissOverlay(_mapInstance: MapLibreMap, _maplibregl: typeof import('maplibre-gl')) {
-		return;
+	/** Phase-2 swissBUILDINGS3D — gated by PUBLIC_SWISS_BUILDINGS. */
+	async function mountSwissOverlay(
+		mapInstance: MapLibreMap,
+		maplibregl: typeof import('maplibre-gl')
+	) {
+		if (!SWISS_BUILDINGS_ENABLED) return;
+		try {
+			const { createSwissBuildingsLayer, SWISS_BUILDINGS_LAYER_ID } = await import(
+				'$lib/map/swissBuildingsLayer'
+			);
+			if (disposed || mapInstance.getLayer(SWISS_BUILDINGS_LAYER_ID)) return;
+			mapInstance.addLayer(createSwissBuildingsLayer(maplibregl));
+			if (mapInstance.getLayer('osm-buildings-3d')) {
+				mapInstance.setPaintProperty('osm-buildings-3d', 'fill-extrusion-opacity', 0.18);
+			}
+		} catch (error) {
+			console.warn('swissBUILDINGS3D unavailable', error);
+		}
 	}
 
 	function applyMode(next: 'orbit' | 'walk', animate = true) {
@@ -229,7 +226,7 @@
 		syncParkingLayer(mapInstance, visibleParkings, showParking);
 		const flightsSource = mapInstance.getSource('flights') as GeoJSONSource | undefined;
 		if (flightsSource) {
-			registerAircraftIcons(mapInstance, visibleFlights);
+			registerFlightIcons(mapInstance, visibleFlights);
 			flightsSource.setData(flightsToGeoJSON(visibleFlights));
 		}
 		const camerasSource = mapInstance.getSource('cameras') as GeoJSONSource | undefined;
@@ -244,100 +241,10 @@
 	}
 
 	function ensureLayers(mapInstance: MapLibreMap) {
-		ensurePlaceIcons(mapInstance);
+		registerPlaceIcons(mapInstance);
+		ensureBaseIconAtlas(mapInstance);
 		syncPlacesLayer(mapInstance, visiblePlaces);
 		syncParkingLayer(mapInstance, visibleParkings, showParking);
-		if (!mapInstance.getSource('places')) {
-			mapInstance.addSource('places', {
-				type: 'geojson',
-				data: placesToGeoJSON(visiblePlaces),
-				// Promote id for faster feature state; keep data local so first paint is sync.
-				maxzoom: 18
-			});
-		} else {
-			(mapInstance.getSource('places') as GeoJSONSource).setData(placesToGeoJSON(visiblePlaces));
-		}
-		// Migrate legacy circle dots → category symbol icons.
-		if (mapInstance.getLayer('places-core')) {
-			const core = mapInstance.getLayer('places-core');
-			if (core && (core as { type?: string }).type === 'circle') {
-				mapInstance.removeLayer('places-core');
-			}
-		}
-		if (!mapInstance.getLayer('places-glow')) {
-			mapInstance.addLayer({
-				id: 'places-glow',
-				type: 'circle',
-				source: 'places',
-				paint: {
-					'circle-radius': 16,
-					'circle-color': categoryColorExpression() as any,
-					'circle-opacity': 0.18,
-					'circle-blur': 0.7
-				}
-			});
-		}
-		if (!mapInstance.getLayer('places-core')) {
-			mapInstance.addLayer({
-				id: 'places-core',
-				type: 'symbol',
-				source: 'places',
-				layout: {
-					'icon-image': [
-						'coalesce',
-						['get', 'icon'],
-						'place-sights'
-					],
-					'icon-size': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						CITY_MIN_ZOOM,
-						0.55,
-						15,
-						0.72,
-						CITY_MAX_ZOOM,
-						0.95
-					],
-					'icon-allow-overlap': true,
-					'icon-ignore-placement': true,
-					'symbol-placement': 'point',
-					// Avoid ground-anchoring until terrain settles — it can hide markers on first paint.
-					'icon-pitch-alignment': 'viewport',
-					'icon-rotation-alignment': 'viewport'
-				},
-				paint: {
-					'icon-opacity': [
-						'match',
-						['get', 'isOpen'],
-						'yes',
-						1,
-						'no',
-						0.45,
-						0.8
-					]
-				}
-			});
-		}
-		if (!mapInstance.getLayer('places-label')) {
-			mapInstance.addLayer({
-				id: 'places-label',
-				type: 'symbol',
-				source: 'places',
-				layout: {
-					'text-field': ['get', 'name'],
-					'text-size': 11,
-					'text-offset': [0, 1.7],
-					'text-font': ['Noto Sans Regular'],
-					'text-max-width': 10
-				},
-				paint: {
-					'text-color': '#16304e',
-					'text-halo-color': '#ffffff',
-					'text-halo-width': 1.4
-				}
-			});
-		}
 
 		if (!mapInstance.getSource('parking')) {
 			mapInstance.addSource('parking', {
@@ -448,31 +355,7 @@
 				type: 'geojson',
 				data: flightsToGeoJSON(visibleFlights)
 			});
-			registerAircraftIcons(mapInstance);
-			// Always-on halo so contacts read even when sprites are tiny / off-screen zoom.
-			mapInstance.addLayer({
-				id: 'flights-halo',
-				type: 'circle',
-				source: 'flights',
-				paint: {
-					'circle-radius': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						8,
-						3,
-						11,
-						5,
-						14,
-						8
-					],
-					'circle-color': '#f0b429',
-					'circle-opacity': 0.55,
-					'circle-stroke-width': 1.5,
-					'circle-stroke-color': '#fff6d6',
-					'circle-stroke-opacity': 0.9
-				}
-			});
+			registerFlightIcons(mapInstance, visibleFlights);
 			mapInstance.addLayer({
 				id: 'flights-core',
 				type: 'symbol',
@@ -577,112 +460,9 @@
 			});
 		}
 
-		// Living streets: animated dashes on congested roads.
 		syncTrafficVisibility(mapInstance, intelLayers.traffic);
-		if (intelLayers.traffic) {
-			
-			startTrafficPulse();
-		}
 	}
 
-	function imageDataForMap(image: ImageData): {
-		width: number;
-		height: number;
-		data: Uint8Array;
-	} {
-		// MapLibre 6 is picky about ImageData — pass a plain StyleImageInterface.
-		return {
-			width: image.width,
-			height: image.height,
-			data: new Uint8Array(image.data)
-		};
-	}
-
-	function addAircraftImage(
-		mapInstance: MapLibreMap,
-		id: string,
-		paint: Parameters<typeof drawAircraftIcon>[0]
-	) {
-		if (mapInstance.hasImage(id)) return;
-		const image = drawAircraftIcon(paint, 160);
-		if (!image) return;
-		try {
-			mapInstance.addImage(id, imageDataForMap(image), { pixelRatio: 2 });
-		} catch (error) {
-			console.warn('aircraft icon add failed', id, error);
-		}
-	}
-
-	function registerAircraftIcons(mapInstance: MapLibreMap, list: Flight[] = visibleFlights) {
-		if (!mapInstance.isStyleLoaded()) return;
-		const families = Object.keys(GENERIC_FAMILY_ICON_IDS) as AircraftFamily[];
-		for (const family of families) {
-			addAircraftImage(mapInstance, GENERIC_FAMILY_ICON_IDS[family], genericPaint(family));
-		}
-		for (const flight of list) {
-			const paint = paintFromFlight({
-				callsign: flight.callsign,
-				typeCode: flight.typeCode,
-				size: flight.size
-			});
-			addAircraftImage(mapInstance, aircraftIconId(paint), paint);
-		}
-	}
-
-	function ensureAircraftIconFromId(mapInstance: MapLibreMap, id: string) {
-		if (!id.startsWith('plane-') || mapInstance.hasImage(id)) return;
-		const parts = id.split('-');
-		// plane-{family}-{airline} — family may be wide-twin / wide-quad (two tokens).
-		let family: AircraftFamily = 'narrow';
-		let airline = 'gen';
-		if (parts[1] === 'wide' && (parts[2] === 'twin' || parts[2] === 'quad')) {
-			family = parts[2] === 'twin' ? 'wide-twin' : 'wide-quad';
-			airline = parts[3] || 'gen';
-		} else if (
-			parts[1] === 'ga' ||
-			parts[1] === 'regional' ||
-			parts[1] === 'narrow' ||
-			parts[1] === 'rotor'
-		) {
-			family = parts[1];
-			airline = parts[2] || 'gen';
-		}
-		const livery =
-			airline !== 'gen'
-				? paintFromFlight({ callsign: airline.toUpperCase() + '1' }).livery
-				: null;
-		addAircraftImage(mapInstance, id, {
-			family,
-			livery,
-			size:
-				family === 'ga'
-					? 'light'
-					: family === 'rotor'
-						? 'rotor'
-						: family.startsWith('wide')
-							? 'heavy'
-							: 'medium'
-		});
-	}
-
-
-	function ensurePlaceIcons(mapInstance: MapLibreMap) {
-		if (placeIconsReady) return;
-		for (const category of Object.keys(PLACE_ICON_IDS) as PlaceCategory[]) {
-			const id = PLACE_ICON_IDS[category];
-			const sprite = drawPlaceIcon(category, 128);
-			if (!sprite) continue;
-			try {
-				if (mapInstance.hasImage(id)) mapInstance.removeImage(id);
-				mapInstance.addImage(id, imageDataForMap(sprite), { pixelRatio: 2 });
-			} catch (error) {
-				console.warn('place icon add failed', id, error);
-			}
-		}
-		placeIconsReady = (Object.keys(PLACE_ICON_IDS) as PlaceCategory[]).every((c) =>
-			mapInstance.hasImage(PLACE_ICON_IDS[c])
-		);
-	}
 
 	function syncTrafficVisibility(mapInstance: MapLibreMap, on: boolean) {
 		const visibility = on ? 'visible' : 'none';
@@ -693,45 +473,6 @@
 		}
 	}
 
-	/** March light dashes along traffic-colored roads (no sprites / models). */
-	function startTrafficPulse() {
-		if (trafficRaf || typeof requestAnimationFrame !== 'function') return;
-		lastTrafficTs = performance.now();
-		const tick = (ts: number) => {
-			trafficRaf = 0;
-			if (disposed) return;
-			if (!map || !intelLayers.traffic) {
-				trafficRaf = requestAnimationFrame(tick);
-				return;
-			}
-			const dt = Math.min(0.05, Math.max(0.008, (ts - lastTrafficTs) / 1000));
-			lastTrafficTs = ts;
-			trafficPulsePhase = (trafficPulsePhase + dt * 16) % 10;
-			if (map.getLayer('traffic-pulse')) {
-				const gapLead = Math.max(0.05, trafficPulsePhase);
-				const dash = 2.4;
-				const gapTrail = Math.max(0.05, 7.6 - trafficPulsePhase);
-				try {
-					map.setPaintProperty('traffic-pulse', 'line-dasharray', [
-						gapLead,
-						dash,
-						gapTrail
-					]);
-				} catch {
-					/* style mid-reload */
-				}
-			}
-			trafficRaf = requestAnimationFrame(tick);
-		};
-		trafficRaf = requestAnimationFrame(tick);
-	}
-
-	function stopTrafficPulse() {
-		if (trafficRaf) {
-			cancelAnimationFrame(trafficRaf);
-			trafficRaf = 0;
-		}
-	}
 
 	function kindFromLayer(layerId: string) {
 		if (layerId.startsWith('flights')) return 'flight' as const;
@@ -750,8 +491,8 @@
 	}
 
 	function stepWalk() {
-		if (!map || mode !== 'walk' || keys.size === 0) {
-			raf = requestAnimationFrame(stepWalk);
+		raf = 0;
+		if (!map || disposed || mode !== 'walk' || keys.size === 0) {
 			return;
 		}
 		const center = map.getCenter();
@@ -845,7 +586,8 @@
 					// Push overlay data again on idle so markers aren't blank until a layer click.
 					instance.once('idle', () => {
 						refreshOverlaySources(instance);
-						ensurePlaceIcons(instance);
+						registerPlaceIcons(instance);
+						ensureBaseIconAtlas(instance);
 						instance.triggerRepaint();
 					});
 					void (async () => {
@@ -861,16 +603,12 @@
 						dispatch('ready');
 					});
 				});
-				// MapLibre 6: prefer the resolver so missing airline sprites are generated in time.
-				instance.setMissingStyleImageResolver((id) => {
-					ensureAircraftIconFromId(instance, id);
-				});
-				instance.on('styleimagemissing', (event: { id: string }) => {
-					ensureAircraftIconFromId(instance, event.id);
-				});
+				attachIconAtlasResolver(instance);
+				ensureBaseIconAtlas(instance);
 				instance.on('style.load', () => {
-					placeIconsReady = false;
 					styleReady = true;
+					attachIconAtlasResolver(instance);
+					ensureBaseIconAtlas(instance);
 					ensureLayers(instance);
 					instance.once('idle', () => refreshOverlaySources(instance));
 					void (async () => {
@@ -882,8 +620,6 @@
 				});
 				for (const layer of [
 					'places-core',
-					'places-glow',
-					'flights-halo',
 					'flights-core',
 					'cameras-core',
 					'quakes-core'
@@ -898,7 +634,6 @@
 				}
 				resizeObserver = new ResizeObserver(() => instance.resize());
 				resizeObserver.observe(container);
-				raf = requestAnimationFrame(stepWalk);
 			} catch {
 				mapError = 'The 3D city map could not load. Check your connection and try again.';
 				dispatch('error');
@@ -923,7 +658,10 @@
 				].includes(key)
 			) {
 				keys.add(key);
-				if (mode === 'walk') event.preventDefault();
+				if (mode === 'walk') {
+					event.preventDefault();
+					if (!raf) raf = requestAnimationFrame(stepWalk);
+				}
 			}
 		};
 		const up = (event: KeyboardEvent) => keys.delete(event.key.toLowerCase());
@@ -938,7 +676,6 @@
 
 	onDestroy(() => {
 		disposed = true;
-		stopTrafficPulse();
 		if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
 		userMarker?.remove();
 		terrainHandle?.unregister?.();

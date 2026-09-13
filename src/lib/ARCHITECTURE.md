@@ -24,10 +24,11 @@ src/
     parking/                   # PLS parking domain
       model.ts                 # Parse, availability, map labels
     map/
-      aerialStyle.ts           # Basemap style builder
+      aerialStyle.ts           # SWISSIMAGE + ghost OSM massing + OMT traffic
+      iconAtlas.ts             # Pre-register place/aircraft MapLibre sprites
       swissSources.ts          # Zoom contract + swisstopo endpoints
       swissTerrain.ts
-      swissBuildingsLayer.ts
+      swissBuildingsLayer.ts   # Phase-2 (PUBLIC_SWISS_BUILDINGS=1)
       layers/                  # Overlay plugins (ensure/sync)
         types.ts               # CityLayerPlugin contract
         placesLayer.ts
@@ -46,13 +47,16 @@ src/
 1. **Routes stay thin.** Load data, set SEO, render `CityExperience`.
 2. **Domain packages own data.** Places, parking, and intel types/helpers live under
    their package — not in the map host.
-3. **Map overlays are plugins.** Each feed implements idempotent `ensure` + `sync`
+3. **One map engine: MapLibre GL.** Aerial, terrain, ghost OSM massing, traffic, and
+   overlays share one Viewer. Icon sprites register via `iconAtlas.ts` before symbol
+   layers paint. swissBUILDINGS3D is phase-2 and off by default.
+4. **Map overlays are plugins.** Each feed implements idempotent `ensure` + `sync`
    under `map/layers/`. `ZurichCity` is a host (camera, style, click routing).
-4. **Shared UI state uses `state/citySession`.** Prefer stores over growing another
+5. **Shared UI state uses `state/citySession`.** Prefer stores over growing another
    1k-line component `let` block when multiple surfaces need the same toggles.
-5. **Server code stays in `lib/server`.** Never import server modules from client
+6. **Server code stays in `lib/server`.** Never import server modules from client
    components.
-6. **Compatibility shims.** `$lib/city/places` and `$lib/parking.ts` re-export the
+7. **Compatibility shims.** `$lib/city/places` and `$lib/parking.ts` re-export the
    new packages so existing imports keep working during migration.
 
 ## Data flow

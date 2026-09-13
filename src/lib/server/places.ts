@@ -20,7 +20,8 @@ const AROUND_NEAR = `around:3800,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 /** Slightly wider ring for sights / parks / hotels. */
 const AROUND_WIDE = `around:5200,${ZURICH_CENTER[1]},${ZURICH_CENTER[0]}`;
 
-const MAX_PER_CATEGORY = 120;
+/** Keep POI density readable on mobile — merge-by-id preserves FALLBACK seeds. */
+const MAX_PER_CATEGORY = 30;
 
 type OverpassElement = {
 	type: string;
@@ -38,8 +39,10 @@ const QUERY_BUNDLES = [
 (
   node["amenity"~"restaurant|fast_food|biergarten|food_court|cafe|ice_cream|bar|pub|nightclub"](${AROUND_NEAR});
   node["shop"~"bakery|pastry|coffee|chocolate|confectionery"](${AROUND_NEAR});
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub"](${AROUND_NEAR});
+  way["shop"~"bakery|pastry|coffee"](${AROUND_NEAR});
 );
-out body 550;
+out center 550;
 `.trim(),
 	`
 [out:json][timeout:18];

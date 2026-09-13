@@ -7,10 +7,10 @@ legacy Codex-specific notes.
 
 **Züri City** ([zuri.city](https://zuri.city/)) is a mobile-friendly SvelteKit app:
 **the interactive city**, a walkable **3D map of Zürich**. The foundation of the experience is
-the living map — SWISSIMAGE aerial basemap, **swisstopo swissBUILDINGS3D**
-meshes (continuous LOD), **swisstopo terrain**, and **congestion-colored streets**
-on OpenMapTiles centerlines (**green** / **amber** / **red**), with cars present
-across the city zoom range. Parking from the
+the living map — SWISSIMAGE aerial basemap, **ghost OSM building massing**
+(desaturated extrusions over the orthophoto), **swisstopo terrain**, and
+**congestion-colored streets** on OpenMapTiles centerlines (**green** / **amber** /
+**red**). Parking from the
 [Parkleitsystem Zürich](https://www.pls-zh.ch/) is always on the map in **blue**
 (list panel optional).
 
@@ -23,14 +23,16 @@ Cesium ion keys for the default experience.
 
 - **Runtime:** Node.js **24.x** (see `.nvmrc`, `.node-version`, `package.json`)
 - **App:** Svelte 5, SvelteKit 2, Vite 8, Tailwind CSS 4, TypeScript (~6.0)
-- **Map:** MapLibre GL (not Leaflet). Style builder: `src/lib/map/aerialStyle.ts`
-- **Continuous swisstopo:** `src/lib/map/swissSources.ts`, `swissTerrain.ts`,
-  `swissBuildingsLayer.ts` (3D Tiles + quantized-mesh; Terrarium DEM fallback)
+- **Map:** MapLibre GL — one engine for aerial, terrain, massing, traffic, and overlays.
+  Style builder: `src/lib/map/aerialStyle.ts`
+- **Icons:** `src/lib/map/iconAtlas.ts` pre-registers place + aircraft sprites before
+  symbol layers paint; `src/lib/intel/aircraftIcons.ts` draws planform silhouettes
+- **Continuous swisstopo:** `swissSources.ts`, `swissTerrain.ts` (quantized-mesh;
+  Terrarium DEM fallback). **swissBUILDINGS3D** is phase-2 (`PUBLIC_SWISS_BUILDINGS=1`,
+  `swissBuildingsLayer.ts`) — off by default
 - **Camera contract:** city min/max zoom in `swissSources.ts` (orbit/walk are pose-only)
-- **Living traffic:** `src/lib/city/trafficCars.ts` + GeoJSON symbol layer in
-  `src/lib/city/ZurichCity.svelte` (always-on inside city zoom; no zoom spawn gates)
-- **Aircraft icons:** `src/lib/intel/aircraftIcons.ts` — ICAO type → airframe family,
-  callsign → airline livery; MapLibre sprites registered per flight
+- **Living traffic:** OMT `transportation` centerlines in `aerialStyle.ts` (static dashes;
+  no per-frame RAF). Cars are a future accent layer
 - **Deploy:** Vercel adapter; local `npm run dev` is **HTTPS only**
   Preview hostname: **https://new.zuri.city** (branch deploy alias; production remains zuri.city)
 
@@ -87,8 +89,7 @@ See **`src/lib/ARCHITECTURE.md`** for the scalable package layout and “how to 
 | Live intel (ADS-B, CCTV, quakes) | `src/lib/intel/*`, `src/lib/server/intel.ts` |
 | Layer toggle registry | `src/lib/city/layerRegistry.ts` |
 
-Intel layer **Live streets** (`traffic`) toggles colored road lines (and optional cars).
-`traffic-roads-query` supports the car accent.
+Intel layer **Live streets** (`traffic`) toggles colored OMT centerline overlays.
 
 **Scalability rules:** keep routes thin; put new overlays in `map/layers/`; keep domain
 types out of the map host; prefer `citySession` stores when multiple UI surfaces share

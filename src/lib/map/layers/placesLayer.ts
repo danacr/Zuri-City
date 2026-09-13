@@ -1,11 +1,11 @@
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
-import { categoryColorExpression, placesToGeoJSON, type Place } from '$lib/places';
+import { placesToGeoJSON, type Place } from '$lib/places';
 import { CITY_MAX_ZOOM, CITY_MIN_ZOOM } from '$lib/map/swissSources';
 
 export const PLACES_SOURCE_ID = 'places';
 
 /**
- * Idempotent places overlay (glow + category icon + name label).
+ * Idempotent places overlay (category icon + name label).
  * Icon images must already be registered by the host map.
  */
 export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
@@ -26,19 +26,6 @@ export function ensurePlacesLayer(map: MapLibreMap, places: Place[]) {
 		}
 	}
 
-	if (!map.getLayer('places-glow')) {
-		map.addLayer({
-			id: 'places-glow',
-			type: 'circle',
-			source: PLACES_SOURCE_ID,
-			paint: {
-				'circle-radius': 16,
-				'circle-color': categoryColorExpression() as never,
-				'circle-opacity': 0.18,
-				'circle-blur': 0.7
-			}
-		});
-	}
 
 	if (!map.getLayer('places-core')) {
 		map.addLayer({

@@ -1,15 +1,137 @@
-import type { StyleSpecification } from 'maplibre-gl';
+import type { ExpressionSpecification, StyleSpecification } from 'maplibre-gl';
 import { CITY_MAX_ZOOM, CITY_MIN_ZOOM, SWISSIMAGE_TILES } from './swissSources';
 
 /**
- * Continuous swisstopo aerial style for Zürich.
- * Buildings and terrain are attached at runtime (3D Tiles + quantized-mesh).
- * Traffic/labels stay present across the city zoom range — zoom only scales stroke width.
+ * Major + local OMT transportation classes so congestion strokes sit on the
+ * same centerlines users see in the aerial (not a sparse arterial-only graph).
+ */
+const TRAFFIC_CLASSES = [
+	'motorway',
+	'trunk',
+	'primary',
+	'secondary',
+	'tertiary',
+	'minor',
+	'service'
+] as const;
+
+const trafficClassFilter: ExpressionSpecification = [
+	'all',
+	['in', ['get', 'class'], ['literal', [...TRAFFIC_CLASSES]]],
+	['!=', ['get', 'brunnel'], 'tunnel']
+];
+
+/** Pseudo congestion from stable road identity (ref/name/class) — green / amber / red. */
+const congestionColor: ExpressionSpecification = [
+	'match',
+	[
+		'%',
+		[
+			'+',
+			[
+				'match',
+				['get', 'class'],
+				'motorway',
+				0,
+				'trunk',
+				1,
+				'primary',
+				2,
+				'secondary',
+				3,
+				'tertiary',
+				4,
+				'minor',
+				5,
+				6
+			],
+			['length', ['coalesce', ['get', 'ref'], '']],
+			['length', ['coalesce', ['get', 'name'], ['get', 'name:en'], 'rd']]
+		],
+		3
+	],
+	0,
+	'#2f9e44',
+	1,
+	'#f08c00',
+	'#e03131'
+];
+
+/**
+ * Class-aware centerline width — thin enough to read as streets on SWISSIMAGE,
+ * not floating corridors. Majors stay slightly thicker than local streets.
+ */
+function trafficWidth(scale: number): ExpressionSpecification {
+	return [
+		'interpolate',
+		['linear'],
+		['zoom'],
+		CITY_MIN_ZOOM,
+		[
+			'match',
+			['get', 'class'],
+			'motorway',
+			2.2 * scale,
+			'trunk',
+			2.0 * scale,
+			'primary',
+			1.7 * scale,
+			'secondary',
+			1.4 * scale,
+			'tertiary',
+			1.2 * scale,
+			'minor',
+			0.9 * scale,
+			0.7 * scale
+		],
+		15,
+		[
+			'match',
+			['get', 'class'],
+			'motorway',
+			4.2 * scale,
+			'trunk',
+			3.6 * scale,
+			'primary',
+			3.0 * scale,
+			'secondary',
+			2.4 * scale,
+			'tertiary',
+			2.0 * scale,
+			'minor',
+			1.5 * scale,
+			1.1 * scale
+		],
+		CITY_MAX_ZOOM,
+		[
+			'match',
+			['get', 'class'],
+			'motorway',
+			6.0 * scale,
+			'trunk',
+			5.2 * scale,
+			'primary',
+			4.4 * scale,
+			'secondary',
+			3.4 * scale,
+			'tertiary',
+			2.8 * scale,
+			'minor',
+			2.0 * scale,
+			1.5 * scale
+		]
+	];
+}
+
+/**
+ * MapLibre-first Zürich basemap.
+ * SWISSIMAGE + ghost OSM massing + OMT traffic centerlines.
+ * swissBUILDINGS3D is phase-2 (feature-flagged), not part of this style.
  */
 export function zurichAerialStyle(): StyleSpecification {
 	return {
 		version: 8,
-		name: 'zuri-swiss-continuous',
+		name: 'zuri-maplibre-pro',
 		glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
 		sources: {
 			aerial: {
@@ -33,44 +155,41 @@ export function zurichAerialStyle(): StyleSpecification {
 				source: 'aerial',
 				paint: {
 					'raster-opacity': 1,
-					'raster-saturation': -0.02,
-					'raster-contrast': 0.08
+					'raster-saturation': -0.04,
+					'raster-contrast': 0.06
 				}
 			},
 			/**
-			 * Always-on extruded OSM footprints so the city reads as 3D even when
-			 * the swisstopo mesh layer fails to attach (WebGL context races).
-			 * Heights stay solid from minzoom — do not fade to 0 at CITY_MIN_ZOOM,
-			 * or orbit/min-zoom views look like a flat stretched aerial.
+			 * Ghost massing — desaturated façades + partial opacity so aerial roofs
+			 * remain the primary surface. Pitch/zoom only changes camera, not systems.
 			 */
 			{
 				id: 'osm-buildings-3d',
 				type: 'fill-extrusion',
 				source: 'openmaptiles',
 				'source-layer': 'building',
-				minzoom: 13,
+				minzoom: 14,
 				maxzoom: CITY_MAX_ZOOM + 1,
 				filter: ['!=', ['get', 'hide_3d'], true],
 				paint: {
-					// Strong façade contrast vs SWISSIMAGE so massing reads at orbit pitch.
 					'fill-extrusion-color': [
 						'interpolate',
 						['linear'],
 						['coalesce', ['get', 'render_height'], ['get', 'height'], 16],
 						0,
-						'#c4b49a',
+						'#5a6570',
 						16,
-						'#9a8b74',
+						'#4a545e',
 						32,
-						'#6f6354',
+						'#3a434c',
 						64,
-						'#4a433a'
+						'#2c343c'
 					],
 					'fill-extrusion-height': [
 						'coalesce',
 						['get', 'render_height'],
 						['get', 'height'],
-						18
+						16
 					],
 					'fill-extrusion-base': [
 						'coalesce',
@@ -78,7 +197,17 @@ export function zurichAerialStyle(): StyleSpecification {
 						['get', 'min_height'],
 						0
 					],
-					'fill-extrusion-opacity': 0.95,
+					'fill-extrusion-opacity': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						14,
+						0.28,
+						15.5,
+						0.42,
+						17,
+						0.55
+					],
 					'fill-extrusion-vertical-gradient': true
 				}
 			},
@@ -89,34 +218,16 @@ export function zurichAerialStyle(): StyleSpecification {
 				'source-layer': 'transportation',
 				minzoom: CITY_MIN_ZOOM,
 				maxzoom: CITY_MAX_ZOOM + 1,
-				filter: [
-					'all',
-					[
-						'in',
-						['get', 'class'],
-						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-					],
-					['!=', ['get', 'brunnel'], 'tunnel']
-				],
+				filter: trafficClassFilter,
 				layout: {
 					'line-cap': 'round',
 					'line-join': 'round',
 					visibility: 'visible'
 				},
 				paint: {
-					'line-color': '#0b1724',
-					'line-opacity': 0.45,
-					'line-width': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						CITY_MIN_ZOOM,
-						2.8,
-						15,
-						6.5,
-						CITY_MAX_ZOOM,
-						11
-					]
+					'line-color': '#0a121c',
+					'line-opacity': 0.38,
+					'line-width': trafficWidth(1.35)
 				}
 			},
 			{
@@ -126,67 +237,28 @@ export function zurichAerialStyle(): StyleSpecification {
 				'source-layer': 'transportation',
 				minzoom: CITY_MIN_ZOOM,
 				maxzoom: CITY_MAX_ZOOM + 1,
-				filter: [
-					'all',
-					[
-						'in',
-						['get', 'class'],
-						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-					],
-					['!=', ['get', 'brunnel'], 'tunnel']
-				],
+				filter: trafficClassFilter,
 				layout: {
 					'line-cap': 'round',
 					'line-join': 'round',
 					visibility: 'visible'
 				},
 				paint: {
-					'line-color': [
+					'line-color': congestionColor,
+					'line-opacity': [
 						'match',
-						[
-							'%',
-							[
-								'+',
-								[
-									'match',
-									['get', 'class'],
-									'motorway',
-									0,
-									'trunk',
-									1,
-									'primary',
-									2,
-									'secondary',
-									3,
-									1
-								],
-								['length', ['coalesce', ['get', 'ref'], '']],
-								['length', ['coalesce', ['get', 'name'], ['get', 'name:en'], 'rd']]
-							],
-							3
-						],
-						0,
-						'#2f9e44',
-						1,
-						'#f08c00',
-						'#e03131'
+						['get', 'class'],
+						'minor',
+						0.72,
+						'service',
+						0.55,
+						0.88
 					],
-					'line-opacity': 0.92,
-					'line-width': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						CITY_MIN_ZOOM,
-						1.8,
-						15,
-						4.8,
-						CITY_MAX_ZOOM,
-						8
-					]
+					'line-width': trafficWidth(1)
 				}
 			},
 			{
-				/** Moving light dashes — dasharray is animated from ZurichCity. */
+				/** Static dash accent — no per-frame dasharray RAF. */
 				id: 'traffic-pulse',
 				type: 'line',
 				source: 'openmaptiles',
@@ -203,77 +275,15 @@ export function zurichAerialStyle(): StyleSpecification {
 					['!=', ['get', 'brunnel'], 'tunnel']
 				],
 				layout: {
-					'line-cap': 'round',
+					'line-cap': 'butt',
 					'line-join': 'round',
 					visibility: 'visible'
 				},
 				paint: {
-					'line-color': [
-						'match',
-						[
-							'%',
-							[
-								'+',
-								[
-									'match',
-									['get', 'class'],
-									'motorway',
-									0,
-									'trunk',
-									1,
-									'primary',
-									2,
-									'secondary',
-									3,
-									1
-								],
-								['length', ['coalesce', ['get', 'ref'], '']],
-								['length', ['coalesce', ['get', 'name'], ['get', 'name:en'], 'rd']]
-							],
-							3
-						],
-						0,
-						'#b8ffd0',
-						1,
-						'#ffe0a0',
-						'#ffb0b0'
-					],
-					'line-opacity': 0.95,
-					'line-width': [
-						'interpolate',
-						['linear'],
-						['zoom'],
-						CITY_MIN_ZOOM,
-						1.6,
-						15,
-						3.4,
-						CITY_MAX_ZOOM,
-						5.5
-					],
-					'line-dasharray': [0.4, 2.2, 2.2, 4.5]
-				}
-			},
-			{
-				id: 'traffic-roads-query',
-				type: 'line',
-				source: 'openmaptiles',
-				'source-layer': 'transportation',
-				minzoom: CITY_MIN_ZOOM,
-				maxzoom: CITY_MAX_ZOOM + 1,
-				filter: [
-					'all',
-					[
-						'in',
-						['get', 'class'],
-						['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]
-					],
-					['!=', ['get', 'brunnel'], 'tunnel']
-				],
-				layout: { visibility: 'visible' },
-				paint: {
-					'line-color': '#000000',
-					'line-opacity': 0,
-					'line-width': 12
+					'line-color': '#ffffff',
+					'line-opacity': 0.22,
+					'line-width': trafficWidth(0.45),
+					'line-dasharray': [1.2, 3.6]
 				}
 			},
 			{
@@ -308,7 +318,7 @@ export function zurichAerialStyle(): StyleSpecification {
 				type: 'symbol',
 				source: 'openmaptiles',
 				'source-layer': 'transportation_name',
-				minzoom: CITY_MIN_ZOOM,
+				minzoom: 14,
 				layout: {
 					'symbol-placement': 'line',
 					'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
@@ -317,7 +327,7 @@ export function zurichAerialStyle(): StyleSpecification {
 						'interpolate',
 						['linear'],
 						['zoom'],
-						CITY_MIN_ZOOM,
+						14,
 						10,
 						CITY_MAX_ZOOM,
 						12
@@ -334,9 +344,4 @@ export function zurichAerialStyle(): StyleSpecification {
 	};
 }
 
-export const TRAFFIC_STYLE_LAYERS = [
-	'traffic-case',
-	'traffic-flow',
-	'traffic-pulse',
-	'traffic-roads-query'
-] as const;
+export const TRAFFIC_STYLE_LAYERS = ['traffic-case', 'traffic-flow', 'traffic-pulse'] as const;
