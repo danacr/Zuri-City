@@ -1,6 +1,13 @@
 {
-	"name": "Züri City Parking",
-	"short_name": "Züri Parking",
+	"name": "Züri City",
+	"short_name": "Züri City",
+	"description": "Live 3D map of Zürich — traffic, places, aircraft, and parking on the streets.",
+	"start_url": "/",
+	"scope": "/",
+	"id": "/",
+	"display": "standalone",
+	"background_color": "#07131f",
+	"theme_color": "#07131f",
 	"icons": [
 		{
 			"src": "/android-chrome-192x192.png",
@@ -12,12 +19,5 @@
 			"sizes": "512x512",
 			"type": "image/png"
 		}
-	],
-	"theme_color": "#0072ce",
-	"background_color": "#f6f8fc",
-	"display": "standalone",
-	"id": "/",
-	"start_url": "/",
-	"scope": "/",
-	"description": "Parking availability, capacity and directions in Zürich."
+	]
 }

@@ -21,9 +21,19 @@ export function parseCoordinates(html: string): [number, number] | null {
 }
 
 /** Enrich every RSS garage, with bounded concurrency and no stored lookup or cache. */
-export async function enrichParkings(parkings: Parking[], fetcher: typeof fetch) {
+export async function enrichParkings(
+	parkings: Parking[],
+	fetcher: typeof fetch,
+	externalSignal?: AbortSignal
+) {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 12000);
+	/** Caller may share a tighter deadline (page hydrate); otherwise ~5.5s standalone. */
+	const timer = externalSignal ? null : setTimeout(() => controller.abort(), 5_500);
+	const onAbort = () => controller.abort();
+	if (externalSignal) {
+		if (externalSignal.aborted) controller.abort();
+		else externalSignal.addEventListener('abort', onAbort, { once: true });
+	}
 	async function getPage(url: string) {
 		try {
 			const response = await fetcher(url, { signal: controller.signal, cache: 'no-store' });
@@ -59,7 +69,8 @@ export async function enrichParkings(parkings: Parking[], fetcher: typeof fetch)
 			})
 		);
 	} finally {
-		clearTimeout(timer);
+		if (timer) clearTimeout(timer);
+		externalSignal?.removeEventListener('abort', onAbort);
 	}
 	return parkings;
 }

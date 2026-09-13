@@ -9,7 +9,22 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 	const headers: Record<string, string>[] = [];
 	const fetcher: typeof fetch = async (input, init) => {
 		const url = String(input);
+		if (url.includes('api.adsb.lol') || url.includes('earthquake.usgs.gov')) {
+			return new Response(JSON.stringify(url.includes('adsb') ? { ac: [] } : { features: [] }), {
+				headers: { 'content-type': 'application/json' }
+			});
+		}
 		expect(init?.cache).toBe('no-store');
+		if (url.includes('overpass-api.de') || url.includes('overpass')) {
+			return new Response('{"elements":[]}', {
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+		if (url.includes('maps.zh.ch')) {
+			return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+				headers: { 'content-type': 'application/json' }
+			});
+		}
 		if (url.endsWith('/plsFeed/rss')) {
 			feedRequests++;
 			const items = Array.from(
@@ -37,12 +52,31 @@ it('discovers newly added garages on the next load without a fixed count or ID l
 		}
 	} as unknown as Parameters<typeof load>[0];
 
-	const first = await load(event);
-	expect(first?.parkings).toHaveLength(36);
+	type Shell = {
+		parkings: unknown[];
+		hydrateCity: Promise<{
+			parkings: Array<{
+				id: string;
+				free: number | null;
+				capacity: number | null;
+				coordinates: [number, number] | null;
+				status: string;
+			}>;
+			error: string;
+		}>;
+	};
+
+	const firstShell = (await load(event)) as Shell;
+	// Sync shell starts empty — parking always hydrates from live PLS.
+	expect(firstShell.parkings).toHaveLength(0);
+	const first = await firstShell.hydrateCity;
+	expect(first.parkings).toHaveLength(36);
+
 	garageCount = 43;
 	latitude = 47.5;
 	metadataRequests.length = 0;
-	const refreshed = await load(event);
+	const refreshedShell = (await load(event)) as Shell;
+	const refreshed = await refreshedShell.hydrateCity;
 	expect(refreshed?.error).toBe('');
 	expect(refreshed?.parkings).toHaveLength(43);
 	expect(refreshed?.parkings[42]).toMatchObject({

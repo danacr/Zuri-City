@@ -2,9 +2,10 @@ import type { PlaywrightTestConfig } from '@playwright/test';
 
 const config: PlaywrightTestConfig = {
 	webServer: {
-		command: 'npm run build && npm run preview',
+		command: 'npm run build && npm run preview -- --host localhost --port 4173',
 		url: 'https://localhost:4173',
-		ignoreHTTPSErrors: true
+		ignoreHTTPSErrors: true,
+		reuseExistingServer: !process.env.CI
 	},
 	testDir: 'tests',
 	testMatch: '**/*.ts',
