@@ -165,6 +165,19 @@ Playwright acceptance covers:
 
 After `quality` is green, present the **Vercel preview URL** for the PR branch. The human review should then be about the implementation look — not discovering broken parking, flat buildings, or identical Orbit/Walk.
 
+### UI PR review automation (pre-human)
+
+For any PR that touches the UI, a Cursor Automation should review the preview
+**before** a human does. Source of truth + paste-ready prompt:
+
+- [`.cursor/automations/ui-pr-review.md`](.cursor/automations/ui-pr-review.md)
+- Activate at [cursor.com/automations/new](https://cursor.com/automations/new)
+- GitHub Action [`.github/workflows/label-ui-prs.yml`](.github/workflows/label-ui-prs.yml) applies the `ui` label when UI paths change
+
+Triggers: PR opened + PR pushed (optional: label `ui`). Tools: comment on PR +
+computer use; do **not** let the automation open code PRs. Keep Bugbot for code
+defects; this automation covers mobile visual acceptance.
+
 Production:
 
 ```bash
