@@ -6,10 +6,12 @@ import {
 	type Parking
 } from '$lib/parking';
 import { enrichParkings } from '$lib/server/parking-details';
-import { loadCityPlaces } from '$lib/server/places';
 import { loadIntelSnapshot } from '$lib/server/intel';
 import { FALLBACK_PLACES } from '$lib/city/places';
 import type { IntelSnapshot } from '$lib/intel/types';
+
+/** Stay under Vercel ~10s; hydrate soft-timeout is 6s. */
+const PLS_BUDGET_MS = 5_500;
 
 const EMPTY_INTEL: IntelSnapshot = {
 	flights: [],
@@ -50,10 +52,10 @@ async function loadParkings(fetchFn: typeof fetch): Promise<{
 	error: string;
 }> {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 12000);
+	const timer = setTimeout(() => controller.abort(), PLS_BUDGET_MS);
 	try {
 		const parsed = await fetchPlsFeed(fetchFn, controller.signal);
-		const enriched = await enrichParkings(parsed, fetchFn);
+		const enriched = await enrichParkings(parsed, fetchFn, controller.signal);
 		const assisted = assistParkingCoordinates(enriched);
 		const located = withCoordinates(assisted);
 		if (located.length === 0) {
@@ -88,7 +90,6 @@ async function loadParkings(fetchFn: typeof fetch): Promise<{
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	setHeaders({ 'cache-control': 'no-store' });
 
-	const placesPromise = loadCityPlaces(fetch);
 	const intelPromise = loadIntelSnapshot(fetch).catch(
 		(): IntelSnapshot => ({
 			...EMPTY_INTEL,
@@ -107,12 +108,23 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		error: '',
 		intel: EMPTY_INTEL,
 		/**
-		 * Resolve as soon as PLS is ready. Do not await dense Overpass here —
-		 * places soft-seed from fallback and merge later via `hydratePlaces`.
+		 * PLS only — never start Overpass in this serverless load.
+		 * A deferred places promise would keep the Vercel function open past the
+		 * ~10s ceiling and kill parking with it. Dense OSM comes from /api/places.
 		 */
 		hydrateCity: (async () => {
+			const emptyParking = {
+				parkings: [] as Parking[],
+				refreshedAt: null as string | null,
+				error: 'Parking still loading.'
+			};
 			const [parking, intel] = await Promise.all([
-				parkingsPromise,
+				Promise.race([
+					parkingsPromise,
+					new Promise<typeof emptyParking>((resolve) =>
+						setTimeout(() => resolve(emptyParking), 6_000)
+					)
+				]),
 				Promise.race([
 					intelPromise,
 					new Promise<IntelSnapshot>((resolve) =>
@@ -121,36 +133,22 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 								resolve({
 									...EMPTY_INTEL,
 									fetchedAt: new Date().toISOString(),
-									notes: ['Live intel still loading — traffic will fill in shortly.']
+									notes: ['Live intel still loading — roadworks will fill in shortly.']
 								}),
 							4_000
 						)
 					)
 				])
 			]);
-			// Peek places only if already resolved; never delay PLS for Overpass.
-			const peeked = await Promise.race([
-				placesPromise,
-				Promise.resolve(null as Awaited<typeof placesPromise> | null)
-			]);
-			const city =
-				peeked ??
-				({
-					places: FALLBACK_PLACES,
-					source: 'fallback' as const,
-					error: ''
-				} satisfies Awaited<typeof placesPromise>);
 			return {
-				places: city.places,
-				placesSource: city.source,
-				placesError: city.error,
+				places: FALLBACK_PLACES,
+				placesSource: 'fallback' as const,
+				placesError: '',
 				parkings: parking.parkings,
 				refreshedAt: parking.refreshedAt,
 				error: parking.error,
 				intel
 			};
-		})(),
-		/** Full Overpass city load — merges after PLS paints. */
-		hydratePlaces: placesPromise
+		})()
 	};
 };

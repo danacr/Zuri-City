@@ -35,10 +35,13 @@ type OverpassElement = {
 	tags?: Record<string, string>;
 };
 
+/** Client abort for Overpass POSTs — keep under Vercel ~10s for /api/places. */
+const OVERPASS_ABORT_MS = 8_000;
+
 /** Split queries stay under Overpass timeouts while covering many nearby open venues. */
 const QUERY_BUNDLES = [
 	`
-[out:json][timeout:18];
+[out:json][timeout:8];
 (
   node["amenity"~"restaurant|fast_food|biergarten|food_court|cafe|ice_cream|bar|pub|nightclub"](${AROUND_NEAR});
   node["shop"~"bakery|pastry|coffee|chocolate|confectionery"](${AROUND_NEAR});
@@ -48,7 +51,7 @@ const QUERY_BUNDLES = [
 out center 1200;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:8];
 (
   node["shop"~"hairdresser|beauty|nails|massage|cosmetics|perfumery|tattoo|piercing"](${AROUND_NEAR});
   node["craft"="hairdresser"](${AROUND_NEAR});
@@ -58,7 +61,7 @@ out center 1200;
 out body 800;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:8];
 (
   node["shop"~"clothes|shoes|books|jewelry|gift|electronics|fashion_accessories|department_store|mall|bicycle|sports|florist|furniture|optician|mobile_phone|computer|toys|music|convenience|supermarket|chemist|kiosk|greengrocer|butcher|dairy"](${AROUND_NEAR});
   node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water"](${AROUND_NEAR});
@@ -67,7 +70,7 @@ out body 800;
 out body 1200;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:8];
 (
   node["tourism"~"attraction|museum|viewpoint|gallery|artwork|zoo|theme_park|hotel|hostel|apartment"](${AROUND_WIDE});
   node["historic"~"monument|castle|memorial|ruins|archaeological_site"](${AROUND_WIDE});
@@ -79,7 +82,7 @@ out body 1200;
 out center 1000;
 `.trim(),
 	`
-[out:json][timeout:18];
+[out:json][timeout:8];
 (
   node["shop"]["name"](${AROUND_NEAR});
   node["amenity"]["name"](${AROUND_NEAR});
@@ -277,7 +280,7 @@ async function fetchBundle(
 	query: string
 ): Promise<OverpassElement[]> {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 18000);
+	const timer = setTimeout(() => controller.abort(), OVERPASS_ABORT_MS);
 	try {
 		const response = await fetchFn(endpoint, {
 			method: 'POST',
@@ -346,7 +349,7 @@ function bboxQueryBundles(bbox: PlacesBbox): string[] {
 	const b = bboxClause(bbox);
 	return [
 		`
-[out:json][timeout:20];
+[out:json][timeout:8];
 (
   node["amenity"~"restaurant|fast_food|biergarten|food_court|cafe|ice_cream|bar|pub|nightclub"](${b});
   node["shop"~"bakery|pastry|coffee|chocolate|confectionery"](${b});
@@ -356,7 +359,7 @@ function bboxQueryBundles(bbox: PlacesBbox): string[] {
 out center 1400;
 `.trim(),
 		`
-[out:json][timeout:20];
+[out:json][timeout:8];
 (
   node["shop"~"hairdresser|beauty|nails|massage|cosmetics|perfumery|tattoo|piercing|clothes|shoes|books|jewelry|gift|electronics|fashion_accessories|department_store|mall|bicycle|sports|florist|furniture|optician|mobile_phone|computer|toys|music|convenience|supermarket|chemist|kiosk|greengrocer|butcher|dairy"](${b});
   node["amenity"~"pharmacy|bank|atm|post_office|fuel|charging_station|bicycle_rental|car_sharing|toilets|drinking_water|marketplace|theatre|cinema|arts_centre|library|community_centre|place_of_worship|fountain|public_bath|beauty_salon"](${b});
@@ -366,7 +369,7 @@ out center 1400;
 out center 1600;
 `.trim(),
 		`
-[out:json][timeout:20];
+[out:json][timeout:8];
 (
   node["tourism"~"attraction|museum|viewpoint|gallery|artwork|zoo|theme_park|hotel|hostel|apartment"](${b});
   node["historic"~"monument|castle|memorial|ruins|archaeological_site"](${b});

@@ -64,7 +64,6 @@
 	let intelNotes: string[] = data.intel?.notes ?? [];
 	let hydrateGen = 0;
 	let lastHydrate: PageData['hydrateCity'] | undefined;
-	let lastHydratePlaces: PageData['hydratePlaces'] | undefined;
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
 	let categoryIcons: Partial<Record<PlaceCategory, string>> = {};
 	const intelKeys: IntelLayer[] = INTEL_LAYER_IDS;
@@ -84,15 +83,6 @@
 		quakes = data.intel?.quakes?.length ? data.intel.quakes : quakes;
 		intelNotes = data.intel?.notes ?? intelNotes;
 		if (!browser) break $;
-		// Late Overpass must merge even after hydrateCity already resolved with fallback places.
-		if (data.hydratePlaces && data.hydratePlaces !== lastHydratePlaces) {
-			lastHydratePlaces = data.hydratePlaces;
-			void Promise.resolve(data.hydratePlaces).then((city) => {
-				if (!city?.places?.length) return;
-				mergePlaces(city.places);
-				placesError = city.error || '';
-			});
-		}
 		if (data.hydrateCity === lastHydrate) break $;
 		lastHydrate = data.hydrateCity;
 		const gen = ++hydrateGen;
